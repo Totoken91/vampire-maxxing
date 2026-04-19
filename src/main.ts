@@ -11,6 +11,7 @@ import { showToast } from './ui/components/toast';
 import { events } from './game/events';
 import { gameState } from './game/state';
 import { THRALLS_BY_ID } from './game/config/thralls';
+import { startMusic } from './audio/music';
 
 const root = document.getElementById('app');
 if (!root) {
@@ -36,6 +37,10 @@ async function boot(): Promise<void> {
   });
 
   installFtue();
+
+  // Background music — fires on first tap (browsers gate audio autoplay on
+  // a user gesture). Subsequent calls are no-ops.
+  events.on('tapped', () => startMusic());
 
   if (offlineReport) {
     maybeShowOfflineModal(offlineReport, (amount) => {

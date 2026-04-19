@@ -34,6 +34,10 @@ coverage
 *.skill
 tsconfig.tsbuildinfo
 
-# Raw ChatGPT source PNGs at repo root — processed by scripts/prepare-assets.mjs
-# into /public/assets/. Keep only the processed versions in git.
+# Raw source media at repo root — processed/copied by scripts/prepare-assets.mjs
+# or manually into /public/assets/. Keep only the processed versions in git.
 /*.png
+/*.mp3
+/*.ogg
+/*.wav
+/*.m4a
