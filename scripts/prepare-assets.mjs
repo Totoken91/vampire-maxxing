@@ -28,6 +28,15 @@ const JOBS = [
     description: 'Portrait frame (natural aspect — source should be square)',
   },
   {
+    source: 'cadre-portrait.png',
+    dest: 'public/assets/ornaments/portrait-frame-mask.png',
+    maxWidth: 960,
+    trim: true,
+    preserveAspect: true,
+    invertAlpha: true,
+    description: 'Portrait frame mask (alpha inverted: interior opaque, ornaments transparent)',
+  },
+  {
     source: 'minion-banner.png',
     dest: 'public/assets/ornaments/thrall-card-bg.png',
     maxWidth: 900,
@@ -145,7 +154,23 @@ async function run() {
       });
     }
 
-    const outBuffer = await pipeline.png({ quality: 90, compressionLevel: 9 }).toBuffer();
+    let outBuffer = await pipeline.png({ quality: 90, compressionLevel: 9 }).toBuffer();
+
+    if (job.invertAlpha) {
+      // Flip the alpha channel so opaque ↔ transparent. Used to build the
+      // CSS mask that keeps only the frame's interior picture area.
+      const raw = await sharp(outBuffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const { data, info: rawInfo } = raw;
+      for (let i = 3; i < data.length; i += 4) {
+        data[i] = 255 - data[i];
+      }
+      outBuffer = await sharp(data, {
+        raw: { width: rawInfo.width, height: rawInfo.height, channels: 4 },
+      })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+    }
+
     const meta = await sharp(outBuffer).metadata();
     await fs.writeFile(dst, outBuffer);
 

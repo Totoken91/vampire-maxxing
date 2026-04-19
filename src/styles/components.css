@@ -156,17 +156,12 @@
    If the frame is regenerated, adjust these here. */
 .portrait__image {
   position: absolute;
-  top: 16%;
-  left: 11%;
-  width: 78%;
-  height: 71%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center center;
-  background: radial-gradient(
-    circle at 50% 40%,
-    rgba(90, 20, 30, 0.35),
-    rgba(8, 5, 10, 1) 70%
-  );
+  transform: scale(0.78);
   opacity: 0;
   transition: opacity 400ms ease-out;
 }
@@ -186,10 +181,9 @@
 
 .portrait__placeholder {
   position: absolute;
-  top: 16%;
-  left: 11%;
-  width: 78%;
-  height: 71%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
