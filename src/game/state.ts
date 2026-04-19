@@ -9,11 +9,13 @@ import {
   clickPower,
   dreadGain,
   globalMult,
+  offlineGain,
   thrallCost,
   thrallRate,
 } from './math';
 import { getCurrentForm } from './forms';
 import { hasUnlock } from './config/prestige-unlocks';
+import { defaultV1, loadSave, writeSave, type SaveV1 } from './save';
 
 interface ThrallOwnership {
   owned: number;
@@ -73,11 +75,34 @@ function emptySnapshot(): GameSnapshot {
   };
 }
 
+export interface OfflineReport {
+  elapsedSec: number;
+  blood: number;
+  bloodWithRewarded: number;
+  efficiency: number;
+  capHours: number;
+  capHoursRewarded: number;
+}
+
 export class GameState {
   private snapshot: GameSnapshot = emptySnapshot();
 
   get(): Readonly<GameSnapshot> {
     return this.snapshot;
+  }
+
+  /** Load a persisted save (if any). Must be called before startLoop. */
+  async loadFromStorage(): Promise<OfflineReport | null> {
+    const save = await loadSave();
+    if (!save) return null;
+    this.applySave(save);
+    return this.computeOfflineReport(save.ts);
+  }
+
+  /** Serialize current state to storage. Called by auto-save hooks. */
+  async saveToStorage(): Promise<void> {
+    const save = this.toSave();
+    await writeSave(save);
   }
 
   getBlood(): number {
@@ -254,6 +279,77 @@ export class GameState {
   /** Reset everything (used by tests and the eventual "wipe save" debug). */
   reset(): void {
     this.snapshot = emptySnapshot();
+  }
+
+  /** Apply an offline blood gain. Called after the user claims the modal. */
+  applyOfflineGain(amount: number): void {
+    if (amount <= 0) return;
+    this.addBlood(amount);
+  }
+
+  // ─────────── Persistence helpers ───────────
+
+  private toSave(): SaveV1 {
+    const base = defaultV1();
+    return {
+      ...base,
+      ts: Date.now(),
+      blood: this.snapshot.blood,
+      totalRunBlood: this.snapshot.totalRunBlood,
+      totalLifetimeBlood: this.snapshot.totalLifetimeBlood,
+      dread: this.snapshot.dread,
+      thralls: this.snapshot.thralls,
+      boost: this.snapshot.boost,
+      stats: this.snapshot.stats,
+    };
+  }
+
+  private applySave(save: SaveV1): void {
+    this.snapshot.blood = save.blood;
+    this.snapshot.totalRunBlood = save.totalRunBlood;
+    this.snapshot.totalLifetimeBlood = save.totalLifetimeBlood;
+    this.snapshot.dread = save.dread;
+    // Rebuild thralls to guarantee every id exists (new tier added later).
+    for (const t of THRALLS) {
+      const saved = save.thralls[t.id];
+      this.snapshot.thralls[t.id] = saved
+        ? { owned: saved.owned, totalPurchased: saved.totalPurchased }
+        : { owned: 0, totalPurchased: 0 };
+    }
+    this.snapshot.boost = { ...save.boost };
+    this.snapshot.stats = { ...save.stats };
+  }
+
+  /** Compute offline gain since the save's timestamp, capped and scaled. */
+  private computeOfflineReport(savedAt: number): OfflineReport {
+    const elapsedSec = Math.max(0, (Date.now() - savedAt) / 1000);
+    const capHours = hasUnlock(this.snapshot.stats.totalAscends, 'extendedOfflineCap')
+      ? BALANCE.OFFLINE_CAP_HOURS_METHUSELAH
+      : BALANCE.OFFLINE_CAP_HOURS;
+    const capHoursRewarded = hasUnlock(
+      this.snapshot.stats.totalAscends,
+      'extendedOfflineCap',
+    )
+      ? BALANCE.OFFLINE_CAP_HOURS_METHUSELAH_REWARDED
+      : BALANCE.OFFLINE_CAP_HOURS_REWARDED;
+    // Rates use current multipliers — not the ones at save time. Acceptable
+    // for an idle game; true precision isn't worth the complexity.
+    const rate = this.getTotalRate();
+    const blood = offlineGain(rate, elapsedSec, BALANCE.OFFLINE_EFFICIENCY, capHours);
+    const bloodWithRewarded = offlineGain(
+      rate,
+      elapsedSec,
+      1.0,
+      capHoursRewarded,
+    );
+    return {
+      elapsedSec,
+      blood,
+      bloodWithRewarded,
+      efficiency: BALANCE.OFFLINE_EFFICIENCY,
+      capHours,
+      capHoursRewarded,
+    };
   }
 
   // ─────────── Internals ───────────

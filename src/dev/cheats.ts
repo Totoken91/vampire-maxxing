@@ -8,6 +8,7 @@ import { gameState } from '../game/state';
 import { events } from '../game/events';
 import { BALANCE } from '../game/config/balance';
 import type { VampireForm } from '../game/config/forms';
+import { wipeSave } from '../game/save';
 
 type Cheats = {
   gameState: typeof gameState;
@@ -15,6 +16,7 @@ type Cheats = {
   setForm: (form: VampireForm) => void;
   addBlood: (n: number) => void;
   reset: () => void;
+  wipe: () => Promise<void>;
 };
 
 declare global {
@@ -49,6 +51,13 @@ export function installCheats(): void {
       events.emit('blood-changed', { blood: s.blood, delta: n });
     },
     reset() {
+      gameState.reset();
+      events.emit('blood-changed', { blood: 0, delta: 0 });
+      events.emit('rate-changed', { totalRate: 0 });
+      events.emit('form-changed', { form: 'NEWBORN' });
+    },
+    async wipe() {
+      await wipeSave();
       gameState.reset();
       events.emit('blood-changed', { blood: 0, delta: 0 });
       events.emit('rate-changed', { totalRate: 0 });
