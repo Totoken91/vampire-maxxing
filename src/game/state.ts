@@ -96,6 +96,13 @@ export class GameState {
     return this.snapshot.stats.totalAscends;
   }
 
+  /** True if the player has never tapped nor ascended. Drives FTUE cues. */
+  isFirstSession(): boolean {
+    return (
+      this.snapshot.stats.totalTaps === 0 && this.snapshot.stats.totalAscends === 0
+    );
+  }
+
   /** Current boost multiplier (1 if no boost active). */
   getBoostMult(): number {
     return this.snapshot.boost.active ? BALANCE.BOOST_MULTIPLIER : 1;
