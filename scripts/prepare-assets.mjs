@@ -11,14 +11,23 @@ const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(__filename), '..');
 
 const JOBS = [
-  {
-    source: 'portrait-vampire-lord.png',
-    dest: 'public/assets/portraits/lord-of-night.png',
+  ...[
+    'newborn',
+    'elder',
+    'lord-of-night',
+    'methuselah',
+    'progenitor',
+    'tera-overlord',
+    'horror-incarnate',
+    'thirst',
+  ].map((id) => ({
+    source: `${id}.png`,
+    dest: `public/assets/portraits/${id}.png`,
     maxWidth: 1024,
     trim: { threshold: 15 },
     preserveAspect: true,
-    description: 'Lord of Night portrait (natural aspect, trimmed)',
-  },
+    description: `Portrait ${id} (natural aspect, trimmed)`,
+  })),
   {
     source: 'cadre-portrait.png',
     dest: 'public/assets/ornaments/portrait-frame-baroque.png',
