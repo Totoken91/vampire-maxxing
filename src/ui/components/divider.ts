@@ -1,14 +1,13 @@
-// Horizontal divider with a centerpiece glyph.
-// Kept inline at J2; SVG version arrives in J7 ornaments pass.
+// Horizontal divider — uses the pre-rendered divider.png (gold ornament).
+// Centerpiece glyph fallback via CSS if the image fails to load.
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
 
 export class Divider extends Component<HTMLElement> {
-  constructor(centerpiece: string = '❦') {
+  constructor() {
     const root = el('div', 'divider');
-    const span = el('span', 'divider__centerpiece', centerpiece);
-    root.appendChild(span);
+    root.setAttribute('role', 'separator');
     super(root);
   }
 }

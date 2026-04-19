@@ -5,8 +5,7 @@ import { Component } from './base';
 import { el } from '../../utils/dom';
 import { events } from '../../game/events';
 import { gameState } from '../../game/state';
-import { getCurrentFormDefinition, getCenturyInForm } from '../../game/forms';
-import { toRoman } from '../../utils/roman';
+import { getCurrentFormDefinition } from '../../game/forms';
 
 export class Header extends Component<HTMLElement> {
   private readonly statusTitle: HTMLElement;
@@ -16,7 +15,16 @@ export class Header extends Component<HTMLElement> {
     const root = el('div', 'header');
 
     const brand = el('div', 'header__brand');
-    brand.innerHTML = 'Vampire<br>Maxxing';
+    const logo = el('img', 'header__logo') as HTMLImageElement;
+    logo.src = '/assets/ornaments/logo.png';
+    logo.alt = 'Vampire Maxxing';
+    logo.decoding = 'async';
+    logo.onerror = () => {
+      // Fallback to textual brand if the PNG is missing.
+      brand.textContent = '';
+      brand.innerHTML = 'Vampire<br>Maxxing';
+    };
+    brand.appendChild(logo);
 
     const status = el('div', 'header__status');
     const statusLabel = el('div', 'header__status-label', 'you are');
@@ -47,13 +55,11 @@ export class Header extends Component<HTMLElement> {
   }
 
   private render(): void {
-    const prestige = gameState.getPrestigeCount();
-    const form = getCurrentFormDefinition(prestige);
-    const century = toRoman(getCenturyInForm(prestige));
-    this.statusTitle.innerHTML = `${form.title.replace(
-      /^(a |an |the )/,
-      (m) => m,
-    )} · <em>Century ${century}</em>`;
+    const form = getCurrentFormDefinition(gameState.getPrestigeCount());
+    this.statusTitle.innerHTML = form.title.replace(
+      form.emphasis,
+      `<em>${form.emphasis}</em>`,
+    );
     this.renderDread();
   }
 

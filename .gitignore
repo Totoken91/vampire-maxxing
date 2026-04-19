@@ -33,3 +33,7 @@ coverage
 # Skills (maintained elsewhere)
 *.skill
 tsconfig.tsbuildinfo
+
+# Raw ChatGPT source PNGs at repo root — processed by scripts/prepare-assets.mjs
+# into /public/assets/. Keep only the processed versions in git.
+/*.png

@@ -8,7 +8,7 @@ import { gameState } from '../../game/state';
 import { fmt, fmtShort } from '../../utils/format';
 import type { Thrall } from '../../game/config/thralls';
 
-type CardState = 'locked' | 'sealed' | 'affordable' | 'default';
+type CardState = 'locked' | 'affordable' | 'default';
 
 export class ThrallCard extends Component<HTMLElement> {
   private readonly thrall: Thrall;
@@ -93,25 +93,20 @@ export class ThrallCard extends Component<HTMLElement> {
   private renderAffordability(): void {
     const state = this.currentState();
     this.root.setAttribute('data-state', state);
-    if (state === 'locked' || state === 'sealed') {
+    if (state === 'locked') {
       this.costEl.textContent = '— —';
       this.labelEl.textContent = 'sealed';
     } else {
       this.costEl.textContent = fmt(gameState.getThrallCost(this.thrall.id));
       this.labelEl.textContent = 'claim';
     }
-    (this.root as HTMLButtonElement).disabled =
-      state === 'locked' || state === 'sealed';
+    (this.root as HTMLButtonElement).disabled = state !== 'affordable';
   }
 
   private currentState(): CardState {
     const snap = gameState.get();
-    const owned = snap.thralls[this.thrall.id].owned;
     const locked = snap.totalLifetimeBlood < this.thrall.unlockTotal;
     if (locked) return 'locked';
-    if (owned === 0 && !gameState.isThrallAffordable(this.thrall.id)) {
-      return 'sealed';
-    }
     return gameState.isThrallAffordable(this.thrall.id) ? 'affordable' : 'default';
   }
 }

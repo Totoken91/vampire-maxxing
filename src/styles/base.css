@@ -12,7 +12,7 @@ body {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background: var(--void);
+  background: var(--void) url('/assets/ornaments/bg.png') center / 100% 100% no-repeat;
   color: var(--ink);
   font-family: var(--font-serif);
   -webkit-font-smoothing: antialiased;

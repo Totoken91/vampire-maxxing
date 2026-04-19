@@ -1,14 +1,19 @@
-// J2 portrait: placeholder body + tap handler. Real image + frame land J3/J8.
+// Portrait with baroque frame overlay. Loads the real PNG when available,
+// falls back to a subtitle placeholder otherwise.
 // Taps go through gameState.tap() which handles crit/rate/events.
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
 import { events } from '../../game/events';
 import { gameState } from '../../game/state';
-import { getCurrentFormDefinition } from '../../game/forms';
+import { getCurrentFormDefinition, getCenturyInForm } from '../../game/forms';
+import { toRoman } from '../../utils/roman';
+
+const FRAME_SRC = '/assets/ornaments/portrait-frame-baroque.png';
 
 export class Portrait extends Component<HTMLElement> {
   private readonly body: HTMLElement;
+  private readonly image: HTMLImageElement;
   private readonly placeholder: HTMLElement;
   private readonly title: HTMLElement;
 
@@ -20,17 +25,29 @@ export class Portrait extends Component<HTMLElement> {
     body.setAttribute('role', 'button');
     body.setAttribute('aria-label', 'Feed the hunger');
 
-    const placeholder = el('div', 'portrait__placeholder');
-    body.appendChild(placeholder);
+    const image = el('img', 'portrait__image') as HTMLImageElement;
+    image.alt = '';
+    image.decoding = 'async';
 
+    const frame = el('img', 'portrait__frame') as HTMLImageElement;
+    frame.alt = '';
+    frame.src = FRAME_SRC;
+    frame.decoding = 'async';
+
+    const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
+
+    body.appendChild(image);
+    body.appendChild(placeholder);
+    body.appendChild(frame);
+    body.appendChild(title);
 
     root.appendChild(label);
     root.appendChild(body);
-    root.appendChild(title);
 
     super(root);
     this.body = body;
+    this.image = image;
     this.placeholder = placeholder;
     this.title = title;
   }
@@ -40,16 +57,29 @@ export class Portrait extends Component<HTMLElement> {
     this.body.addEventListener('pointerdown', this.handleTap);
     this.addTeardown(() => this.body.removeEventListener('pointerdown', this.handleTap));
     this.addTeardown(events.on('form-changed', () => this.render()));
+
+    // Aspect-ratio is hardcoded in CSS to match the frame PNG's natural shape.
+    // If the frame asset is regenerated at a different aspect, update both.
   }
 
   private handleTap = (event: PointerEvent): void => {
     gameState.tap(event.clientX, event.clientY);
-    // Micro feedback (scale is handled in CSS via :active; juice stack comes J4).
+    // Micro feedback (scale handled in CSS via :active; juice stack comes J4).
   };
 
   private render(): void {
-    const form = getCurrentFormDefinition(gameState.getPrestigeCount());
+    const prestige = gameState.getPrestigeCount();
+    const form = getCurrentFormDefinition(prestige);
+    const century = toRoman(getCenturyInForm(prestige));
+    this.title.textContent = `${form.subtitle} · Century ${century}`;
     this.placeholder.textContent = form.subtitle;
-    this.title.textContent = form.title;
+
+    this.image.onload = () => {
+      this.body.classList.add('portrait__body--has-image');
+    };
+    this.image.onerror = () => {
+      this.body.classList.remove('portrait__body--has-image');
+    };
+    this.image.src = form.portraitPath;
   }
 }
