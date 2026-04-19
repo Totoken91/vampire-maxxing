@@ -32,3 +32,4 @@ coverage
 
 # Skills (maintained elsewhere)
 *.skill
+tsconfig.tsbuildinfo

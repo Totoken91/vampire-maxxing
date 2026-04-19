@@ -1,0 +1,49 @@
+/* Design tokens — single source of truth for colors, spacing, typography.
+   Palette from docs/03-ART-DIRECTION.md. */
+:root {
+  /* Base */
+  --void: #08050a;
+  --deep: #12090e;
+  --paper: #1a0f14;
+  --ink: #f3ead8;
+  --ink-dim: #a89986;
+  --ink-faint: #5c4f42;
+
+  /* Accents */
+  --blood: #a51423;
+  --blood-dark: #6b0e18;
+  --blood-glow: #ff3342;
+  --gold: #c9a962;
+  --gold-dim: #8a7444;
+  --shadow: #6b2d8f;
+  --moon: #c9a962;
+
+  /* Type scale */
+  --font-brand: 'UnifrakturCook', serif;
+  --font-serif: 'Cormorant Garamond', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --fs-brand: 22px;
+  --fs-title: 15px;
+  --fs-label: 8px;
+  --fs-mono: 14px;
+  --fs-blood: 40px;
+  --fs-thrall-name: 13px;
+  --fs-thrall-stats: 9px;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Layout */
+  --app-max-width: 440px;
+  --tap-target-min: 48px;
+
+  /* Motion */
+  --ease-out-pop: cubic-bezier(0.3, 1.2, 0.4, 1);
+  --ease-out-sharp: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

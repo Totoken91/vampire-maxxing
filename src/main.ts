@@ -1,6 +1,13 @@
-// Vampire Maxxing — entry point
-// Core bootstrap lands here once the UI layer is in place (J2).
-// For now, J1 only delivers pure TS (config + formulas + tests).
+// Vampire Maxxing — entry point.
 
-// eslint-disable-next-line no-console
-console.warn('[vampire-maxxing] J1 foundations loaded. UI arrives on J2.');
+import './styles/index.css';
+import { mountApp } from './ui/app';
+import { startLoop } from './game/loop';
+
+const root = document.getElementById('app');
+if (!root) {
+  throw new Error('Missing #app root element');
+}
+
+mountApp(root);
+startLoop();
