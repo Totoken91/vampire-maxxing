@@ -77,9 +77,11 @@ Lib : `vitest`. Lance via `npm test`.
 | Bundle JS gzip              | < 90 KB           |
 | Portraits PNG total         | < 1.2 MB          |
 | Illustrations thralls total | < 800 KB          |
+| Ornaments PNG total (5)     | < 400 KB          |
 | Premier paint               | < 1s mid-range    |
 | FPS en jeu                  | 60 stable         |
 | Particules simultanées      | < 200             |
+| Tap → juice visible         | < 80 ms           |
 
 Le budget bundle est 10KB plus permissif que Cosmic Forge car on a la gestion des portraits. Les PNG ne comptent pas dans le bundle JS — ils sont servis en assets statiques.
 
@@ -119,7 +121,7 @@ Le budget bundle est 10KB plus permissif que Cosmic Forge car on a la gestion de
 - ❌ `document.querySelector` dans la loop → cache les refs
 - ❌ `console.log` en prod → supprime avant build
 - ❌ Charger toutes les portraits au boot → lazy load selon le prestige actuel
-- ❌ Décorer l'UI avec des PNG → SVG inline uniquement pour les ornements
+- ❌ Remplacer un SVG simple par un PNG (gaspillage bundle + perte du theming). PNG autorisé **uniquement** pour les 5 ornements listés en règle 1.
 
 ---
 
