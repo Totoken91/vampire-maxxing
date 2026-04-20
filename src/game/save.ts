@@ -38,6 +38,9 @@ export interface SaveV1 {
   skin: string;
   ownedSkins: string[];
   isFounder: boolean;
+  pendingCurseMult: number;
+  ritesLastUsed: Record<string, number>;
+  unseenAchievements: string[];
   settings: {
     soundEnabled: boolean;
     hapticsEnabled: boolean;
@@ -140,6 +143,9 @@ export function defaultV1(): SaveV1 {
     skin: 'default',
     ownedSkins: ['default'],
     isFounder: false,
+    pendingCurseMult: 1,
+    ritesLastUsed: {},
+    unseenAchievements: [],
     settings: {
       soundEnabled: false,
       hapticsEnabled: true,

@@ -46,6 +46,16 @@ export interface GameSnapshot {
   thralls: Record<ThrallId, ThrallOwnership>;
   boost: BoostState;
   stats: StatsState;
+  unlockedAchievements: Set<string>;
+  /** Mutliplier applied to the next ascend's dread gain. Reset to 1 after
+   * ascend. Set to 2 by the INVOKE THE CURSE rite on successful rewarded ad. */
+  pendingCurseMult: number;
+  /** Timestamp (Date.now()) of the last successful use for each rite.
+   * Used to gate cooldowns (e.g. Offering has a 4h cooldown). */
+  ritesLastUsed: Record<string, number>;
+  /** Achievement ids that have been unlocked but not yet acknowledged by the
+   * user opening the Tome. Drives the Tome tab's notification dot. */
+  unseenAchievements: Set<string>;
 }
 
 function emptyThralls(): Record<ThrallId, ThrallOwnership> {
@@ -72,6 +82,10 @@ function emptySnapshot(): GameSnapshot {
       totalPlayTime: 0,
       highestFormReached: 'NEWBORN',
     },
+    unlockedAchievements: new Set<string>(),
+    pendingCurseMult: 1,
+    ritesLastUsed: {},
+    unseenAchievements: new Set<string>(),
   };
 }
 
@@ -226,17 +240,21 @@ export class GameState {
     events.emit('tick', { dt: clamped });
   }
 
-  /** Trigger ascension if eligible. Emits form-changed if the form bumps. */
+  /** Trigger ascension if eligible. Emits form-changed if the form bumps.
+   * `rewardedMultiplier` is an optional extra (used for ad-boosted ascends);
+   * it stacks with `pendingCurseMult` (consumed and reset on ascend). */
   ascend(rewardedMultiplier: number = 1): boolean {
     if (!this.canAscend()) return false;
 
-    const gain = dreadGain(this.snapshot.totalRunBlood) * rewardedMultiplier;
+    const curseMult = this.snapshot.pendingCurseMult;
+    const gain = dreadGain(this.snapshot.totalRunBlood) * rewardedMultiplier * curseMult;
     const previousForm = this.getForm();
 
     this.snapshot.dread += gain;
     this.snapshot.stats.totalAscends += 1;
     this.snapshot.blood = 0;
     this.snapshot.totalRunBlood = 0;
+    this.snapshot.pendingCurseMult = 1;
     for (const t of THRALLS) {
       this.snapshot.thralls[t.id].owned = 0;
     }
@@ -251,6 +269,51 @@ export class GameState {
     events.emit('blood-changed', { blood: 0, delta: -gain });
     events.emit('rate-changed', { totalRate: 0 });
     return true;
+  }
+
+  // ─────────── Rites ───────────
+
+  /** Read-only projection of the extra dread mult active on the next ascend. */
+  getPendingCurseMult(): number {
+    return this.snapshot.pendingCurseMult;
+  }
+
+  /** Mark the curse as armed (×2 dread on next ascend). Set only after a
+   * successful rewarded ad. */
+  armCurse(mult: number = 2): void {
+    this.snapshot.pendingCurseMult = mult;
+  }
+
+  /** Seconds remaining on a rite's cooldown; 0 when ready. */
+  riteCooldownSec(id: string, cooldownSec: number): number {
+    const last = this.snapshot.ritesLastUsed[id] ?? 0;
+    const remaining = Math.ceil((last + cooldownSec * 1000 - Date.now()) / 1000);
+    return remaining > 0 ? remaining : 0;
+  }
+
+  /** Stamp a rite as just-used so its cooldown starts ticking. */
+  markRiteUsed(id: string): void {
+    this.snapshot.ritesLastUsed[id] = Date.now();
+  }
+
+  // ─────────── Tab gating ───────────
+
+  isTabUnlocked(tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop'): boolean {
+    switch (tab) {
+      case 'bloodline':
+        return true;
+      case 'servants':
+        return Object.values(this.snapshot.thralls).some((t) => t.owned > 0);
+      case 'rites':
+        return this.snapshot.stats.totalAscends >= 1;
+      case 'tome':
+        return this.snapshot.unlockedAchievements.size >= 3;
+      case 'shop':
+        return (
+          this.snapshot.stats.totalAscends >= 3 ||
+          this.snapshot.stats.totalPlayTime >= 3600
+        );
+    }
   }
 
   /** Activate a boost for its standard duration (or rewarded variant). */
@@ -287,6 +350,29 @@ export class GameState {
     this.addBlood(amount);
   }
 
+  // ─────────── Achievements ───────────
+
+  hasAchievement(id: string): boolean {
+    return this.snapshot.unlockedAchievements.has(id);
+  }
+
+  unlockAchievement(id: string): void {
+    this.snapshot.unlockedAchievements.add(id);
+    this.snapshot.unseenAchievements.add(id);
+  }
+
+  getUnlockedAchievements(): ReadonlySet<string> {
+    return this.snapshot.unlockedAchievements;
+  }
+
+  hasUnseenAchievements(): boolean {
+    return this.snapshot.unseenAchievements.size > 0;
+  }
+
+  markAchievementsSeen(): void {
+    this.snapshot.unseenAchievements.clear();
+  }
+
   // ─────────── Persistence helpers ───────────
 
   private toSave(): SaveV1 {
@@ -301,6 +387,10 @@ export class GameState {
       thralls: this.snapshot.thralls,
       boost: this.snapshot.boost,
       stats: this.snapshot.stats,
+      unlockedAchievements: Array.from(this.snapshot.unlockedAchievements),
+      pendingCurseMult: this.snapshot.pendingCurseMult,
+      ritesLastUsed: { ...this.snapshot.ritesLastUsed },
+      unseenAchievements: Array.from(this.snapshot.unseenAchievements),
     };
   }
 
@@ -318,6 +408,10 @@ export class GameState {
     }
     this.snapshot.boost = { ...save.boost };
     this.snapshot.stats = { ...save.stats };
+    this.snapshot.unlockedAchievements = new Set(save.unlockedAchievements ?? []);
+    this.snapshot.pendingCurseMult = save.pendingCurseMult ?? 1;
+    this.snapshot.ritesLastUsed = { ...(save.ritesLastUsed ?? {}) };
+    this.snapshot.unseenAchievements = new Set(save.unseenAchievements ?? []);
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */

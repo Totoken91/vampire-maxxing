@@ -11,6 +11,8 @@ export interface GameEvents {
   'form-changed': { form: VampireForm };
   'tick': { dt: number };
   'tapped': { x: number; y: number; crit: boolean; gain: number };
+  'achievement-unlocked': { id: string };
+  'tab-unlocked': { tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop' };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

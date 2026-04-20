@@ -106,6 +106,35 @@ const JOBS = [
     preserveAspect: true,
     description: 'Ascend button cartouche (natural aspect)',
   },
+  {
+    source: 'ascend-symbol.png',
+    dest: 'public/assets/ornaments/ascend-symbol.webp',
+    maxWidth: 640,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 92,
+    description: 'Ascension winged seal (centerpiece of the confirm modal)',
+  },
+  {
+    source: 'menu-panel.png',
+    dest: 'public/assets/ornaments/menu-panel.webp',
+    maxWidth: 720,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 92,
+    description: 'Tall gothic modal backdrop (used by Ascension modal)',
+  },
+  {
+    source: 'rewards-display.png',
+    dest: 'public/assets/ornaments/rewards-display.webp',
+    maxWidth: 720,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 92,
+    description: 'Rewards cartouche (inset panel of the Ascension modal)',
+  },
 ];
 
 async function exists(p) {

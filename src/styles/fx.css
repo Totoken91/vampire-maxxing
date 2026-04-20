@@ -306,6 +306,119 @@ body.is-ascending .action-btn--ascend {
   animation: none;
 }
 
+/* ───────── Achievement toast ───────── */
+
+.achievement-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translate(-50%, -20px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(26, 15, 20, 0.97),
+    rgba(12, 8, 12, 0.99)
+  );
+  border: 1px solid var(--gold);
+  padding: 12px 18px 12px 14px;
+  max-width: min(340px, 88vw);
+  z-index: 240;
+  opacity: 0;
+  animation: achievement-toast-in 500ms var(--ease-out-pop) forwards;
+  box-shadow:
+    0 0 38px rgba(201, 169, 98, 0.22),
+    0 10px 40px rgba(0, 0, 0, 0.65);
+}
+
+.achievement-toast::before,
+.achievement-toast::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--gold);
+}
+
+.achievement-toast::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.achievement-toast::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+.achievement-toast--exit {
+  animation: achievement-toast-out 400ms ease-in forwards;
+}
+
+.achievement-toast__icon {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--gold);
+  filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.55));
+  flex: 0 0 auto;
+}
+
+.achievement-toast__content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.achievement-toast__label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--gold-dim);
+  letter-spacing: 0.42em;
+  margin-bottom: 3px;
+}
+
+.achievement-toast__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.achievement-toast__desc {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+  margin-top: 3px;
+  line-height: 1.3;
+}
+
+@keyframes achievement-toast-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes achievement-toast-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -14px);
+  }
+}
+
 /* ───────── Accessibility ───────── */
 
 @media (prefers-reduced-motion: reduce) {

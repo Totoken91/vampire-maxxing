@@ -11,6 +11,7 @@ import { BALANCE } from '../../game/config/balance';
 import { playAscensionFx, isAscending } from '../../fx/ascension';
 import { adsAvailable, showRewarded } from '../../platform/ads';
 import { showToast } from './toast';
+import { openAscendModal } from './ascend-modal';
 
 export class ActionButtons extends Component<HTMLElement> {
   private readonly boostBtn: HTMLButtonElement;
@@ -89,8 +90,18 @@ export class ActionButtons extends Component<HTMLElement> {
 
   private handleAscend = (): void => {
     if (!gameState.canAscend() || isAscending()) return;
-    void playAscensionFx(() => gameState.ascend()).then(() => this.render());
+    void this.runAscendFlow();
   };
+
+  private async runAscendFlow(): Promise<void> {
+    const confirmed = await openAscendModal();
+    if (!confirmed || !gameState.canAscend() || isAscending()) {
+      this.render();
+      return;
+    }
+    await playAscensionFx(() => gameState.ascend());
+    this.render();
+  }
 
   private render(): void {
     if (this.adInFlight) return;

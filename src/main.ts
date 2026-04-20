@@ -14,6 +14,9 @@ import { THRALLS_BY_ID } from './game/config/thralls';
 import { installMusic } from './audio/music';
 import { playButton } from './audio/sfx';
 import { initAds } from './platform/ads';
+import { checkAchievements, installAchievementChecks } from './game/achievements';
+import { ACHIEVEMENTS_BY_ID } from './game/config/achievements';
+import { showAchievementToast } from './ui/components/achievement-toast';
 
 const root = document.getElementById('app');
 if (!root) {
@@ -46,6 +49,16 @@ async function boot(): Promise<void> {
 
   // AdMob: fire and forget. Init is idempotent and safe on web (no-ops).
   void initAds();
+
+  // Achievements: show toast on unlock, run checks on relevant events, and
+  // catch anything the predicates say is done at load (e.g. the offline
+  // modal just pushed play time past 1h).
+  events.on('achievement-unlocked', ({ id }) => {
+    const def = ACHIEVEMENTS_BY_ID[id];
+    if (def) showAchievementToast(def);
+  });
+  installAchievementChecks();
+  checkAchievements();
 
   // SFX on SUCCESSFUL thrall purchase only (the event only fires when the
   // buy went through — blood < cost silently returns false upstream).
