@@ -63,6 +63,7 @@ export class Portrait extends Component<HTMLElement> {
   }
 
   private handleTap = (event: PointerEvent): void => {
+    if (document.body.classList.contains('is-ascending')) return;
     gameState.tap(event.clientX, event.clientY);
     // Micro feedback (scale handled in CSS via :active; juice stack comes J4).
   };

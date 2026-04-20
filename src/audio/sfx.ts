@@ -4,7 +4,7 @@ const BUTTON_SRC = '/assets/audio/button-sound.wav';
 const POOL_SIZE = 4;
 const DEFAULT_VOLUME = 0.6;
 
-let pool: HTMLAudioElement[] = [];
+const pool: HTMLAudioElement[] = [];
 let cursor = 0;
 
 function ensurePool(): void {

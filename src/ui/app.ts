@@ -6,6 +6,7 @@ import { Portrait } from './components/portrait';
 import { BloodDisplay } from './components/blood-display';
 import { ThrallList } from './components/thrall-list';
 import { ActionButtons } from './components/action-buttons';
+import { Menu } from './components/menu';
 import { el } from '../utils/dom';
 
 export function mountApp(root: HTMLElement): void {
@@ -18,6 +19,7 @@ export function mountApp(root: HTMLElement): void {
   const blood = new BloodDisplay();
   const thralls = new ThrallList();
   const actions = new ActionButtons();
+  const menu = new Menu();
 
   header.mountTo(shell);
   divider.mountTo(shell);
@@ -27,4 +29,6 @@ export function mountApp(root: HTMLElement): void {
   actions.mountTo(shell);
 
   root.appendChild(shell);
+  // Menu lives outside the shell so its overlays sit above everything.
+  menu.mountTo(root);
 }

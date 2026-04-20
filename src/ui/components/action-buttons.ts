@@ -6,6 +6,7 @@ import { el } from '../../utils/dom';
 import { events } from '../../game/events';
 import { gameState } from '../../game/state';
 import { BALANCE } from '../../game/config/balance';
+import { playAscensionFx, isAscending } from '../../fx/ascension';
 
 export class ActionButtons extends Component<HTMLElement> {
   private readonly boostBtn: HTMLButtonElement;
@@ -53,9 +54,8 @@ export class ActionButtons extends Component<HTMLElement> {
   };
 
   private handleAscend = (): void => {
-    if (!gameState.canAscend()) return;
-    gameState.ascend();
-    this.render();
+    if (!gameState.canAscend() || isAscending()) return;
+    void playAscensionFx(() => gameState.ascend()).then(() => this.render());
   };
 
   private render(): void {

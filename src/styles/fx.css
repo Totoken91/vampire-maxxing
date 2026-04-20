@@ -206,6 +206,106 @@
   }
 }
 
+/* ───────── Ascension cinematic (J6) ───────── */
+
+/* Full-screen red vignette that pulses while the portrait dissolves. */
+.ascension-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      rgba(255, 51, 66, 0.72) 0%,
+      rgba(165, 20, 35, 0.42) 28%,
+      transparent 68%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 55%,
+      rgba(8, 5, 10, 0.55) 100%
+    );
+  mix-blend-mode: screen;
+  animation: ascend-flash-in 320ms ease-out forwards;
+}
+
+.ascension-flash--reduced {
+  mix-blend-mode: normal;
+  animation-duration: 180ms;
+}
+
+.ascension-flash--fading {
+  animation: ascend-flash-out 600ms ease-in forwards;
+}
+
+@keyframes ascend-flash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ascend-flash-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dissolve preserves the base scale(0.78) used to fit the portrait inside
+   the baroque frame. If the frame inset ever changes, update both values. */
+.portrait__image--dissolving {
+  animation: ascend-dissolve 700ms ease-out forwards;
+}
+
+@keyframes ascend-dissolve {
+  0% {
+    opacity: 1;
+    filter: blur(0) brightness(1);
+    transform: scale(0.78);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(14px) brightness(2.2);
+    transform: scale(0.95);
+  }
+}
+
+.portrait__image--materializing {
+  animation: ascend-materialize 800ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes ascend-materialize {
+  0% {
+    opacity: 0;
+    filter: blur(14px) brightness(2.4);
+    transform: scale(0.65);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0) brightness(1);
+    transform: scale(0.78);
+  }
+}
+
+/* While the cinematic plays, freeze button hover/pulse and block taps. */
+body.is-ascending {
+  cursor: default;
+}
+body.is-ascending .action-btn,
+body.is-ascending .thrall-card,
+body.is-ascending .portrait__body {
+  pointer-events: none;
+}
+body.is-ascending .action-btn--ascend {
+  animation: none;
+}
+
 /* ───────── Accessibility ───────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -224,5 +324,10 @@
     box-shadow:
       0 0 18px rgba(201, 169, 98, 0.55),
       inset 0 0 12px rgba(201, 169, 98, 0.2);
+  }
+  /* Orchestrator skips dissolve/materialize under reduced motion; the
+     classes are never added so no CSS override is needed there. */
+  .ascension-flash {
+    animation-duration: 180ms;
   }
 }

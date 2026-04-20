@@ -9,6 +9,7 @@ import { events } from '../game/events';
 import { BALANCE } from '../game/config/balance';
 import type { VampireForm } from '../game/config/forms';
 import { wipeSave } from '../game/save';
+import { playAscensionFx } from '../fx/ascension';
 
 type Cheats = {
   gameState: typeof gameState;
@@ -17,6 +18,7 @@ type Cheats = {
   addBlood: (n: number) => void;
   reset: () => void;
   wipe: () => Promise<void>;
+  playAscension: (target?: VampireForm) => Promise<void>;
 };
 
 declare global {
@@ -62,6 +64,31 @@ export function installCheats(): void {
       events.emit('blood-changed', { blood: 0, delta: 0 });
       events.emit('rate-changed', { totalRate: 0 });
       events.emit('form-changed', { form: 'NEWBORN' });
+    },
+    async playAscension(target?: VampireForm) {
+      // Give enough blood to clear the ascend threshold, then play the
+      // real orchestrator. Handy for iterating on the cinematic.
+      // If `target` is given, jump totalAscends just below its threshold
+      // so the next ascend bumps us INTO that form.
+      const s = gameState.get() as unknown as {
+        blood: number;
+        totalRunBlood: number;
+        totalLifetimeBlood: number;
+        stats: { totalAscends: number };
+      };
+      if (target) {
+        const threshold =
+          BALANCE.FORM_THRESHOLDS[target as keyof typeof BALANCE.FORM_THRESHOLDS] ?? 0;
+        s.stats.totalAscends = Math.max(0, threshold - 1);
+      }
+      const need = BALANCE.ASCEND_THRESHOLD - s.totalRunBlood;
+      if (need > 0) {
+        s.blood += need;
+        s.totalRunBlood += need;
+        s.totalLifetimeBlood += need;
+        events.emit('blood-changed', { blood: s.blood, delta: need });
+      }
+      await playAscensionFx(() => gameState.ascend());
     },
   };
 
