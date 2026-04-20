@@ -13,6 +13,7 @@ import { gameState } from './game/state';
 import { THRALLS_BY_ID } from './game/config/thralls';
 import { installMusic } from './audio/music';
 import { playButton } from './audio/sfx';
+import { initAds } from './platform/ads';
 
 const root = document.getElementById('app');
 if (!root) {
@@ -42,6 +43,9 @@ async function boot(): Promise<void> {
   // Background music: autoplay if allowed, first-gesture fallback otherwise,
   // pauses/resumes with page visibility.
   installMusic();
+
+  // AdMob: fire and forget. Init is idempotent and safe on web (no-ops).
+  void initAds();
 
   // SFX on SUCCESSFUL thrall purchase only (the event only fires when the
   // buy went through — blood < cost silently returns false upstream).

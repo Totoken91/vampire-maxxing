@@ -5,6 +5,8 @@
 import { el } from '../../utils/dom';
 import { fmt } from '../../utils/format';
 import type { OfflineReport } from '../../game/state';
+import { adsAvailable, showRewarded } from '../../platform/ads';
+import { showToast } from './toast';
 
 const COUNTUP_MS = 900;
 const MIN_ELAPSED_SEC = 60;
@@ -73,8 +75,13 @@ export function maybeShowOfflineModal(
   embraceBtn.type = 'button';
   embraceBtn.innerHTML =
     '▶ EMBRACE THE DAWN<span class="offline-modal__btn-sub">+2h · 100%</span>';
-  embraceBtn.disabled = true; // wired up with AdMob in J10
-  embraceBtn.title = 'Rewarded ad coming in a later release';
+  // Only enable the rewarded path when AdMob is actually available
+  // (Android native). On web the button stays disabled with an explanatory
+  // hover-hint rather than vanishing, so the UX is stable.
+  embraceBtn.disabled = !adsAvailable();
+  if (!adsAvailable()) {
+    embraceBtn.title = 'Rewarded ad available on device';
+  }
 
   actions.appendChild(claimBtn);
   actions.appendChild(embraceBtn);
@@ -116,4 +123,37 @@ export function maybeShowOfflineModal(
   claimBtn.addEventListener('click', () => finish(true));
   close.addEventListener('click', () => finish(false));
   // Tap on backdrop does NOT dismiss (prevents accidental loss of gain).
+
+  embraceBtn.addEventListener('click', async () => {
+    if (finished) return;
+    embraceBtn.disabled = true;
+    claimBtn.disabled = true;
+    const prev = embraceBtn.innerHTML;
+    embraceBtn.innerHTML =
+      '<span class="offline-modal__btn-sub">Preparing the rite...</span>';
+    const result = await showRewarded('embrace-dawn');
+    if (finished) return;
+    if (result.rewarded) {
+      // Collect the rewarded amount (1.0 efficiency + extended cap) instead
+      // of the regular blood figure.
+      if (!finished) {
+        finished = true;
+        onClaim(report.bloodWithRewarded);
+        backdrop.classList.add('offline-modal__backdrop--exit');
+        window.setTimeout(() => backdrop.remove(), 300);
+        showToast(
+          'DAWN EMBRACED',
+          `+${fmt(report.bloodWithRewarded)} blood flooded your veins.`,
+        );
+      }
+    } else {
+      // Ad failed / dismissed — restore the modal so the user can still CLAIM.
+      embraceBtn.disabled = false;
+      claimBtn.disabled = false;
+      embraceBtn.innerHTML = prev;
+      if (result.reason === 'failed' || result.reason === 'native-unavailable') {
+        showToast('THE RITE FAILED', 'No response from the void. Try again later.');
+      }
+    }
+  });
 }
