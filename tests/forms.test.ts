@@ -47,7 +47,7 @@ describe('getCurrentFormDefinition', () => {
   it('provides portrait path and labels', () => {
     const def = getCurrentFormDefinition(3);
     expect(def.id).toBe('LORD_OF_NIGHT');
-    expect(def.portraitPath).toMatch(/lord-of-night\.png$/);
+    expect(def.portraitPath).toMatch(/lord-of-night\.webp$/);
     expect(def.title.toLowerCase()).toContain('lord of night');
   });
 });

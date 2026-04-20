@@ -22,11 +22,13 @@ const JOBS = [
     'thirst',
   ].map((id) => ({
     source: `${id}.png`,
-    dest: `public/assets/portraits/${id}.png`,
+    dest: `public/assets/portraits/${id}.webp`,
     maxWidth: 1024,
     trim: { threshold: 15 },
     preserveAspect: true,
-    description: `Portrait ${id} (natural aspect, trimmed)`,
+    format: 'webp',
+    webpQuality: 90,
+    description: `Portrait ${id} (natural aspect, trimmed, webp q90)`,
   })),
   {
     source: 'cadre-portrait.png',
@@ -163,7 +165,10 @@ async function run() {
       });
     }
 
-    let outBuffer = await pipeline.png({ quality: 90, compressionLevel: 9 }).toBuffer();
+    let outBuffer =
+      job.format === 'webp'
+        ? await pipeline.webp({ quality: job.webpQuality ?? 90, effort: 6 }).toBuffer()
+        : await pipeline.png({ quality: 90, compressionLevel: 9 }).toBuffer();
 
     if (job.invertAlpha) {
       // Flip the alpha channel so opaque ↔ transparent. Used to build the

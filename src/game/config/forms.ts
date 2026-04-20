@@ -22,14 +22,14 @@ export interface FormDefinition {
 }
 
 export const FORMS: readonly FormDefinition[] = [
-  { id: 'NEWBORN',          title: 'a Newborn',           emphasis: 'Newborn',       subtitle: 'Newborn',            portraitPath: '/assets/portraits/newborn.png',          threshold: 0 },
-  { id: 'ELDER',            title: 'an Elder',            emphasis: 'Elder',         subtitle: 'Elder',              portraitPath: '/assets/portraits/elder.png',            threshold: 1 },
-  { id: 'LORD_OF_NIGHT',    title: 'a Lord of Night',     emphasis: 'Lord',          subtitle: 'Lord of Night',      portraitPath: '/assets/portraits/lord-of-night.png',    threshold: 3 },
-  { id: 'METHUSELAH',       title: 'a Methuselah',        emphasis: 'Methuselah',    subtitle: 'Methuselah',         portraitPath: '/assets/portraits/methuselah.png',       threshold: 7 },
-  { id: 'PROGENITOR',       title: 'a Progenitor',        emphasis: 'Progenitor',    subtitle: 'Progenitor',         portraitPath: '/assets/portraits/progenitor.png',       threshold: 15 },
-  { id: 'TERA_OVERLORD',    title: 'a Tera Overlord',     emphasis: 'Tera Overlord', subtitle: 'Tera Overlord',      portraitPath: '/assets/portraits/tera-overlord.png',    threshold: 30 },
-  { id: 'HORROR_INCARNATE', title: 'a Horror Incarnate',  emphasis: 'Horror',        subtitle: 'Horror Incarnate',   portraitPath: '/assets/portraits/horror-incarnate.png', threshold: 50 },
-  { id: 'THIRST',           title: 'the Thirst',          emphasis: 'Thirst',        subtitle: 'The Thirst',         portraitPath: '/assets/portraits/thirst.png',           threshold: 100 },
+  { id: 'NEWBORN',          title: 'a Newborn',           emphasis: 'Newborn',       subtitle: 'Newborn',            portraitPath: '/assets/portraits/newborn.webp',          threshold: 0 },
+  { id: 'ELDER',            title: 'an Elder',            emphasis: 'Elder',         subtitle: 'Elder',              portraitPath: '/assets/portraits/elder.webp',            threshold: 1 },
+  { id: 'LORD_OF_NIGHT',    title: 'a Lord of Night',     emphasis: 'Lord',          subtitle: 'Lord of Night',      portraitPath: '/assets/portraits/lord-of-night.webp',    threshold: 3 },
+  { id: 'METHUSELAH',       title: 'a Methuselah',        emphasis: 'Methuselah',    subtitle: 'Methuselah',         portraitPath: '/assets/portraits/methuselah.webp',       threshold: 7 },
+  { id: 'PROGENITOR',       title: 'a Progenitor',        emphasis: 'Progenitor',    subtitle: 'Progenitor',         portraitPath: '/assets/portraits/progenitor.webp',       threshold: 15 },
+  { id: 'TERA_OVERLORD',    title: 'a Tera Overlord',     emphasis: 'Tera Overlord', subtitle: 'Tera Overlord',      portraitPath: '/assets/portraits/tera-overlord.webp',    threshold: 30 },
+  { id: 'HORROR_INCARNATE', title: 'a Horror Incarnate',  emphasis: 'Horror',        subtitle: 'Horror Incarnate',   portraitPath: '/assets/portraits/horror-incarnate.webp', threshold: 50 },
+  { id: 'THIRST',           title: 'the Thirst',          emphasis: 'Thirst',        subtitle: 'The Thirst',         portraitPath: '/assets/portraits/thirst.webp',           threshold: 100 },
 ] as const;
 
 export const FORMS_BY_ID: Readonly<Record<VampireForm, FormDefinition>> = Object.freeze(
