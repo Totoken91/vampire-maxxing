@@ -10,11 +10,11 @@ import {
   dreadGain,
   globalMult,
   offlineGain,
-  thrallCost,
   thrallRate,
 } from './math';
 import { getCurrentForm } from './forms';
 import { hasUnlock } from './config/prestige-unlocks';
+import { modifierRegistry } from './modifiers';
 import { defaultV1, loadSave, writeSave, type SaveV1 } from './save';
 
 interface ThrallOwnership {
@@ -149,13 +149,18 @@ export class GameState {
 
   getGlobalMult(): number {
     const hasProgenitorBonus = hasUnlock(this.snapshot.stats.totalAscends, 'globalMultBonus');
-    return globalMult(this.snapshot.dread, hasProgenitorBonus);
+    const base = globalMult(this.snapshot.dread, hasProgenitorBonus);
+    // External sources (upgrades/regions/awakenings) stack on top. The
+    // registry applies a log cap on globalMult so combined bonuses don't
+    // explode into scientific notation.
+    return base * modifierRegistry.getMultiplier('globalMult');
   }
 
   /** Sum of per-second production across all owned thralls. */
   getTotalRate(): number {
     const gMult = this.getGlobalMult();
     const boost = this.getBoostMult();
+    const rateMult = modifierRegistry.getMultiplier('thrallRate');
     let sum = 0;
     for (const t of THRALLS) {
       const owned = this.snapshot.thralls[t.id].owned;
@@ -163,18 +168,26 @@ export class GameState {
         sum += thrallRate(t, owned, gMult, boost);
       }
     }
-    return sum;
+    return sum * rateMult;
   }
 
   getThrallRate(id: ThrallId): number {
     const owned = this.snapshot.thralls[id].owned;
     if (owned <= 0) return 0;
-    return thrallRate(THRALLS_BY_ID[id], owned, this.getGlobalMult(), this.getBoostMult());
+    const rateMult = modifierRegistry.getMultiplier('thrallRate');
+    return (
+      thrallRate(THRALLS_BY_ID[id], owned, this.getGlobalMult(), this.getBoostMult()) *
+      rateMult
+    );
   }
 
   getThrallCost(id: ThrallId): number {
     const owned = this.snapshot.thralls[id].owned;
-    return thrallCost(THRALLS_BY_ID[id].baseCost, owned);
+    // Scholar-type upgrades tweak the cost multiplier via an additive
+    // delta on 'thrallCost' (e.g. -0.01 per level → 1.15 → 1.10 max).
+    const baseMult = BALANCE.COST_MULTIPLIER;
+    const adjustedMult = Math.max(1.01, baseMult + modifierRegistry.getAdditive('thrallCost'));
+    return Math.floor(THRALLS_BY_ID[id].baseCost * adjustedMult ** owned);
   }
 
   isThrallAffordable(id: ThrallId): boolean {
@@ -186,7 +199,8 @@ export class GameState {
   }
 
   projectedDreadGain(): number {
-    return dreadGain(this.snapshot.totalRunBlood);
+    const base = dreadGain(this.snapshot.totalRunBlood);
+    return Math.floor(base * modifierRegistry.getMultiplier('dreadGain'));
   }
 
   // ─────────── Actions ───────────
@@ -195,7 +209,9 @@ export class GameState {
   tap(x: number, y: number): void {
     const crit = Math.random() < BALANCE.CRIT_CHANCE;
     const totalRate = this.getTotalRate();
-    const base = clickPower(totalRate, this.getGlobalMult(), this.getBoostMult());
+    const clickMult = modifierRegistry.getMultiplier('clickPower');
+    const base =
+      clickPower(totalRate, this.getGlobalMult(), this.getBoostMult()) * clickMult;
     const gain = crit ? base * BALANCE.CRIT_MULTIPLIER : base;
 
     this.addBlood(gain);
@@ -247,7 +263,9 @@ export class GameState {
     if (!this.canAscend()) return false;
 
     const curseMult = this.snapshot.pendingCurseMult;
-    const gain = dreadGain(this.snapshot.totalRunBlood) * rewardedMultiplier * curseMult;
+    const baseGain = dreadGain(this.snapshot.totalRunBlood);
+    const dreadMult = modifierRegistry.getMultiplier('dreadGain');
+    const gain = Math.floor(baseGain * dreadMult * rewardedMultiplier * curseMult);
     const previousForm = this.getForm();
 
     this.snapshot.dread += gain;
@@ -342,6 +360,9 @@ export class GameState {
   /** Reset everything (used by tests and the eventual "wipe save" debug). */
   reset(): void {
     this.snapshot = emptySnapshot();
+    // The registry is a module-level singleton that gets re-populated by
+    // each source on load; wiping state must wipe the registry too.
+    modifierRegistry.clear();
   }
 
   /** Apply an offline blood gain. Called after the user claims the modal. */
@@ -417,15 +438,15 @@ export class GameState {
   /** Compute offline gain since the save's timestamp, capped and scaled. */
   private computeOfflineReport(savedAt: number): OfflineReport {
     const elapsedSec = Math.max(0, (Date.now() - savedAt) / 1000);
-    const capHours = hasUnlock(this.snapshot.stats.totalAscends, 'extendedOfflineCap')
-      ? BALANCE.OFFLINE_CAP_HOURS_METHUSELAH
-      : BALANCE.OFFLINE_CAP_HOURS;
-    const capHoursRewarded = hasUnlock(
-      this.snapshot.stats.totalAscends,
-      'extendedOfflineCap',
-    )
-      ? BALANCE.OFFLINE_CAP_HOURS_METHUSELAH_REWARDED
-      : BALANCE.OFFLINE_CAP_HOURS_REWARDED;
+    const offlineBonus = modifierRegistry.getAdditive('offlineCap');
+    const capHours =
+      (hasUnlock(this.snapshot.stats.totalAscends, 'extendedOfflineCap')
+        ? BALANCE.OFFLINE_CAP_HOURS_METHUSELAH
+        : BALANCE.OFFLINE_CAP_HOURS) + offlineBonus;
+    const capHoursRewarded =
+      (hasUnlock(this.snapshot.stats.totalAscends, 'extendedOfflineCap')
+        ? BALANCE.OFFLINE_CAP_HOURS_METHUSELAH_REWARDED
+        : BALANCE.OFFLINE_CAP_HOURS_REWARDED) + offlineBonus;
     // Rates use current multipliers — not the ones at save time. Acceptable
     // for an idle game; true precision isn't worth the complexity.
     const rate = this.getTotalRate();
