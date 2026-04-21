@@ -135,6 +135,22 @@ const JOBS = [
     webpQuality: 92,
     description: 'Rewards cartouche (inset panel of the Ascension modal)',
   },
+  ...[
+    'bloodline',
+    'servants',
+    'rites',
+    'tome',
+    'shop',
+  ].map((id) => ({
+    source: `${id}-logo.png`,
+    dest: `public/assets/ornaments/tab-${id}.webp`,
+    maxWidth: 160,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 92,
+    description: `Tab bar icon — ${id}`,
+  })),
 ];
 
 async function exists(p) {

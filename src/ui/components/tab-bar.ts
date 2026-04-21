@@ -18,11 +18,11 @@ interface TabDef {
 }
 
 const TABS: readonly TabDef[] = [
-  { id: 'bloodline', label: 'BLOODLINE', icon: '\u25C8' }, // ◈
-  { id: 'servants', label: 'SERVANTS', icon: '\u26DC' }, // ⛜
-  { id: 'rites', label: 'RITES', icon: '\u2726' }, // ✦
-  { id: 'tome', label: 'TOME', icon: '\u2766' }, // ❦
-  { id: 'shop', label: 'SHOP', icon: '\u26B8' }, // ⚸
+  { id: 'bloodline', label: 'BLOODLINE', icon: '/assets/ornaments/tab-bloodline.webp' },
+  { id: 'servants', label: 'SERVANTS', icon: '/assets/ornaments/tab-servants.webp' },
+  { id: 'rites', label: 'RITES', icon: '/assets/ornaments/tab-rites.webp' },
+  { id: 'tome', label: 'TOME', icon: '/assets/ornaments/tab-tome.webp' },
+  { id: 'shop', label: 'SHOP', icon: '/assets/ornaments/tab-shop.webp' },
 ];
 
 export class TabBar extends Component<HTMLElement> {
@@ -37,8 +37,10 @@ export class TabBar extends Component<HTMLElement> {
       btn.setAttribute('data-tab', def.id);
       btn.setAttribute('aria-label', def.label.toLowerCase());
 
-      const icon = el('span', 'tab-bar__icon');
-      icon.textContent = def.icon;
+      const icon = el('img', 'tab-bar__icon') as HTMLImageElement;
+      icon.src = def.icon;
+      icon.alt = '';
+      icon.decoding = 'async';
       const label = el('span', 'tab-bar__label', def.label);
       // Notification dot. Hidden by default; toggled via CSS class on the
       // button when it should be visible.

@@ -531,10 +531,14 @@
 }
 
 .tab-bar__icon {
-  font-size: 22px;
-  line-height: 1;
-  color: var(--ink-faint);
-  transition: color 0.2s, filter 0.2s;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  object-position: center;
+  /* Icons are authored in gold on transparent — dim them when inactive,
+     restore full luminance + drop-shadow when active. */
+  filter: brightness(0.55) saturate(0.7);
+  transition: filter 0.2s, transform 0.2s;
 }
 
 .tab-bar__label {
@@ -545,28 +549,81 @@
   transition: color 0.2s;
 }
 
+/* Active tab = Diablo-style blood panel. Full-height red vignette behind
+   the button, icon recolored gold → red via sepia+hue-rotate, label red,
+   thin red decorative line broken by a center diamond on top + bottom. */
 .tab-bar__btn--active {
-  color: var(--gold);
+  color: var(--blood-glow);
+  background:
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(165, 20, 35, 0.28) 0%,
+      rgba(100, 12, 20, 0.18) 50%,
+      rgba(40, 8, 15, 0.06) 85%,
+      transparent 100%
+    );
 }
 
 .tab-bar__btn--active .tab-bar__icon {
-  color: var(--gold);
-  filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.55));
+  /* Gold PNGs → red via sepia(1) saturate() hue-rotate(). The exact
+     values were tuned against the Diablo-style reference: icon reads
+     as crimson with interior highlights, not washed out. */
+  filter:
+    brightness(0.95)
+    sepia(1)
+    saturate(5)
+    hue-rotate(-25deg)
+    drop-shadow(0 0 10px rgba(255, 51, 66, 0.55));
+  transform: translateY(-1px);
 }
 
 .tab-bar__btn--active .tab-bar__label {
-  color: var(--gold);
+  color: var(--blood-glow);
+  text-shadow: 0 0 8px rgba(255, 51, 66, 0.45);
 }
 
-.tab-bar__btn--active::before {
+/* Top + bottom ornament: a thin red line broken in the middle by a
+   centered diamond point. Built as stacked backgrounds so a single
+   pseudo-element carries both the line and the diamond. */
+.tab-bar__btn--active::before,
+.tab-bar__btn--active::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 14%;
-  right: 14%;
-  height: 1px;
-  background: var(--gold);
-  box-shadow: 0 0 8px rgba(201, 169, 98, 0.6);
+  left: 12%;
+  right: 12%;
+  height: 5px;
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      var(--blood-glow) 0,
+      var(--blood-glow) 1.8px,
+      transparent 2.4px
+    ),
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--blood-glow) 18%,
+      var(--blood-glow) 43%,
+      transparent 47%,
+      transparent 53%,
+      var(--blood-glow) 57%,
+      var(--blood-glow) 82%,
+      transparent 100%
+    );
+  background-repeat: no-repeat;
+  background-position: center center, center center;
+  background-size: 100% 100%, 100% 1.2px;
+  filter: drop-shadow(0 0 4px rgba(255, 51, 66, 0.65));
+}
+
+/* Extend slightly beyond the button so the line sits at the very edge of
+   the tab bar's padding, leaving breathing room around icon + label. */
+.tab-bar__btn--active::before {
+  top: -5px;
+}
+
+.tab-bar__btn--active::after {
+  bottom: -5px;
 }
 
 /* Locked tabs are hidden entirely — grid collapses the column so the
