@@ -1,6 +1,15 @@
 // Portrait with baroque frame overlay. Loads the real PNG when available,
 // falls back to a subtitle placeholder otherwise.
 // Taps go through gameState.tap() which handles crit/rate/events.
+//
+// B0b: the body is now a 4-layer stack so post-launch features can inject
+// VFX without touching this component. Layers, bottom → top:
+//   1. .portrait__overlay--back   — ancestors silhouettes (Phase J)
+//   2. .portrait__image           — the main portrait (existing)
+//   3. .portrait__overlay--front  — awakening halos / glitch (Phase G)
+//   4. .portrait__frame           — baroque frame (existing, always on top)
+// Injection via the singleton portraitOverlays API at the bottom of this
+// file. Callers never touch the DOM directly.
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
@@ -11,11 +20,61 @@ import { toRoman } from '../../utils/roman';
 
 const FRAME_SRC = '/assets/ornaments/portrait-frame-baroque.png';
 
+export type OverlayLayer = 'front' | 'back';
+
+/** Current mount point for each layer. Set when a Portrait instance mounts;
+ * cleared on destroy. Null when no Portrait is live (other tabs). */
+let activeOverlayFront: HTMLElement | null = null;
+let activeOverlayBack: HTMLElement | null = null;
+/** Pending overlays queued while no Portrait is mounted, so callers don't
+ * have to care about lifecycle timing. Keyed by id for idempotent add/remove. */
+const pending = new Map<string, { layer: OverlayLayer; element: HTMLElement }>();
+
+function flushPending(): void {
+  for (const [id, { layer, element }] of pending) {
+    const target = layer === 'front' ? activeOverlayFront : activeOverlayBack;
+    if (!target) continue;
+    element.dataset.overlayId = id;
+    target.appendChild(element);
+  }
+  pending.clear();
+}
+
+export const portraitOverlays = {
+  /**
+   * Mount an element on one of the portrait's overlay layers. Safe to call
+   * before the Portrait exists (queued and flushed on next mount).
+   */
+  add(id: string, layer: OverlayLayer, element: HTMLElement): void {
+    // Replace any existing overlay with the same id.
+    this.remove(id);
+    element.dataset.overlayId = id;
+    const target = layer === 'front' ? activeOverlayFront : activeOverlayBack;
+    if (target) {
+      target.appendChild(element);
+    } else {
+      pending.set(id, { layer, element });
+    }
+  },
+
+  /** Remove the overlay with this id from whichever layer it lives on. */
+  remove(id: string): void {
+    pending.delete(id);
+    for (const root of [activeOverlayFront, activeOverlayBack]) {
+      if (!root) continue;
+      const found = root.querySelector<HTMLElement>(`[data-overlay-id="${id}"]`);
+      if (found) found.remove();
+    }
+  },
+};
+
 export class Portrait extends Component<HTMLElement> {
   private readonly body: HTMLElement;
   private readonly image: HTMLImageElement;
   private readonly placeholder: HTMLElement;
   private readonly title: HTMLElement;
+  private readonly overlayFront: HTMLElement;
+  private readonly overlayBack: HTMLElement;
 
   constructor() {
     const root = el('div', 'portrait');
@@ -25,9 +84,18 @@ export class Portrait extends Component<HTMLElement> {
     body.setAttribute('role', 'button');
     body.setAttribute('aria-label', 'Feed the hunger');
 
+    // Back overlay — sits BEHIND the image (ancestors silhouettes, cosmic
+    // aura). Pointer-events none so it doesn't steal taps.
+    const overlayBack = el('div', 'portrait__overlay portrait__overlay--back');
+    overlayBack.setAttribute('aria-hidden', 'true');
+
     const image = el('img', 'portrait__image') as HTMLImageElement;
     image.alt = '';
     image.decoding = 'async';
+
+    // Front overlay — sits OVER the image, UNDER the frame (halos, glitch).
+    const overlayFront = el('div', 'portrait__overlay portrait__overlay--front');
+    overlayFront.setAttribute('aria-hidden', 'true');
 
     const frame = el('img', 'portrait__frame') as HTMLImageElement;
     frame.alt = '';
@@ -37,8 +105,10 @@ export class Portrait extends Component<HTMLElement> {
     const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
 
+    body.appendChild(overlayBack);
     body.appendChild(image);
     body.appendChild(placeholder);
+    body.appendChild(overlayFront);
     body.appendChild(frame);
     body.appendChild(title);
 
@@ -50,6 +120,8 @@ export class Portrait extends Component<HTMLElement> {
     this.image = image;
     this.placeholder = placeholder;
     this.title = title;
+    this.overlayFront = overlayFront;
+    this.overlayBack = overlayBack;
   }
 
   protected override onMount(): void {
@@ -57,6 +129,16 @@ export class Portrait extends Component<HTMLElement> {
     this.body.addEventListener('pointerdown', this.handleTap);
     this.addTeardown(() => this.body.removeEventListener('pointerdown', this.handleTap));
     this.addTeardown(events.on('form-changed', () => this.render()));
+
+    // Register this instance as the overlay mount point, flush anything
+    // that was queued while no Portrait existed, clear on teardown.
+    activeOverlayFront = this.overlayFront;
+    activeOverlayBack = this.overlayBack;
+    flushPending();
+    this.addTeardown(() => {
+      if (activeOverlayFront === this.overlayFront) activeOverlayFront = null;
+      if (activeOverlayBack === this.overlayBack) activeOverlayBack = null;
+    });
 
     // Aspect-ratio is hardcoded in CSS to match the frame PNG's natural shape.
     // If the frame asset is regenerated at a different aspect, update both.

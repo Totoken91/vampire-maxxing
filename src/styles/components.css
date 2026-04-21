@@ -879,6 +879,7 @@
   transform: scale(0.78);
   opacity: 0;
   transition: opacity 400ms ease-out;
+  z-index: 1;
 }
 
 .portrait__body--has-image .portrait__image {
@@ -891,6 +892,25 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 3;
+}
+
+/* Post-launch overlay layers (B0b). Transparent slots ready for Phase G
+   awakening VFX (front) and Phase J ancestor silhouettes (back). Empty
+   until a caller calls portraitOverlays.add(). */
+.portrait__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.portrait__overlay--back {
+  z-index: 0;
+}
+
+.portrait__overlay--front {
   z-index: 2;
 }
 
@@ -928,7 +948,7 @@
   left: 10%;
   right: 10%;
   bottom: 5%;
-  z-index: 3;
+  z-index: 4;
   text-align: center;
   font-family: var(--font-serif);
   font-style: italic;
