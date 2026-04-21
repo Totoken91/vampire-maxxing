@@ -10,6 +10,8 @@ import { BALANCE } from '../game/config/balance';
 import type { VampireForm } from '../game/config/forms';
 import { wipeSave } from '../game/save';
 import { playAscensionFx } from '../fx/ascension';
+import { portraitOverlays } from '../ui/components/portrait';
+import { modifierRegistry } from '../game/modifiers';
 
 type Cheats = {
   gameState: typeof gameState;
@@ -19,6 +21,9 @@ type Cheats = {
   reset: () => void;
   wipe: () => Promise<void>;
   playAscension: (target?: VampireForm) => Promise<void>;
+  overlays: typeof portraitOverlays;
+  modifiers: typeof modifierRegistry;
+  testOverlay: (layer?: 'front' | 'back', color?: string) => void;
 };
 
 declare global {
@@ -64,6 +69,17 @@ export function installCheats(): void {
       events.emit('blood-changed', { blood: 0, delta: 0 });
       events.emit('rate-changed', { totalRate: 0 });
       events.emit('form-changed', { form: 'NEWBORN' });
+    },
+    overlays: portraitOverlays,
+    modifiers: modifierRegistry,
+    testOverlay(layer = 'front', color = 'rgba(255,0,0,0.5)') {
+      const el = document.createElement('div');
+      el.style.cssText = `background: ${color}; width:100%; height:100%; pointer-events:none;`;
+      portraitOverlays.add('__test', layer, el);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[vm] overlay injected on ${layer}. Remove with vm.overlays.remove('__test').`,
+      );
     },
     async playAscension(target?: VampireForm) {
       // Give enough blood to clear the ascend threshold, then play the
