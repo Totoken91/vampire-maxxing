@@ -9,6 +9,9 @@ export interface GameEvents {
   'rate-changed': { totalRate: number };
   'thrall-bought': { id: ThrallId; owned: number };
   'form-changed': { form: VampireForm };
+  /** Fires on every successful ascend, regardless of form change. Century
+   * updates within the same form rely on this to re-render the title. */
+  'ascended': { form: VampireForm; century: number; formChanged: boolean };
   'tick': { dt: number };
   'tapped': { x: number; y: number; crit: boolean; gain: number };
   'achievement-unlocked': { id: string };

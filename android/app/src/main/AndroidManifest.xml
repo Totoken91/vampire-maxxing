@@ -9,10 +9,10 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!-- AdMob test APP_ID. Swap for the real ca-app-pub-XXX~YYY before prod. -->
+        <!-- Real AdMob APP_ID for Vampire Maxxing (Kenny's account). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-1055719152373783~1670176055"/>
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"

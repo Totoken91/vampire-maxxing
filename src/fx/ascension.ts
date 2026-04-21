@@ -18,8 +18,10 @@ import { particleEngine } from './particle-engine';
 import { spawnDissolveBurst } from './dissolve-particle';
 import { gameState } from '../game/state';
 import { FORMS_BY_ID, type VampireForm } from '../game/config/forms';
+import { getCenturyInForm } from '../game/forms';
 import { showToast } from '../ui/components/toast';
 import { playAscensionSfx } from '../audio/sfx';
+import { toRoman } from '../utils/roman';
 
 const FORM_FLAVOR: Record<VampireForm, string> = {
   NEWBORN: 'The hunger remembers its first night.',
@@ -34,6 +36,48 @@ const FORM_FLAVOR: Record<VampireForm, string> = {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+/**
+ * Ceremonial "CENTURY N → N+1" overlay shown when the ascension bumps
+ * the Century counter but the form stays the same. Lives for ~1.6s and
+ * removes itself. Cheap DOM, no canvas, animated via CSS.
+ */
+function showCenturyFlash(from: number, to: number): void {
+  const root = document.createElement('div');
+  root.className = 'century-flash';
+
+  const label = document.createElement('div');
+  label.className = 'century-flash__label';
+  label.textContent = '— CENTURY —';
+
+  const numbers = document.createElement('div');
+  numbers.className = 'century-flash__numbers';
+
+  const fromEl = document.createElement('span');
+  fromEl.className = 'century-flash__from';
+  fromEl.textContent = toRoman(from);
+
+  const arrow = document.createElement('span');
+  arrow.className = 'century-flash__arrow';
+  arrow.textContent = '→';
+
+  const toEl = document.createElement('span');
+  toEl.className = 'century-flash__to';
+  toEl.textContent = toRoman(to);
+
+  numbers.appendChild(fromEl);
+  numbers.appendChild(arrow);
+  numbers.appendChild(toEl);
+
+  root.appendChild(label);
+  root.appendChild(numbers);
+  document.body.appendChild(root);
+
+  window.setTimeout(() => {
+    root.classList.add('century-flash--exit');
+    window.setTimeout(() => root.remove(), 400);
+  }, 1400);
 }
 
 function prefersReducedMotion(): boolean {
@@ -66,6 +110,7 @@ export async function playAscensionFx(commit: () => boolean): Promise<void> {
     const image = document.querySelector('.portrait__image') as HTMLImageElement | null;
 
     const prevForm = gameState.getForm();
+    const prevCentury = getCenturyInForm(gameState.getPrestigeCount());
 
     const flash = document.createElement('div');
     flash.className = 'ascension-flash';
@@ -108,6 +153,12 @@ export async function playAscensionFx(commit: () => boolean): Promise<void> {
       spawnDissolveBurst((p) => particleEngine.add(p), rect, 50, true);
       if (navigator.vibrate) navigator.vibrate(40);
     }
+    // Same form, new Century — surface the Roman numeral bump as a
+    // ceremonial overlay so the ascend feels rewarding instead of silent.
+    if (!formChanged) {
+      const newCentury = getCenturyInForm(gameState.getPrestigeCount());
+      showCenturyFlash(prevCentury, newCentury);
+    }
 
     await sleep(200);
     flash.classList.add('ascension-flash--fading');
@@ -122,10 +173,11 @@ export async function playAscensionFx(commit: () => boolean): Promise<void> {
       const def = FORMS_BY_ID[newForm];
       showToast('ASCENDED', `You are now ${def.title}. ${FORM_FLAVOR[newForm]}`);
     } else {
-      const count = gameState.getPrestigeCount();
+      const def = FORMS_BY_ID[newForm];
+      const newCentury = getCenturyInForm(gameState.getPrestigeCount());
       showToast(
         'ASCENDED',
-        `Your dread deepens. ${count} eternit${count === 1 ? 'y' : 'ies'} since the first tooth.`,
+        `${def.subtitle} · Century ${toRoman(newCentury)}. Your dread deepens.`,
       );
     }
   } finally {

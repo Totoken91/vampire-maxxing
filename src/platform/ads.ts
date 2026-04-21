@@ -8,8 +8,8 @@
 // Call initAds() once at boot. Call showRewarded(type) on player action.
 
 const TEST_REWARDED_ID = 'ca-app-pub-3940256099942544/5224354917';
-// Swap for the real ca-app-pub-XXX/ZZZ unit before prod.
-const PROD_REWARDED_ID = TEST_REWARDED_ID;
+// Kenny's real rewarded ad unit — "VM Rewarded Main" created 2026-04-21.
+const PROD_REWARDED_ID = 'ca-app-pub-1055719152373783/4532355142';
 
 export type RewardAdType = 'summon-night' | 'embrace-dawn' | 'invoke-curse' | 'offering';
 
@@ -47,8 +47,11 @@ export async function initAds(): Promise<void> {
   const mod = await getAdMob();
   if (!mod) return;
   try {
+    // Only gate as "testing" in dev so AdMob serves test fills with no risk
+    // of invalid-traffic strikes on Kenny's account. Production release =
+    // real init so real ads actually serve once the app is approved.
     await mod.AdMob.initialize({
-      initializeForTesting: true,
+      initializeForTesting: import.meta.env.DEV,
     });
     initialized = true;
   } catch (err) {

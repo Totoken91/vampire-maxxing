@@ -9,7 +9,7 @@ import { getCurrentFormDefinition } from '../../game/forms';
 
 export class Header extends Component<HTMLElement> {
   private readonly statusTitle: HTMLElement;
-  private readonly dreadValue: HTMLElement;
+  private readonly dreadNumber: HTMLElement;
 
   constructor() {
     const root = el('div', 'header');
@@ -35,6 +35,13 @@ export class Header extends Component<HTMLElement> {
     const dread = el('div', 'header__dread');
     const dreadLabel = el('div', 'header__dread-label', 'DREAD');
     const dreadValue = el('div', 'header__dread-value');
+    const dreadIcon = el('img', 'header__dread-icon') as HTMLImageElement;
+    dreadIcon.src = '/assets/ornaments/dread-icon.webp';
+    dreadIcon.alt = '';
+    dreadIcon.decoding = 'async';
+    dreadValue.appendChild(dreadIcon);
+    const dreadNumber = el('span', 'header__dread-number', '0');
+    dreadValue.appendChild(dreadNumber);
     dread.appendChild(dreadLabel);
     dread.appendChild(dreadValue);
 
@@ -44,7 +51,7 @@ export class Header extends Component<HTMLElement> {
 
     super(root);
     this.statusTitle = statusTitle;
-    this.dreadValue = dreadValue;
+    this.dreadNumber = dreadNumber;
   }
 
   protected override onMount(): void {
@@ -64,6 +71,6 @@ export class Header extends Component<HTMLElement> {
   }
 
   private renderDread(): void {
-    this.dreadValue.textContent = `× ${gameState.getDread()}`;
+    this.dreadNumber.textContent = `${gameState.getDread()}`;
   }
 }

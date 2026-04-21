@@ -12,7 +12,7 @@ import {
   offlineGain,
   thrallRate,
 } from './math';
-import { getCurrentForm } from './forms';
+import { getCurrentForm, getCenturyInForm } from './forms';
 import { hasUnlock } from './config/prestige-unlocks';
 import { modifierRegistry } from './modifiers';
 import { defaultV1, loadSave, writeSave, type SaveV2 } from './save';
@@ -282,10 +282,19 @@ export class GameState {
     this.snapshot.boost = { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false };
 
     const newForm = this.getForm();
-    if (newForm !== previousForm) {
+    const formChanged = newForm !== previousForm;
+    if (formChanged) {
       this.snapshot.stats.highestFormReached = newForm;
       events.emit('form-changed', { form: newForm });
     }
+
+    // Always-fires sibling event — form-changed only triggers on threshold
+    // bumps, but every ascend bumps the Century counter and UI needs to know.
+    events.emit('ascended', {
+      form: newForm,
+      century: getCenturyInForm(this.snapshot.stats.totalAscends),
+      formChanged,
+    });
 
     events.emit('blood-changed', { blood: 0, delta: -gain });
     events.emit('rate-changed', { totalRate: 0 });

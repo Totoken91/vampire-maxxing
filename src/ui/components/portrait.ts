@@ -129,6 +129,9 @@ export class Portrait extends Component<HTMLElement> {
     this.body.addEventListener('pointerdown', this.handleTap);
     this.addTeardown(() => this.body.removeEventListener('pointerdown', this.handleTap));
     this.addTeardown(events.on('form-changed', () => this.render()));
+    // Century bumps happen on every ascend, not just threshold-crossing ones.
+    // Listen to 'ascended' so the title refreshes from "Century I" to II, etc.
+    this.addTeardown(events.on('ascended', () => this.render()));
 
     // Register this instance as the overlay mount point, flush anything
     // that was queued while no Portrait existed, clear on teardown.

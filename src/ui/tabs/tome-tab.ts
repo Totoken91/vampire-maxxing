@@ -96,7 +96,11 @@ export class TomeTab {
       const el = this.statValues.get(id);
       if (el) el.textContent = val;
     };
-    set('dread', `× ${snap.dread}`);
+    // Dread gets the purple icon inline with the number.
+    const dreadEl = this.statValues.get('dread');
+    if (dreadEl) {
+      dreadEl.innerHTML = `<img class="tome-stat__icon" src="/assets/ornaments/dread-icon.webp" alt=""><span>${snap.dread}</span>`;
+    }
     set('ascends', `${snap.stats.totalAscends}`);
     set('totalBlood', fmt(snap.totalLifetimeBlood));
     set('playTime', formatDuration(snap.stats.totalPlayTime));

@@ -185,6 +185,16 @@
   font-size: 16px;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tome-stat__icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 3px rgba(107, 45, 143, 0.5));
 }
 
 /* ───────── Rites tab cards ───────── */
@@ -201,28 +211,21 @@
   grid-template-columns: 48px 1fr auto;
   gap: var(--sp-3);
   align-items: center;
-  padding: var(--sp-3);
-  background: linear-gradient(
-    135deg,
-    rgba(26, 15, 20, 0.82),
-    rgba(12, 8, 12, 0.95)
-  );
-  border: 1px solid rgba(139, 116, 68, 0.35);
+  padding: 16px 24px 16px 20px;
+  background: url('/assets/ornaments/normal-panel.webp') center / 100% 100%
+    no-repeat;
+  border: none;
   cursor: pointer;
   text-align: left;
   color: inherit;
   font: inherit;
-  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+  transition: filter 0.2s, transform 0.12s;
+  min-height: 92px;
 }
 
 .rite-card:hover:not(:disabled),
 .rite-card:focus-visible:not(:disabled) {
-  border-color: var(--gold);
-  background: linear-gradient(
-    135deg,
-    rgba(40, 22, 30, 0.9),
-    rgba(18, 10, 16, 0.96)
-  );
+  filter: drop-shadow(0 0 14px rgba(201, 169, 98, 0.32));
   outline: none;
 }
 
@@ -388,23 +391,23 @@
   grid-template-columns: 42px 1fr auto;
   gap: var(--sp-3);
   align-items: center;
-  padding: 8px var(--sp-3);
-  background: linear-gradient(
-    135deg,
-    rgba(26, 15, 20, 0.82),
-    rgba(12, 8, 12, 0.95)
-  );
-  border: 1px solid rgba(139, 116, 68, 0.3);
+  padding: 14px 24px 14px 20px;
+  /* Shared with .rite-card — simple horizontal panel, less ornate than
+     the burgundy cartouche. Premium but lets the icon + text dominate. */
+  background: url('/assets/ornaments/normal-panel.webp') center / 100% 100%
+    no-repeat;
+  border: none;
   text-align: left;
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+  transition: filter 0.2s, transform 0.12s;
+  min-height: 82px;
 }
 
 .shop-card:hover:not(:disabled),
 .shop-card:focus-visible:not(:disabled) {
-  border-color: var(--gold);
+  filter: drop-shadow(0 0 14px rgba(201, 169, 98, 0.35));
   outline: none;
 }
 
@@ -497,17 +500,28 @@
   gap: 4px;
 }
 
-/* Affordable upgrade: gold glow + shimmer invite (idle-expert Playbook
-   affordance signal). Maxed: dim and unclickable. */
+/* Affordable upgrade: gold drop-shadow + shimmer invite (Playbook
+   affordance signal). The card is a baroque PNG with painterly filigree
+   so we glow the whole element rather than a border. */
 .shop-card--affordable {
-  border-color: var(--gold);
-  box-shadow: 0 0 18px rgba(201, 169, 98, 0.28);
+  filter: drop-shadow(0 0 14px rgba(201, 169, 98, 0.55));
+  animation: shop-card-pulse 2.2s ease-in-out infinite;
 }
 
 .shop-card--affordable .shop-card__price {
   color: var(--gold);
-  background: rgba(201, 169, 98, 0.15);
+  background: rgba(201, 169, 98, 0.2);
   border-color: var(--gold);
+}
+
+@keyframes shop-card-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(201, 169, 98, 0.7));
+  }
 }
 
 .shop-card--maxed {
@@ -527,6 +541,24 @@
 
 .shop-card__price-icon {
   font-size: 11px;
+}
+
+/* The <img> variant used for the dread-icon PNG. Sized to match the
+   monospace font line height of adjacent numbers. */
+img.shop-card__price-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 3px rgba(107, 45, 143, 0.45));
+}
+
+.shop-wallet__icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(107, 45, 143, 0.5));
 }
 
 /* ───────── Tab bar ───────── */
@@ -839,11 +871,25 @@
 }
 
 .header__dread-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--font-mono);
   font-size: 14px;
   color: var(--shadow);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
+}
+
+.header__dread-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(107, 45, 143, 0.55));
+}
+
+.header__dread-number {
+  line-height: 1;
 }
 
 /* ───────── Divider ───────── */
@@ -1593,34 +1639,42 @@
 }
 
 .achievement-card {
-  padding: 10px var(--sp-3);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(139, 116, 68, 0.22);
+  /* Baroque plaque PNG provides the entire frame + interior sigil. Content
+     sits inside the central zone, clear of the filigree ornaments.
+     Aspect 520/849 ≈ 0.612 — enforced so the plaque proportions stay
+     correct across grid widths. */
+  position: relative;
+  aspect-ratio: 520 / 849;
+  background: url('/assets/ornaments/achievement-card.webp') center / 100% 100%
+    no-repeat;
+  border: none;
+  padding: 15% 14% 12%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-height: 78px;
-  transition: border-color 0.2s, background 0.2s;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 0;
+  transition: filter 0.25s;
+  filter: brightness(0.42) saturate(0.35);
 }
 
 .achievement-card--unlocked {
-  border-color: rgba(201, 169, 98, 0.55);
-  background: linear-gradient(
-    135deg,
-    rgba(60, 45, 20, 0.32),
-    rgba(12, 8, 12, 0.45)
-  );
+  filter: brightness(1) saturate(1)
+    drop-shadow(0 0 12px rgba(201, 169, 98, 0.3));
 }
 
 .achievement-card__icon {
-  font-size: 14px;
+  font-size: 22px;
   color: var(--ink-faint);
   line-height: 1;
+  text-align: center;
+  margin-bottom: 4px;
 }
 
 .achievement-card--unlocked .achievement-card__icon {
   color: var(--gold);
-  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.45));
+  filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.65));
 }
 
 .achievement-card__title {
@@ -1630,7 +1684,8 @@
   font-size: 12.5px;
   color: var(--ink-dim);
   letter-spacing: 0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .achievement-card--unlocked .achievement-card__title {
@@ -1643,7 +1698,8 @@
   font-size: 10.5px;
   color: var(--ink-faint);
   letter-spacing: 0.02em;
-  line-height: 1.25;
+  line-height: 1.3;
+  text-align: center;
 }
 
 .achievement-card--unlocked .achievement-card__desc {

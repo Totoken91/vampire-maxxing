@@ -57,7 +57,11 @@ export class ShopTab {
     // Wallet — Dread only.
     const wallet = el('div', 'shop-wallet');
     const dreadPill = el('div', 'shop-wallet__pill shop-wallet__pill--dread');
-    dreadPill.appendChild(el('span', 'shop-wallet__icon', '\u2726')); // ✦
+    const walletIcon = el('img', 'shop-wallet__icon-img') as HTMLImageElement;
+    walletIcon.src = '/assets/ornaments/dread-icon.webp';
+    walletIcon.alt = '';
+    walletIcon.decoding = 'async';
+    dreadPill.appendChild(walletIcon);
     const dreadValue = el('span', 'shop-wallet__value', '0');
     dreadPill.appendChild(dreadValue);
     const dreadLabel = el('span', 'shop-wallet__label', 'DREAD');
@@ -127,7 +131,7 @@ export class ShopTab {
       h.card.classList.add('shop-card--maxed');
       h.card.classList.remove('shop-card--affordable');
     } else {
-      h.price.innerHTML = `<span class="shop-card__price-icon">\u2726</span> ${cost}`;
+      h.price.innerHTML = `<img class="shop-card__price-icon" src="/assets/ornaments/dread-icon.webp" alt=""> ${cost}`;
       h.card.disabled = !afford;
       h.card.classList.toggle('shop-card--affordable', afford);
       h.card.classList.remove('shop-card--maxed');
@@ -164,7 +168,7 @@ export class ShopTab {
     info.appendChild(pips);
 
     const price = el('div', 'shop-card__price shop-card__price--dread');
-    price.innerHTML = `<span class="shop-card__price-icon">\u2726</span> ${def.costs[0]}`;
+    price.innerHTML = `<img class="shop-card__price-icon" src="/assets/ornaments/dread-icon.webp" alt=""> ${def.costs[0]}`;
 
     card.appendChild(icon);
     card.appendChild(info);
