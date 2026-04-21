@@ -19,6 +19,7 @@ import { spawnDissolveBurst } from './dissolve-particle';
 import { gameState } from '../game/state';
 import { FORMS_BY_ID, type VampireForm } from '../game/config/forms';
 import { showToast } from '../ui/components/toast';
+import { playAscensionSfx } from '../audio/sfx';
 
 const FORM_FLAVOR: Record<VampireForm, string> = {
   NEWBORN: 'The hunger remembers its first night.',
@@ -69,6 +70,10 @@ export async function playAscensionFx(commit: () => boolean): Promise<void> {
     const flash = document.createElement('div');
     flash.className = 'ascension-flash';
     document.body.appendChild(flash);
+
+    // Glorious ascension sting — fires at t=0 so its peak lands on the
+    // form reveal mid-cinematic.
+    playAscensionSfx();
 
     if (navigator.vibrate) navigator.vibrate([20, 40, 30]);
 

@@ -66,19 +66,8 @@ export class ShopTab {
     this.root.appendChild(wallet);
     this.dreadValue = dreadValue;
 
-    // OFFERS — placeholder until Phase D.
-    const offersSection = el('section', 'tome-section shop-section--offers');
-    offersSection.appendChild(
-      el('h2', 'tome-section__title', 'SPECIAL OFFERS'),
-    );
-    offersSection.appendChild(
-      el(
-        'div',
-        'shop-placeholder',
-        'Offers open soon — rites first. The apothecary is still stocking the shelves.',
-      ),
-    );
-    this.root.appendChild(offersSection);
+    // SPECIAL OFFERS (IAPs) lands in Phase D. Hidden entirely until then so
+    // players don't encounter a dead section and learn the store is empty.
 
     // UPGRADES — 5 dread sinks.
     const upgradesSection = el('section', 'tome-section');
