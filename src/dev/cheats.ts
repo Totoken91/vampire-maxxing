@@ -12,18 +12,26 @@ import { wipeSave } from '../game/save';
 import { playAscensionFx } from '../fx/ascension';
 import { portraitOverlays } from '../ui/components/portrait';
 import { modifierRegistry } from '../game/modifiers';
+import {
+  buyUpgrade,
+  getUpgradeLevel,
+  type UpgradeId,
+} from '../game/upgrades';
 
 type Cheats = {
   gameState: typeof gameState;
   events: typeof events;
   setForm: (form: VampireForm) => void;
   addBlood: (n: number) => void;
+  addDread: (n: number) => void;
   reset: () => void;
   wipe: () => Promise<void>;
   playAscension: (target?: VampireForm) => Promise<void>;
   overlays: typeof portraitOverlays;
   modifiers: typeof modifierRegistry;
   testOverlay: (layer?: 'front' | 'back', color?: string) => void;
+  buyUpgrade: (id: UpgradeId) => boolean;
+  getUpgradeLevel: (id: UpgradeId) => number;
 };
 
 declare global {
@@ -57,6 +65,13 @@ export function installCheats(): void {
       s.totalLifetimeBlood += n;
       events.emit('blood-changed', { blood: s.blood, delta: n });
     },
+    addDread(n) {
+      const s = gameState.get() as unknown as { dread: number };
+      s.dread += n;
+      events.emit('blood-changed', { blood: gameState.getBlood(), delta: 0 });
+    },
+    buyUpgrade,
+    getUpgradeLevel,
     reset() {
       gameState.reset();
       events.emit('blood-changed', { blood: 0, delta: 0 });

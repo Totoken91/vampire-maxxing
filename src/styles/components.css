@@ -497,6 +497,34 @@
   gap: 4px;
 }
 
+/* Affordable upgrade: gold glow + shimmer invite (idle-expert Playbook
+   affordance signal). Maxed: dim and unclickable. */
+.shop-card--affordable {
+  border-color: var(--gold);
+  box-shadow: 0 0 18px rgba(201, 169, 98, 0.28);
+}
+
+.shop-card--affordable .shop-card__price {
+  color: var(--gold);
+  background: rgba(201, 169, 98, 0.15);
+  border-color: var(--gold);
+}
+
+.shop-card--maxed {
+  opacity: 0.55;
+  filter: saturate(0.65);
+}
+
+.shop-card--maxed .shop-card__price {
+  color: var(--ink-faint);
+  background: rgba(0, 0, 0, 0.4);
+  border-color: var(--ink-faint);
+}
+
+.shop-card__level-pip {
+  transition: color 0.25s;
+}
+
 .shop-card__price-icon {
   font-size: 11px;
 }

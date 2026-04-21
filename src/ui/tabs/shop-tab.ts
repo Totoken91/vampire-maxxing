@@ -1,76 +1,47 @@
-// SHOP — monetization home. Two sections :
+// SHOP — monetization home. Two sections:
 //   * SPECIAL OFFERS (IAPs) — hidden behind a "Offers open soon" placeholder
 //     until Phase D (Google Play Billing plumbing + FTB popup).
-//   * UPGRADES (permanent dread sinks) — the 5 meta upgrades designed in
-//     the V2 roadmap. Rendered as disabled cards here so the layout and
-//     copy ship now; B1/B2 flip them to real buyable upgrades.
-//
-// Wallet shows Dread only — blood lives in the Bloodline top bar and
-// repeating it here added noise for no aspiration value.
+//   * UPGRADES (permanent dread sinks) — the 5 meta upgrades from B1.
+//     Cards are live: affordable ones pulse + can be bought for Dread,
+//     locked ones dim. Blood Altar shows its next-claim countdown.
 
 import { el } from '../../utils/dom';
 import { gameState } from '../../game/state';
 import { events } from '../../game/events';
 import { showToast } from '../components/toast';
+import { fmt } from '../../utils/format';
+import { UPGRADES, type UpgradeDef } from '../../game/config/upgrades';
+import {
+  altarSecondsRemaining,
+  buyUpgrade,
+  canAffordUpgrade,
+  getUpgradeLevel,
+  getUpgradeNextCost,
+} from '../../game/upgrades';
 
-interface UpgradePreview {
-  id: string;
-  title: string;
-  sub: string;
-  icon: string;
-  maxLevel: number;
-  firstCost: number;
+function formatInterval(sec: number): string {
+  if (sec <= 0) return 'ready';
+  if (sec >= 3600) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  if (sec >= 60) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+  return `${sec}s`;
 }
 
-/** The 5 permanent dread sinks planned in Phase B. Single source of truth
- * for labels; effects live in the eventual upgrade config. */
-const UPGRADES: readonly UpgradePreview[] = [
-  {
-    id: 'blood_altar',
-    title: 'Blood Altar',
-    sub: 'Auto-claim blood · 4h → 1h (lvl 5)',
-    icon: '\u26EB', // ⛫
-    maxLevel: 5,
-    firstCost: 10,
-  },
-  {
-    id: 'servant_loyalty',
-    title: 'Servant Loyalty',
-    sub: '+5% thrall rate per level',
-    icon: '\u26B7', // ⚷
-    maxLevel: 10,
-    firstCost: 5,
-  },
-  {
-    id: 'bloodline_scholar',
-    title: 'Bloodline Scholar',
-    sub: 'Reduce thrall cost multiplier',
-    icon: '\u2692', // ⚒
-    maxLevel: 5,
-    firstCost: 15,
-  },
-  {
-    id: 'dread_amplifier',
-    title: 'Dread Amplifier',
-    sub: '+10% Dread on Ascend per level',
-    icon: '\u26B0', // ⚰
-    maxLevel: 3,
-    firstCost: 25,
-  },
-  {
-    id: 'offline_keeper',
-    title: 'Offline Keeper',
-    sub: '+1h offline cap per level',
-    icon: '\u263D', // ☽
-    maxLevel: 3,
-    firstCost: 20,
-  },
-];
+interface UpgradeCardHandles {
+  card: HTMLButtonElement;
+  pips: HTMLElement;
+  price: HTMLElement;
+  sub: HTMLElement;
+}
 
 export class ShopTab {
   private readonly root: HTMLElement;
   private readonly teardowns: Array<() => void> = [];
   private readonly dreadValue: HTMLElement;
+  private readonly cards = new Map<string, UpgradeCardHandles>();
 
   constructor() {
     this.root = el('div', 'tab-view tab-view--shop');
@@ -109,7 +80,7 @@ export class ShopTab {
     );
     this.root.appendChild(offersSection);
 
-    // UPGRADES — 5 previews.
+    // UPGRADES — 5 dread sinks.
     const upgradesSection = el('section', 'tome-section');
     upgradesSection.appendChild(el('h2', 'tome-section__title', 'UPGRADES'));
     const upgradesList = el('div', 'shop-list');
@@ -122,10 +93,12 @@ export class ShopTab {
 
   mountTo(parent: HTMLElement): void {
     parent.appendChild(this.root);
-    this.renderWallet();
+    this.render();
     this.teardowns.push(
-      events.on('blood-changed', () => this.renderWallet()),
-      events.on('tick', () => this.renderWallet()),
+      events.on('blood-changed', () => this.render()),
+      events.on('tick', () => this.render()),
+      events.on('upgrade-bought', () => this.render()),
+      events.on('altar-claimed', () => this.render()),
     );
   }
 
@@ -135,40 +108,100 @@ export class ShopTab {
     this.root.remove();
   }
 
-  private renderWallet(): void {
+  private render(): void {
     this.dreadValue.textContent = `${gameState.getDread()}`;
+    for (const def of UPGRADES) {
+      this.renderCard(def);
+    }
   }
 
-  private buildUpgrade(up: UpgradePreview): HTMLElement {
+  private renderCard(def: UpgradeDef): void {
+    const h = this.cards.get(def.id);
+    if (!h) return;
+    const level = getUpgradeLevel(def.id);
+    const maxed = level >= def.maxLevel;
+    const cost = getUpgradeNextCost(def.id);
+    const afford = canAffordUpgrade(def.id);
+
+    // Pips: filled ◆ for each owned level, hollow ◇ for the rest.
+    const pipNodes = h.pips.querySelectorAll<HTMLElement>('.shop-card__level-pip');
+    pipNodes.forEach((node, idx) => {
+      const owned = idx < level;
+      node.textContent = owned ? '\u25C6' : '\u25C7';
+      node.classList.toggle('shop-card__level-pip--empty', !owned);
+    });
+
+    // Price + state
+    if (maxed) {
+      h.price.innerHTML = '<span class="shop-card__price-icon">\u26AB</span> MAX';
+      h.card.disabled = true;
+      h.card.classList.add('shop-card--maxed');
+      h.card.classList.remove('shop-card--affordable');
+    } else {
+      h.price.innerHTML = `<span class="shop-card__price-icon">\u2726</span> ${cost}`;
+      h.card.disabled = !afford;
+      h.card.classList.toggle('shop-card--affordable', afford);
+      h.card.classList.remove('shop-card--maxed');
+    }
+
+    // Blood Altar gets a live countdown line under its description.
+    if (def.id === 'blood_altar' && level > 0) {
+      h.sub.textContent = `Auto-claim every ${formatInterval(
+        Math.floor(altarSecondsRemaining()),
+      )}`;
+    } else {
+      h.sub.textContent = def.description;
+    }
+  }
+
+  private buildUpgrade(def: UpgradeDef): HTMLElement {
     const card = el('button', 'shop-card shop-card--upgrade') as HTMLButtonElement;
     card.type = 'button';
-    card.disabled = true;
 
     const icon = el('div', 'shop-card__icon shop-card__icon--gold');
-    icon.textContent = up.icon;
+    icon.textContent = def.icon;
 
     const info = el('div', 'shop-card__info');
-    info.appendChild(el('div', 'shop-card__title', up.title));
-    info.appendChild(el('div', 'shop-card__sub', up.sub));
+    info.appendChild(el('div', 'shop-card__title', def.title));
+    const sub = el('div', 'shop-card__sub', def.description);
+    info.appendChild(sub);
 
-    const levelDots = el('div', 'shop-card__level');
-    for (let i = 0; i < up.maxLevel; i++) {
+    const pips = el('div', 'shop-card__level');
+    for (let i = 0; i < def.maxLevel; i++) {
       const d = el('span', 'shop-card__level-pip shop-card__level-pip--empty');
-      d.textContent = '\u25C7'; // ◇
-      levelDots.appendChild(d);
+      d.textContent = '\u25C7';
+      pips.appendChild(d);
     }
-    info.appendChild(levelDots);
+    info.appendChild(pips);
 
-    const priceEl = el('div', 'shop-card__price shop-card__price--dread');
-    priceEl.innerHTML = `<span class="shop-card__price-icon">\u2726</span> ${up.firstCost}`;
+    const price = el('div', 'shop-card__price shop-card__price--dread');
+    price.innerHTML = `<span class="shop-card__price-icon">\u2726</span> ${def.costs[0]}`;
 
     card.appendChild(icon);
     card.appendChild(info);
-    card.appendChild(priceEl);
+    card.appendChild(price);
 
-    card.addEventListener('click', () => {
-      showToast('LOCKED', 'The altar awakens with the next update.');
-    });
+    card.addEventListener('click', () => this.handleBuy(def));
+
+    this.cards.set(def.id, { card, pips, price, sub });
     return card;
+  }
+
+  private handleBuy(def: UpgradeDef): void {
+    const level = getUpgradeLevel(def.id);
+    if (level >= def.maxLevel) {
+      showToast('MAXED', `${def.title} has reached its peak.`);
+      return;
+    }
+    if (!canAffordUpgrade(def.id)) {
+      const cost = getUpgradeNextCost(def.id);
+      showToast('NOT ENOUGH DREAD', `Need ${fmt(cost)} Dread.`);
+      return;
+    }
+    if (buyUpgrade(def.id)) {
+      if (navigator.vibrate) navigator.vibrate(15);
+      showToast(def.title.toUpperCase(), def.flavor);
+      this.render();
+    }
   }
 }
