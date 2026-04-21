@@ -13,12 +13,20 @@
 | Phase | Tickets | Focus |
 |-------|---------|-------|
 | **A — Fix ship-blockers** | A1, A2 | Progressive disclosure, INVOKE, cooldowns, UX laws, juice tab |
-| **B — Meta progression** | B1, B2 | Upgrades = dread sinks, Shop a un sens |
+| **B — Meta progression** | B0a, B0b, B1, B2 | Archi prep + upgrades = dread sinks, Shop a un sens |
 | **C — Content depth** | C1, C2 | Tome = codex vivant, Servants = gestion réelle |
 | **D — Monétisation réelle** | D1, D2, D3 | IAP Play Billing + FTB popup + LiveOps scaffold |
 | **E — Release prep** | E1, E2, E3, E4 | i18n, audio compression, ASO, AAB internal track |
+| **F — Post-launch #1 : Map & Regions** | F1, F2, F3 | Premier axe d'expansion horizontal, events narratifs |
+| **G — Post-launch #2 : Awakenings** | G1, G2 | VFX overlay system + 5 états transcendants post-Thirst |
+| **H — Post-launch #3 : Unique Thralls (Sanctum)** | H1, H2, H3 | Roster de personnages nommés, cartes 2:3 collection |
+| **I — Post-launch #4 : Aspects of The Thirst** | I1, I2 | 5 color variants + build specialization |
+| **J — Post-launch #5 : Generations (Crimson Chronicles)** | J1, J2, J3 | 2e bloodline (Gen 2) + Ancestors + Ancestral Blood currency |
+| **LiveOps continu** | — | Events saisonniers toutes les ~2 mois (Halloween / Christmas / Valentine / Summer / anniversary) |
 
-Ordre strict : faire A avant B avant C… Les dépendances suivent cet ordre (B utilise le gating de A, D utilise le shop de B, E dépend du tout).
+Ordre strict : faire A avant B avant C… Les dépendances suivent cet ordre (B utilise le gating de A, D utilise le shop de B, E dépend du tout). **Phases F→J sont post-launch** et démarrent après E4 (AAB live en Internal Testing stabilisé).
+
+> Voir `docs/09-ARCHITECTURE-EXTENSIONS.md` pour les 3 flexibilités structurelles (portrait overlays, modifier registry, save extensible) qui débloquent Phases F→J sans refactor lourd. Les prep tickets B0a et B0b posent ces fondations.
 
 ---
 
@@ -148,6 +156,44 @@ Plus tard (post-launch) : **Bloodline Keeper 19,99 €** (whale), **Ritual Bundl
 
 ## Phase B — Meta progression (donner sens au Shop)
 
+### B0a — Modifier registry (archi prep)
+
+**Why** : à terme on va empiler modifiers de plusieurs sources (upgrades B1, régions F, awakenings G, aspects I, generations J). Coder ça en dur dans state.ts = dette technique garantie. Poser le registry maintenant rend toutes les phases suivantes triviales à intégrer.
+
+**Scope**
+- `src/game/modifiers.ts` : `ModifierRegistry` exposing `register(source, target, op, value)`, `unregister(source)`, `getMultiplier(target): number`, `getAdditive(target): number`.
+- Targets supportés au MVP : `'thrallRate'`, `'thrallCost'`, `'clickPower'`, `'dreadGain'`, `'offlineCap'`, `'globalMult'`.
+- Ops supportées : `'mult'` (multiplicatif, combiné en produit), `'add'` (additif, combiné en somme), `'addLevel'` (pour scaling par level).
+- Refactor `getTotalRate()` + `thrallCost()` + `dreadGain()` pour consommer le registry au lieu de constantes en dur.
+- Les constantes existantes (`COST_MULTIPLIER = 1.15`, etc) restent les valeurs de base ; le registry applique des deltas par-dessus.
+- Tests : `modifiers.test.ts` avec register/unregister/compose.
+- **Cap logarithmique** sur le produit final des globalMult pour éviter le power creep inter-features (cf. anti-pattern Monetization-shark).
+
+**Definition of done**
+- `getTotalRate()` identique output qu'avant sur un registry vide
+- Register un modifier test (`+50% thrallRate` from source `'test'`) → rate augmente de 50%
+- Unregister → rate revient
+- Tous les tests existants toujours verts
+
+### B0b — Portrait overlay stack (archi prep)
+
+**Why** : Phase G (Awakenings) va empiler des VFX sur le portrait (halo doré, silhouettes fantômes, background animé). Phase J (Generations) va ajouter silhouettes ancêtres en background. Si le portrait component reste un simple `<img>`, chaque ajout casse le layout. Prep = pose un slot `.portrait__overlays` vide mais prêt.
+
+**Scope**
+- Refactor `src/ui/components/portrait.ts` : wrapper le `<img>` dans `.portrait__canvas` avec trois layers empilables :
+  - `.portrait__overlay--back` (z-index: 0) — silhouettes ancêtres, aura cosmique (Gen J)
+  - `.portrait__image` (z-index: 1) — l'image du portrait (existant)
+  - `.portrait__overlay--front` (z-index: 2) — halo, particules, glitches (Awakenings G)
+  - `.portrait__frame` (z-index: 3) — le cadre baroque existant
+- Exposer `portrait.addOverlay(id, layer, el)` et `portrait.removeOverlay(id)` pour que les phases futures puissent injecter sans toucher portrait.ts.
+- Ne rien dessiner de visible ici — les slots sont vides. Le système est testable via console : `vm.portrait.addOverlay('test', 'front', someDiv)`.
+- Les animations existantes (dissolving/materializing classes) restent sur `.portrait__image`.
+
+**Definition of done**
+- Visuellement identique à avant (aucune régression)
+- 3 layers accessibles via API publique
+- Console test ajoute un div rouge dans `front` → visible devant l'image, derrière le frame
+
 ### B1 — Upgrade system data + state
 
 **Why** : le Shop doit avoir une fonction réelle, pas juste un layout. Les 5 upgrades proposés (Blood Altar / Servant Loyalty / Bloodline Scholar / Dread Amplifier / Offline Keeper) sont les dread sinks qui donnent un vrai endgame (30-50h de jeu). Idle-expert : "prestige currency doit avoir des sinks permanents, sinon le meta-loop est vide".
@@ -155,14 +201,14 @@ Plus tard (post-launch) : **Bloodline Keeper 19,99 €** (whale), **Ritual Bundl
 **Scope**
 - `src/game/config/upgrades.ts` — 5 upgrades with levels + costs + effects
 - State : `upgrades: Record<UpgradeId, { level: number }>` (persisté)
-- `buyUpgrade(id)` : vérifie dread ≥ cost, décrémente, incrémente level, emit event
-- Formules intégrées :
-  - **Blood Altar** : background timer → auto-blood-gain. Lv 0 = OFF, lv 1 = 4h CD, lv 5 = 1h CD. Amount = rate × 60s × (1 + level × 0.2).
-  - **Servant Loyalty** : applique multiplier dans `getTotalRate()` → `× (1 + level × 0.05)`
-  - **Bloodline Scholar** : modifie `thrallCost` → `COST_MULTIPLIER - level × 0.01`
-  - **Dread Amplifier** : `dreadGain × (1 + level × 0.1)` dans projectedDreadGain
-  - **Offline Keeper** : +level heures au cap offline
-- Tests : `upgrades.test.ts` pour chaque formule
+- `buyUpgrade(id)` : vérifie dread ≥ cost, décrémente, incrémente level, emit event, **re-publie les modifiers dans le ModifierRegistry (B0a)**
+- Les effets passent TOUS par le registry (source = `'upgrade:<id>'`) :
+  - **Blood Altar** : pas un modifier direct — utilise un timer/heartbeat qui déclenche un auto-blood-gain. Lv 0 = OFF, lv 1 = 4h CD, lv 5 = 1h CD. Amount = rate × 60s × (1 + level × 0.2).
+  - **Servant Loyalty** : `register('upgrade:servant_loyalty', 'thrallRate', 'mult', 1 + level × 0.05)`
+  - **Bloodline Scholar** : `register('upgrade:bloodline_scholar', 'thrallCost', 'add', -level × 0.01)` → le `getEffectiveCostMultiplier()` retourne `1.15 + additive`
+  - **Dread Amplifier** : `register('upgrade:dread_amplifier', 'dreadGain', 'mult', 1 + level × 0.1)`
+  - **Offline Keeper** : `register('upgrade:offline_keeper', 'offlineCap', 'add', level)` (en heures)
+- Tests : `upgrades.test.ts` pour chaque formule + un test d'intégration avec le registry
 - Save migration : bump SAVE_VERSION 1 → 2, migrer v1 → v2 avec upgrades all level 0
 
 **Definition of done**
@@ -411,6 +457,225 @@ Plus tard (post-launch) : **Bloodline Keeper 19,99 €** (whale), **Ritual Bundl
 
 ---
 
+## Phase F — Post-launch #1 : The Black Veil (Map v1)
+
+**Timing** : 1-2 mois après E4 (AAB stabilisé en Internal Testing ou Production soft launch)
+
+**Why** : premier axe d'expansion horizontal post-Thirst. Résout le "what after Thirst?" en donnant un 2e système de progression parallèle au prestige. AAA visual mockup déjà fait par Kenny (texture de pierre volcanique, chemins en lave rougeoyante, château Crimson Keep). Événements narratifs à choix = signature premium qui différencie du reste du genre idle.
+
+### F1 — Map infrastructure + The Black Veil (1ère région)
+
+**Scope**
+- `src/game/config/regions.ts` — 1 région pour démarrer : `the-black-veil`
+- State étendu via `save.schemaExtensions.map` (pas de migration lourde grâce à B0b/archi-extensions) :
+  ```
+  map: {
+    currentRegion: 'the-black-veil' | null,
+    unlockedRegions: Set<regionId>,
+    regionProgress: Record<regionId, { nodesCompleted: number, regionEssence: number, eventsTriggered: Set<eventId>, choicesMade: Record<eventId, choiceId> }>,
+  }
+  ```
+- Region Essence = **currency ÉPHÉMÈRE** (clear à la sortie de la région, jamais persisté cross-run). Pas de pollution des 2 currencies existantes.
+- Passive bonus de région via `ModifierRegistry` (B0a) : `register('region:the-black-veil', 'globalMult', 'mult', 1.10)` tant que complétée.
+- **Cap logarithmique** sur le produit de `globalMult` de toutes sources réunies (régions + awakenings + aspects) pour éviter power creep.
+
+**Tab bar** : ajouter un **6e tab MAP** dans la tab bar, gated après 1ère ascension (même condition que RITES). Repenser la grille flex à 6 colonnes.
+
+**UI** :
+- `src/ui/tabs/map-tab.ts` — full-screen map avec background PNG de la région
+- 3 nodes intermédiaires + 1 boss node, path SVG animé (pulsation opacity 0.6 → 1.0)
+- Panel bas : nom région + coût Dread d'entrée + bouton [ENTER]
+- Progress bar discrète en haut : nodes débloqués / total + jauge Region Essence
+
+**Events narratifs** :
+- 5 events pour F1 : 1 entrée + 3 intermédiaires + 1 boss
+- Format : `src/game/config/events.ts` avec type `NarrativeEvent { id, trigger, narrative, choices[] }`
+- Modal overlay plein écran quand un event se déclenche, avec choix 2-3 options, conséquences variées (currencies, titles, lore, unlock cachés)
+- Ton : Disco Elysium / Sunless Sea / Darkest Dungeon (court, littéraire, gothique)
+
+### F2 — Régions 2-3 + content depth
+
+**Scope**
+- Ajouter `the-crimson-keep` + `nameless-crypts` avec leurs events (4-5 events chacune)
+- Boss de régions offrent des **récompenses distinctes** (titre, cosmetic cadre, +1 slot Sanctum futur)
+- Backgrounds PNG générés (Kenny via ChatGPT, même pipeline que portraits)
+
+### F3 — Cosmetic region themes + event pack monetization
+
+**Scope**
+- Première vraie offre LiveOps : "Halloween Veil" — variante cosmétique de The Black Veil (palette lune de sang) à 4,99 €, fenêtre 30 jours autour du 31 octobre
+- Event pack 9,99 € : "The Halloween Rite" avec région temporaire + cosmetic frame + 1 thrall unique (prep pour Phase H)
+- Région permanente reste gratuite ; seul le skin est payant
+
+**Definition of done (Phase F)**
+- 3 régions permanentes jouables
+- ~14 events narratifs écrits
+- 1 event LiveOps Halloween qui cycle annuel
+
+---
+
+## Phase G — Post-launch #2 : Awakenings
+
+**Timing** : 3-4 mois post-launch
+
+**Why** : une fois Thirst atteint + quelques régions complétées, le joueur peut cramer ÉNORMÉMENT de Dread pour débloquer des **5 états transcendants** qui modifient visuellement le portrait Thirst existant (pas de nouveaux portraits). Endgame vertical par dépassement de la forme. Whale retention post-Thirst gold.
+
+### G1 — VFX overlay system + 2 premiers Awakenings
+
+**Scope**
+- Utilise `portrait.addOverlay()` de B0b pour injecter les VFX layers
+- `src/game/config/awakenings.ts` — 5 awakenings avec coûts (100 dread / 500 / 2000 / 8000 / 30000) + événement narratif de déblocage + effet mécanique
+- State : `unlockedAwakenings: Set<awakeningId>` + `activeAwakenings: Set<awakeningId>` (le joueur peut équiper plusieurs)
+- **Effets mécaniques passent PAR GATE DE CONTENT, pas raw power** (anti power-creep) :
+  - **The Eternal** (halo doré) — +1 slot Sanctum (Phase H) + auto-claim Blood Altar instant
+  - **The Many** (silhouettes fantômes) — +10% tous les ModifierRegistry targets, capé log
+  - **The Primordial** (cosmic bg animé) — débloque Aspects (Phase I gate)
+  - **The Nameless** (glitch artistique) — active dialogues évolutifs thralls uniques
+  - **The Silent** (portrait vide, cadre seul) — débloque Generations (Phase J gate)
+- G1 ship les 2 premiers : The Eternal + The Many
+
+### G2 — 3 Awakenings restants + narrative cohésion
+
+**Scope**
+- Ship The Primordial + The Nameless + The Silent
+- Écrire les 5 events narratifs de déblocage (type vision mystique, ton dark academia premium)
+- UI : écran dédié "Transcendence" accessible depuis Tome, affiche les 5 awakenings en grille avec coûts + unlocks cascade
+
+**Definition of done (Phase G)**
+- 5 awakenings fonctionnels, chacun avec VFX distinct visible sur le portrait
+- Les effets mécaniques gate du content (pas juste +%)
+- `vm.gameState.unlockAwakening('the-eternal')` en console fonctionne pour test
+
+---
+
+## Phase H — Post-launch #3 : Unique Thralls (The Sanctum)
+
+**Timing** : 5-6 mois post-launch
+
+**Why** : les 8 thralls classiques sont la workforce. Les thralls uniques sont le **roster nommé** avec identité propre, backstory, trait synergique. Cartes verticales 2:3 TikTok-ready. Collection mindset = +3-7 points D30 retention. Cosmetic skin IAP perfect fit (Playbook 5 Monet-shark).
+
+### H1 — Sanctum infrastructure + 1er thrall (Seraphiel)
+
+**Scope**
+- `src/game/config/unique-thralls.ts` avec le registry initial (1 thrall au launch : Seraphiel la Pleureuse)
+- State : `uniqueThralls: { owned: Map<id, { acquiredAt, affinity, activeSlot | null }>, encountered: Set<id>, maxActiveSlots: 3 }`
+- Acquisition : déclenchée par boss battu dans région Nameless Crypts (F2) via event narratif type `offer_unique_thrall`
+- Trait appliqué via `ModifierRegistry` (B0a) — source `'unique-thrall:seraphiel'` → `register('thrallRate:fledgling', 'mult', 1.15)`
+- Assets : `/assets/unique-thralls/seraphiel/card.png` (800×1200 cartes 2:3)
+
+### H2 — Sanctum UI (roster + collection grid)
+
+**Scope**
+- 7e tab bar SANCTUM (ou mini-carte compagnon actif sur Bloodline — à tester)
+- Section Active Roster : 3 slots cartes 2:3 visibles côte-à-côte
+- Section Collection : grille 2 colonnes de cartes miniatures (acquis = couleur, encountered = silhouette grisée, unknown = "???" carte noire)
+- Écran détail thrall : carte full-screen + backstory scrollable + trait actif + citation
+
+### H3 — 4 thralls supplémentaires + synergies MVP
+
+**Scope**
+- Mordecai aux Mille Nuits, Lysandre la Brisée, Gaspard de Vermeil, Cendre (total 5 thralls ship)
+- 1 synergie test : Seraphiel + Mordecai → bonus +10% additionnel
+- Skins cosmétiques pour Seraphiel à 4,99 € ("Seraphiel in Mourning Silk")
+
+**Definition of done (Phase H)**
+- 5 thralls uniques acquis via events/boss
+- Sanctum UI navigable, roster de 3 slots actifs
+- 1 synergie testable
+- 1 skin IAP live
+
+---
+
+## Phase I — Post-launch #4 : Aspects of The Thirst
+
+**Timing** : 8-10 mois post-launch
+
+**Why** : second-layer prestige. Une fois Thirst atteint ET The Primordial awakening débloqué (G2 gate), le joueur peut re-prestige dans un **Aspect** — variante colorimétrique + build spécialisée. Rejouabilité infinie type Path of Exile. Whale-worthy ("I've maxxed all Aspects").
+
+### I1 — Aspect infrastructure + 2 premiers Aspects
+
+**Scope**
+- `src/game/config/aspects.ts` — 5 aspects avec palette dominante + build focus
+- CSS variables dynamiques pour palette portrait (utilise les overlays B0b sur `.portrait__image` via `filter: hue-rotate()` + `mix-blend-mode`) — **zéro nouveaux assets**
+- State : `aspect: { current: aspectId | null, completed: Set<aspectId>, infusionBonuses: Record<aspectId, level> }`
+- Re-prestige "via Aspect" : quand le joueur re-ascend en Thirst, prompt "Choose an Aspect" → palette change + modifiers build spécifique appliqués via Registry (B0a) pour le run
+- Pas de currency "Infusion" nouvelle : les bonus permanents cross-aspect s'appliquent via Registry avec source `'aspect-completed:<id>'`
+- I1 ship : Thirst of Blood + Thirst of Gold
+
+### I2 — 3 Aspects restants + True Thirst
+
+**Scope**
+- Thirst of Void, Thirst of Moon, Thirst of Dawn
+- "True Thirst" : unlock après 5 aspects complétés → palette combinée + title exclusif + +1 slot Sanctum
+- UI : écran Aspects accessible depuis Tome avec les 5 variants en grille palette
+
+**Definition of done (Phase I)**
+- 5 aspects jouables via CSS filters (aucun nouveau portrait asset)
+- True Thirst débloqué sur complétion des 5
+- Infusion bonuses cross-aspect stackent via Registry
+
+---
+
+## Phase J — Post-launch #5 : Generations (Crimson Chronicles)
+
+**Timing** : 12+ mois post-launch — le gros drop anniversary
+
+**Why** : third-layer prestige. Le joueur "sire" une nouvelle lignée → redémarre à Newborn dans Gen 2 (La Lignée Pourpre, palette violet profond + argent). Garde 10% du Dread cumulé en Ancestral Blood (nouvelle currency permanente cross-gen). Silhouettes des anciens Thirst affichées en background (via `.portrait__overlay--back` de B0b). Screenshot viral ultime ("Gen 5 avec 4 silhouettes tutélaires derrière son Newborn").
+
+### J1 — Generation infrastructure + Ancestral Blood
+
+**Scope**
+- `save.schemaExtensions.generations` :
+  ```
+  generations: {
+    current: 1,
+    completed: [{ gen: 1, peakDread: X, completedAt: ts, ancestorData: {...} }],
+  }
+  ancestralBlood: number,  // 3e currency, unlockée uniquement via Phase J
+  ```
+- Ancestral Blood = 3e currency au moment où Gen 2 unlock. Remplace Dread comme meta-currency permanente.
+- "Sire" action disponible après The Silent awakening (G2 gate) + 1 Aspect complété (I1 gate).
+- Ancestors system : équiper jusqu'à 3 anciens Thirst → silhouettes background via `portrait.addOverlay('ancestor-N', 'back', silhouetteEl)` (B0b), chacun apporte un bonus passif via ModifierRegistry.
+
+### J2 — Gen 2 assets : La Lignée Pourpre
+
+**Scope**
+- 8 nouveaux portraits (Newborn → Thirst) avec palette noir + violet profond + argent + essence "vampire médiéval guerrier"
+- Génération via ChatGPT (pipeline existant), WebP q90, 1024px max (même budget que Gen 1 → 1.7 MB)
+- Assets organisés : `/assets/portraits/gen-2/newborn.webp` etc. Migration de `/assets/portraits/*.webp` vers `/assets/portraits/gen-1/*.webp`
+
+### J3 — Dynastic talent tree + cross-gen thralls
+
+**Scope**
+- Arbre de talents permanent inter-générations acheté avec Ancestral Blood
+- "The Veteran of the First Thirst" — thrall unique débloqué UNIQUEMENT si Gen 1 maxxed avant Gen 2 start
+- Narrative : chaque gen = un siècle qui passe dans la lore, lien visible dans le Tome (timeline arbre généalogique)
+
+**Definition of done (Phase J)**
+- Gen 2 jouable (Newborn → Thirst) avec portraits distincts
+- Ancestral Blood currency live
+- Ancestors system : jusqu'à 3 silhouettes background
+- 1 cross-gen thrall unique
+
+---
+
+## LiveOps continu (post-launch, toutes phases)
+
+Dès la fin de Phase E, cadence ~1 event tous les 2 mois :
+
+| Mois | Event | Contenu |
+|------|-------|---------|
+| Octobre | **Halloween — The Blood Moon** | Région skin "Halloween Veil" 4,99 € + event pack 9,99 € + thrall unique saisonnier "Jack O'Blood" |
+| Novembre | **Black Friday — Founder's Dread** | 30% off Founder Pact, FOMO sur tous les skins de l'année |
+| Décembre | **Christmas — Winter's Eternal Grasp** | Thrall "Krampus Noir" + cosmetic pack "Frozen Bloodline" |
+| Février | **Valentine — La Duchesse Écarlate** | Thrall saisonnier + événement romance gothique |
+| Juillet | **Summer — The Sun's Curse** | Event reverse-flavor : dawn phobia, offline penalty 50% mais embrace-dawn reward triplé |
+| Anniversary | **Anniversary — The First Sired** | Thrall anniversaire unique cross-gen + retrospective lore |
+
+Chaque event réutilise l'infra de la phase en cours : event narratif F, slot Sanctum H, Aspect variant I, etc. Le framework LiveOps scaffold posé en D3 supporte tout ça.
+
+---
+
 ## Post-launch (hors roadmap)
 
 Ordre décroissant d'impact selon les skills :
@@ -433,9 +698,14 @@ Ordre décroissant d'impact selon les skills :
 
 ## Ordre de priorité exécutif
 
-Si tout saute sauf 3 tickets dispo, faire **A1 + B1 + D1**.
-Si tout saute sauf 7 tickets, ajouter **A2, B2, D2, E4**.
-Le reste = nice-to-have polish.
+**Ship-to-production minimum** : A1 + A2 + B0a + B0b + B1 + B2 + D1 + D2 + E4. Soit ~9 tickets avant AAB live.
+
+**Si tout saute sauf 3 tickets dispo** : **A1 + B0a + D1**.
+**Si tout saute sauf 7 tickets** : ajouter **A2, B0b, B1, D2, E4**.
+
+Les phases C (Tome/Servants depth) et F-J (post-launch) peuvent glisser dans le temps sans bloquer le release — sauf si D3 (LiveOps scaffold) dérape, auquel cas F devient douloureux.
+
+**Règle d'or post-launch** : jamais 2 content tracks en parallèle. Phase F stabilisée → Phase G. Phase G stabilisée → Phase H. Cadence monogame = content soutenable sur 18 mois.
 
 ---
 
