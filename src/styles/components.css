@@ -55,11 +55,16 @@
 }
 
 /* Bloodline keeps the original grid layout — the portrait cartouche
-   wants its fixed 6-row geometry. */
+   wants its fixed 6-row geometry. The thrall list row is `1fr` (no
+   minimum) so on short viewports it shrinks down to its own internal
+   scroll, and on tall viewports it soaks the slack. Padding-bottom
+   leaves a finger-width gap above the tab bar. */
 .tab-view--bloodline.app-shell {
-  padding: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(220px, 1fr) auto;
+  /* Thrall list always keeps a 2-card window (minmax 100px) even on
+     short devices; 1fr lets it soak slack on tall viewports. */
+  grid-template-rows: auto auto auto auto minmax(100px, 1fr) auto;
   gap: 0;
   overflow: hidden;
   animation: tab-fade-in 180ms ease-out;
@@ -842,11 +847,14 @@
   position: relative;
   /* Frame natural aspect = 866/961 ≈ 0.901. Interior picture area is naturally
      square ONLY when the body keeps this aspect. Forcing 1:1 squashes the
-     interior horizontally by ~11%. */
-  --portrait-h: min(300px, 32vh);
+     interior horizontally by ~11%.
+     Height adapts to viewport: floor 160px (never too tiny even on short
+     phones), preferred 28vh (leaves breathing room for header+blood+list),
+     ceiling 260px (stops it from dominating on tall devices). */
+  --portrait-h: clamp(150px, 26vh, 240px);
   height: var(--portrait-h);
   width: calc(var(--portrait-h) * 866 / 961);
-  max-width: 80vw;
+  max-width: 78vw;
   flex: 0 0 auto;
   cursor: pointer;
   transition: transform 80ms var(--ease-out-pop);
