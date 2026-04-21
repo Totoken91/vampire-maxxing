@@ -15,7 +15,7 @@ import {
 import { getCurrentForm } from './forms';
 import { hasUnlock } from './config/prestige-unlocks';
 import { modifierRegistry } from './modifiers';
-import { defaultV1, loadSave, writeSave, type SaveV1 } from './save';
+import { defaultV1, loadSave, writeSave, type SaveV2 } from './save';
 
 interface ThrallOwnership {
   owned: number;
@@ -56,6 +56,8 @@ export interface GameSnapshot {
   /** Achievement ids that have been unlocked but not yet acknowledged by the
    * user opening the Tome. Drives the Tome tab's notification dot. */
   unseenAchievements: Set<string>;
+  /** Level of each permanent upgrade. Keyed by UpgradeId, defaults to 0. */
+  upgrades: Record<string, number>;
 }
 
 function emptyThralls(): Record<ThrallId, ThrallOwnership> {
@@ -86,6 +88,7 @@ function emptySnapshot(): GameSnapshot {
     pendingCurseMult: 1,
     ritesLastUsed: {},
     unseenAchievements: new Set<string>(),
+    upgrades: {},
   };
 }
 
@@ -394,9 +397,24 @@ export class GameState {
     this.snapshot.unseenAchievements.clear();
   }
 
+  // ─────────── Upgrades ───────────
+
+  getUpgradeLevel(id: string): number {
+    return this.snapshot.upgrades[id] ?? 0;
+  }
+
+  setUpgradeLevel(id: string, level: number): void {
+    this.snapshot.upgrades[id] = level;
+  }
+
+  /** Internal: subtract N dread. Upgrade purchase only. */
+  spendDread(amount: number): void {
+    this.snapshot.dread = Math.max(0, this.snapshot.dread - amount);
+  }
+
   // ─────────── Persistence helpers ───────────
 
-  private toSave(): SaveV1 {
+  private toSave(): SaveV2 {
     const base = defaultV1();
     return {
       ...base,
@@ -412,10 +430,11 @@ export class GameState {
       pendingCurseMult: this.snapshot.pendingCurseMult,
       ritesLastUsed: { ...this.snapshot.ritesLastUsed },
       unseenAchievements: Array.from(this.snapshot.unseenAchievements),
+      upgrades: { ...this.snapshot.upgrades },
     };
   }
 
-  private applySave(save: SaveV1): void {
+  private applySave(save: SaveV2): void {
     this.snapshot.blood = save.blood;
     this.snapshot.totalRunBlood = save.totalRunBlood;
     this.snapshot.totalLifetimeBlood = save.totalLifetimeBlood;
@@ -433,6 +452,7 @@ export class GameState {
     this.snapshot.pendingCurseMult = save.pendingCurseMult ?? 1;
     this.snapshot.ritesLastUsed = { ...(save.ritesLastUsed ?? {}) };
     this.snapshot.unseenAchievements = new Set(save.unseenAchievements ?? []);
+    this.snapshot.upgrades = { ...(save.upgrades ?? {}) };
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */

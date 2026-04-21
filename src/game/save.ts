@@ -6,11 +6,13 @@ import { FORMS_BY_ID, type VampireForm } from './config/forms';
 import { THRALLS, type ThrallId } from './config/thralls';
 import { kvGet, kvRemove, kvSet } from '../platform/storage';
 
-export const SAVE_VERSION = 1 as const;
+export const SAVE_VERSION = 2 as const;
 
 export const SAVE_KEY = 'vampire_maxxing_save';
 export const SAVE_KEY_BACKUP = 'vampire_maxxing_save_bak';
 
+/** Kept around for migration reference — v1 saves in the wild are upgraded
+ * in-place to v2 at load time via the migrate() function. */
 export interface SaveV1 {
   v: 1;
   ts: number;
@@ -49,10 +51,17 @@ export interface SaveV1 {
   };
 }
 
-export type AnySave = Partial<SaveV1> & { v?: number };
+/** Current save shape. Extends the v1 fields with permanent upgrade levels. */
+export interface SaveV2 extends Omit<SaveV1, 'v'> {
+  v: 2;
+  /** Level per UpgradeId; missing keys default to 0. */
+  upgrades: Record<string, number>;
+}
+
+export type AnySave = Partial<SaveV2> & { v?: number };
 
 /** Escape hatch for corrupted saves: returns null and the caller starts fresh. */
-export function parseSave(raw: string): SaveV1 | null {
+export function parseSave(raw: string): SaveV2 | null {
   try {
     const data = JSON.parse(raw) as AnySave;
     const migrated = migrate(data);
@@ -63,11 +72,11 @@ export function parseSave(raw: string): SaveV1 | null {
   }
 }
 
-export function serializeSave(save: SaveV1): string {
+export function serializeSave(save: SaveV2): string {
   return JSON.stringify(save);
 }
 
-export async function loadSave(): Promise<SaveV1 | null> {
+export async function loadSave(): Promise<SaveV2 | null> {
   const raw = await kvGet(SAVE_KEY);
   if (raw) {
     const parsed = parseSave(raw);
@@ -82,7 +91,7 @@ export async function loadSave(): Promise<SaveV1 | null> {
   return null;
 }
 
-export async function writeSave(save: SaveV1): Promise<void> {
+export async function writeSave(save: SaveV2): Promise<void> {
   const existing = await kvGet(SAVE_KEY);
   if (existing) await kvSet(SAVE_KEY_BACKUP, existing);
   await kvSet(SAVE_KEY, serializeSave(save));
@@ -95,14 +104,18 @@ export async function wipeSave(): Promise<void> {
 
 // ─────────── Migration ───────────
 
-function migrate(data: AnySave): SaveV1 {
+function migrate(data: AnySave): SaveV2 {
   const v = data.v ?? 0;
+  let migrated: AnySave = data;
+
   // v0 → v1: wrap an unversioned save into the v1 shape, filling defaults
-  // for missing fields and deep-merging nested objects.
+  // for missing fields and deep-merging nested objects. We skip straight to
+  // v2 defaults (v1 and v2 share everything except the new `upgrades` key)
+  // so the subsequent v1 → v2 step is effectively a no-op for this path.
   if (v < 1) {
-    const base = defaultV1();
-    const d = data as Partial<SaveV1>;
-    return {
+    const base = defaultV2();
+    const d = data as Partial<SaveV2>;
+    migrated = {
       ...base,
       ...d,
       v: 1,
@@ -110,19 +123,36 @@ function migrate(data: AnySave): SaveV1 {
       stats: { ...base.stats, ...(d.stats ?? {}) },
       boost: { ...base.boost, ...(d.boost ?? {}) },
       settings: { ...base.settings, ...(d.settings ?? {}) },
-    };
+    } as unknown as AnySave;
   }
-  if (v === 1) return data as SaveV1;
-  throw new Error(`Unknown save version: ${v}`);
+
+  // v1 → v2: add `upgrades: {}` (all levels start at 0). No other changes.
+  if ((migrated.v ?? 0) <= 1) {
+    migrated = {
+      ...defaultV2(),
+      ...migrated,
+      v: 2,
+      upgrades: {},
+    } as unknown as AnySave;
+  }
+
+  if (migrated.v === 2) return migrated as SaveV2;
+  throw new Error(`Unknown save version: ${migrated.v}`);
 }
 
-export function defaultV1(): SaveV1 {
+/** Back-compat alias — old callers still use defaultV1(), which now
+ * returns the current (v2) default shape. */
+export function defaultV1(): SaveV2 {
+  return defaultV2();
+}
+
+export function defaultV2(): SaveV2 {
   const thralls = {} as Record<ThrallId, { owned: number; totalPurchased: number }>;
   for (const t of THRALLS) {
     thralls[t.id] = { owned: 0, totalPurchased: 0 };
   }
   return {
-    v: 1,
+    v: 2,
     ts: Date.now(),
     blood: 0,
     totalRunBlood: 0,
@@ -146,6 +176,7 @@ export function defaultV1(): SaveV1 {
     pendingCurseMult: 1,
     ritesLastUsed: {},
     unseenAchievements: [],
+    upgrades: {},
     settings: {
       soundEnabled: false,
       hapticsEnabled: true,
@@ -157,7 +188,7 @@ export function defaultV1(): SaveV1 {
 
 // ─────────── Validation ───────────
 
-function validate(save: SaveV1): boolean {
+function validate(save: SaveV2): boolean {
   if (save.v !== SAVE_VERSION) return false;
   if (!Number.isFinite(save.blood) || save.blood < 0) return false;
   if (!Number.isFinite(save.dread) || save.dread < 0) return false;

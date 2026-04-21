@@ -13,6 +13,8 @@ export interface GameEvents {
   'tapped': { x: number; y: number; crit: boolean; gain: number };
   'achievement-unlocked': { id: string };
   'tab-unlocked': { tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop' };
+  'upgrade-bought': { id: string; level: number };
+  'altar-claimed': { amount: number };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

@@ -4,11 +4,11 @@ import {
   defaultV1,
   parseSave,
   serializeSave,
-  type SaveV1,
+  type SaveV2,
 } from '../src/game/save';
 
-describe('save v1 round-trip', () => {
-  let base: SaveV1;
+describe('save round-trip', () => {
+  let base: SaveV2;
 
   beforeEach(() => {
     base = defaultV1();
@@ -52,7 +52,7 @@ describe('save v1 round-trip', () => {
 });
 
 describe('save migration', () => {
-  it('wraps a v0 (unversioned) save into v1', () => {
+  it('wraps a v0 (unversioned) save into the current version', () => {
     const legacy = {
       blood: 42,
       dread: 1,
@@ -65,5 +65,22 @@ describe('save migration', () => {
     expect(migrated!.thralls.rat.owned).toBe(3);
     // Other thrall ids filled with defaults
     expect(migrated!.thralls.ghoul.owned).toBe(0);
+    // v2 adds upgrades — must default to empty map for legacy saves.
+    expect(migrated!.upgrades).toEqual({});
+  });
+
+  it('upgrades a v1 save in-place to v2 with empty upgrades map', () => {
+    // Minimal hand-crafted v1 payload (no `upgrades` key, v:1).
+    const v1Payload = {
+      ...defaultV1(),
+      v: 1,
+    };
+    // Strip the field so we simulate a real v1 save on disk.
+    delete (v1Payload as { upgrades?: unknown }).upgrades;
+
+    const migrated = parseSave(JSON.stringify(v1Payload));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.v).toBe(2);
+    expect(migrated!.upgrades).toEqual({});
   });
 });
