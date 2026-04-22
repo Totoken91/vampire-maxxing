@@ -25,15 +25,30 @@ const TINT_PULSE_MS = 280;
 const BODY_PULSE_CLASS = 'portrait__body--tick-pulse';
 const BODY_PULSE_MS = 120;
 const PARTICLE_LIFETIME_MS = 600;
+const COULURE_LIFETIME_MS = 2000;
+const STREAK_LIFETIME_MS = 600;
 const MAX_LIVE_PARTICLES = 8;
+const MAX_LIVE_COULURES = 3;
+const MAX_LIVE_STREAKS = 1;
 const MAX_INTENSITY = 3;
+
+// C3 spawns a coulure on every Nth tick.
+const COULURE_TICK_INTERVAL = 10;
+// C5 spawns a horizontal streak on every Nth tick.
+const STREAK_TICK_INTERVAL = 20;
+// C5 picks from this palette for each tick's flash colour.
+const C5_FLASH_PALETTE = ['#a81818', '#4a1850', '#5a4518'];
 
 let installed = false;
 let bodyRef: HTMLElement | null = null;
 let tintRef: HTMLElement | null = null;
 let lastBloodFloor = 0;
 let offTick: (() => void) | null = null;
+let offRateChanged: (() => void) | null = null;
 let liveParticles = 0;
+let liveCoulures = 0;
+let liveStreaks = 0;
+let tickCount = 0;
 
 export function installBloodTick(portraitBody: HTMLElement): () => void {
   if (installed) return noop;
@@ -41,14 +56,19 @@ export function installBloodTick(portraitBody: HTMLElement): () => void {
   bodyRef = portraitBody;
   tintRef = portraitBody.querySelector<HTMLElement>('.portrait__frame-tint');
   lastBloodFloor = Math.floor(gameState.get().blood);
+  tickCount = 0;
   offTick = events.on('tick', onTick);
+  offRateChanged = events.on('rate-changed', updateChromaticOffset);
+  updateChromaticOffset();
   return uninstall;
 }
 
 function uninstall(): void {
   if (!installed) return;
   offTick?.();
+  offRateChanged?.();
   offTick = null;
+  offRateChanged = null;
   bodyRef = null;
   tintRef = null;
   installed = false;
@@ -56,6 +76,28 @@ function uninstall(): void {
 
 function noop(): void {
   /* no teardown when install was a no-op */
+}
+
+/**
+ * C4 chromatic aberration — reads totalRate and writes the CSS custom
+ * property --chromatic-offset on the body. CSS consumes it only when
+ * [data-century='4'] is active, so this runs unconditionally but only
+ * has visual impact in that century.
+ *
+ * Mapping (Kenny-spec):
+ *   rate ≤ 10/sec  → 1px
+ *   rate ≥ 100/sec → 3px
+ * Linear interpolation between those two, clamped to [0, 3].
+ */
+function updateChromaticOffset(): void {
+  if (!bodyRef) return;
+  const rate = gameState.getTotalRate();
+  let offset: number;
+  if (rate <= 0) offset = 0;
+  else if (rate <= 10) offset = rate / 10;
+  else if (rate >= 100) offset = 3;
+  else offset = 1 + ((rate - 10) / 90) * 2;
+  bodyRef.style.setProperty('--chromatic-offset', offset.toFixed(2));
 }
 
 function onTick(): void {
@@ -74,15 +116,39 @@ function onTick(): void {
 
   const delta = nowFloor - lastBloodFloor;
   lastBloodFloor = nowFloor;
+  tickCount += 1;
 
   // 1 integer increment per frame = baseline intensity. More than that
   // means the game loop caught multiple increments this frame — amplify
   // the single pulse rather than queuing more (keeps us at ~60 Hz cap).
   const intensity = Math.min(MAX_INTENSITY, delta);
 
+  // C5 randomises the flash colour per pulse — overrides the CSS default.
+  if (century === 5) {
+    const pick =
+      C5_FLASH_PALETTE[Math.floor(Math.random() * C5_FLASH_PALETTE.length)];
+    tintRef.style.setProperty('--tick-color', pick);
+  }
+
   fireTintFlash(intensity);
   fireBodyScale(intensity);
   if (liveParticles < MAX_LIVE_PARTICLES) spawnParticle();
+
+  // Periodic per-century extras.
+  if (
+    century === 3 &&
+    tickCount % COULURE_TICK_INTERVAL === 0 &&
+    liveCoulures < MAX_LIVE_COULURES
+  ) {
+    spawnCoulure();
+  }
+  if (
+    century === 5 &&
+    tickCount % STREAK_TICK_INTERVAL === 0 &&
+    liveStreaks < MAX_LIVE_STREAKS
+  ) {
+    spawnStreak();
+  }
 }
 
 function fireTintFlash(intensity: number): void {
@@ -146,4 +212,42 @@ function spawnParticle(): void {
     p.remove();
     liveParticles -= 1;
   }, PARTICLE_LIFETIME_MS + 50);
+}
+
+/**
+ * C3 coulure — a thin vertical gradient that descends behind the
+ * frame over 2s. Random horizontal position, one at a time ideally
+ * but up to 3 stacked live.
+ */
+function spawnCoulure(): void {
+  if (!bodyRef) return;
+  const c = document.createElement('span');
+  c.className = 'portrait__tick-coulure';
+  c.setAttribute('aria-hidden', 'true');
+  c.style.left = `${10 + Math.random() * 80}%`;
+  bodyRef.appendChild(c);
+  liveCoulures += 1;
+  window.setTimeout(() => {
+    c.remove();
+    liveCoulures -= 1;
+  }, COULURE_LIFETIME_MS + 50);
+}
+
+/**
+ * C5 streak — a crimson blade sweeping horizontally behind the frame
+ * over 400ms. Random vertical position in the mid 60% of the body so
+ * it doesn't hug an edge.
+ */
+function spawnStreak(): void {
+  if (!bodyRef) return;
+  const s = document.createElement('span');
+  s.className = 'portrait__tick-streak';
+  s.setAttribute('aria-hidden', 'true');
+  s.style.top = `${20 + Math.random() * 60}%`;
+  bodyRef.appendChild(s);
+  liveStreaks += 1;
+  window.setTimeout(() => {
+    s.remove();
+    liveStreaks -= 1;
+  }, STREAK_LIFETIME_MS + 50);
 }
