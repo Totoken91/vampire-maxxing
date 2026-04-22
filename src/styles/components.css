@@ -1361,17 +1361,18 @@ img.shop-card__price-icon {
     rgba(74, 8, 26, 0) 100%
   );
 }
-/* C4 chromatic aberration — two drop-shadows with opposite X offsets,
-   one red-cyan pair. Intensity comes from --chromatic-offset, which
-   the blood-tick module updates from the current totalRate (1px at
-   10/sec, 3px at 100+/sec). Other centuries don't select this rule so
-   the filter is simply absent. */
+/* C4 chromatic aberration — reduced to a subtle red/cyan fringe.
+   --chromatic-offset is computed in JS from the total rate, capped
+   around 1.5px max (down from 3px originally), and the drop-shadow
+   alphas are dimmed so the effect reads as "the frame is slightly
+   off-register" rather than "the frame is broken". Only selects
+   under [data-century='4']. */
 .portrait__body[data-century='4'] .portrait__frame {
   filter: drop-shadow(
-      calc(var(--chromatic-offset, 0) * 1px) 0 0 rgba(255, 30, 30, 0.45)
+      calc(var(--chromatic-offset, 0) * 0.5px) 0 0 rgba(255, 30, 30, 0.28)
     )
     drop-shadow(
-      calc(var(--chromatic-offset, 0) * -1px) 0 0 rgba(50, 150, 255, 0.35)
+      calc(var(--chromatic-offset, 0) * -0.5px) 0 0 rgba(50, 150, 255, 0.22)
     );
 }
 
@@ -1427,93 +1428,112 @@ img.shop-card__price-icon {
   animation: frame-tint-pulse 280ms ease-out;
 }
 
-/* ── Century III coulure — every 10th tick, one crimson droplet falls
-   behind the frame. Positioned BEHIND the image (z:0) so the rule
-   "portrait never touched" is respected — coulures are only visible
-   in the transparent ajours of the frame and in the outer band. */
-.portrait__tick-coulure {
-  position: absolute;
-  top: -30%;
-  width: 4px;
-  height: 50%;
-  pointer-events: none;
-  z-index: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(58, 8, 18, 0.75) 0%,
-    rgba(58, 8, 18, 0.4) 55%,
-    rgba(58, 8, 18, 0) 100%
-  );
-  opacity: 0;
-  animation: tick-coulure-fall 2000ms linear forwards;
+/* Frame-only 3D tilt — applied on C3+ per tick. Stays off the body so
+   .portrait__body:active { transform: scale(0.96) } for the click
+   feedback keeps working. Intensity scales with --tilt-intensity
+   (per-century, set below) multiplied by --tick-intensity (per pulse). */
+.portrait__frame--tilt-pulse {
+  animation: frame-tilt-pulse 180ms ease-out;
 }
 
-@keyframes tick-coulure-fall {
-  0% {
-    transform: translateY(0);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(260%);
-    opacity: 0;
-  }
-}
-
-/* ── Century V streak — every 20th tick, a crimson blade sweeps across
-   behind the frame over 400ms with brief fade-in/out. */
-.portrait__tick-streak {
-  position: absolute;
-  left: -40%;
-  width: 50%;
-  height: 2px;
-  pointer-events: none;
-  z-index: 0;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(201, 24, 24, 0.85) 50%,
-    transparent 100%
-  );
-  filter: blur(0.5px);
-  opacity: 0;
-  animation: tick-streak-across 600ms ease-out forwards;
-}
-
-@keyframes tick-streak-across {
-  0% {
-    transform: translateX(0);
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  80% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(300%);
-    opacity: 0;
-  }
-}
-
-@keyframes body-tick-pulse {
+@keyframes frame-tilt-pulse {
   0%,
   100% {
-    transform: scale(1);
+    transform: perspective(700px) rotateY(0deg) rotateX(0deg);
   }
   50% {
-    transform: scale(calc(1 + 0.008 * var(--tick-intensity, 1)));
+    transform: perspective(700px)
+      rotateY(
+        calc(0.6deg * var(--tick-intensity, 1) * var(--tilt-intensity, 0))
+      )
+      rotateX(
+        calc(-0.3deg * var(--tick-intensity, 1) * var(--tilt-intensity, 0))
+      );
   }
 }
 
-.portrait__body--tick-pulse {
-  animation: body-tick-pulse 120ms ease-out;
+/* Per-century tilt amplitude — Century II stays flat (0), C3+ scale up. */
+.portrait__body {
+  --tilt-intensity: 0;
+}
+.portrait__body[data-century='3'] {
+  --tilt-intensity: 1;
+}
+.portrait__body[data-century='4'] {
+  --tilt-intensity: 1.6;
+}
+.portrait__body[data-century='5'] {
+  --tilt-intensity: 2.4;
+}
+
+/* Reflective highlight sweep — C3+ only. A diagonal bright band slides
+   across the frame ornaments via background-position. Masked by the
+   frame PNG so only the gilded pixels shimmer. 420ms sweep, triggered
+   by JS on tick (throttled). Uses the same mask stack as frame-tint. */
+.portrait__frame-reflect {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  -webkit-mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background: linear-gradient(
+    110deg,
+    transparent 40%,
+    rgba(255, 245, 220, 0.45) 47%,
+    rgba(255, 255, 245, 0.85) 50%,
+    rgba(255, 245, 220, 0.45) 53%,
+    transparent 60%
+  );
+  background-size: 300% 100%;
+  background-position: 130% 0;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+.portrait__frame-reflect--sweep {
+  animation: frame-reflect-sweep 420ms ease-out;
+}
+
+@keyframes frame-reflect-sweep {
+  0% {
+    background-position: 130% 0;
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.95;
+  }
+  75% {
+    opacity: 0.95;
+  }
+  100% {
+    background-position: -130% 0;
+    opacity: 0;
+  }
+}
+
+/* C5 spectral halo — box-shadow outer glow that flashes on tick.
+   box-shadow doesn't touch transform so it never conflicts with the
+   body's click-feedback scale. Only applies under [data-century='5']. */
+.portrait__body[data-century='5'].portrait__body--halo-pulse {
+  animation: body-c5-halo 320ms ease-out;
+}
+
+@keyframes body-c5-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(201, 24, 24, 0);
+  }
+  40% {
+    box-shadow: 0 0 calc(26px * var(--tick-intensity, 1))
+      rgba(201, 24, 24, 0.55);
+  }
 }
 
 .portrait__tick-particle {
@@ -1637,15 +1657,13 @@ img.shop-card__price-icon {
   .is-century-shake,
   .portrait__body--century-pulse,
   .portrait__frame-tint--pulse,
-  .portrait__body--tick-pulse,
-  .portrait__tick-particle,
-  .portrait__tick-coulure,
-  .portrait__tick-streak {
+  .portrait__frame--tilt-pulse,
+  .portrait__frame-reflect--sweep,
+  .portrait__body--halo-pulse,
+  .portrait__tick-particle {
     animation: none !important;
   }
-  .portrait__tick-particle,
-  .portrait__tick-coulure,
-  .portrait__tick-streak {
+  .portrait__tick-particle {
     opacity: 0 !important;
   }
 }

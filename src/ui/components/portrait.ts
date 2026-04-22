@@ -107,14 +107,21 @@ export class Portrait extends Component<HTMLElement> {
     frame.src = FRAME_SRC;
     frame.decoding = 'async';
 
-    // K1 — Century corruption layers. Both are always in the DOM, both
-    // default to opacity 0, both react to [data-century="N"] on the body.
-    // backAura paints BEHIND everything, frameTint paints ON TOP of the
-    // frame using it as a mask so only the gilded ornaments get tinted.
+    // K1 — Century corruption layers. All three are always in the DOM,
+    // default to opacity 0, react to [data-century="N"] on the body.
+    //   backAura    : paints BEHIND everything (z:0)
+    //   frameTint   : paints ON TOP of the frame (z:3) via PNG mask,
+    //                 tint + tick flash
+    //   frameReflect: paints ON TOP of the frame-tint (z:3, appended
+    //                 after) via the same PNG mask, sweeps a highlight
+    //                 gradient across the ornaments — the "reflective
+    //                 flash" specced for C3+
     const backAura = el('div', 'portrait__back-aura');
     backAura.setAttribute('aria-hidden', 'true');
     const frameTint = el('div', 'portrait__frame-tint');
     frameTint.setAttribute('aria-hidden', 'true');
+    const frameReflect = el('div', 'portrait__frame-reflect');
+    frameReflect.setAttribute('aria-hidden', 'true');
 
     const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
@@ -126,6 +133,7 @@ export class Portrait extends Component<HTMLElement> {
     body.appendChild(overlayFront);
     body.appendChild(frame);
     body.appendChild(frameTint);
+    body.appendChild(frameReflect);
     body.appendChild(title);
 
     root.appendChild(label);

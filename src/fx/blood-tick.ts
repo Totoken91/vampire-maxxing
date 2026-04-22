@@ -1,20 +1,26 @@
-// K1 Blood-tick VFX — event-driven pulse fired once per integer blood
-// increment from passive production. Frequency scales naturally with
-// the game loop:
+// K1 Blood-tick VFX — event-driven pulses fired on integer blood
+// increments from passive production. No continuous animation on the
+// frame / body; every effect is triggered by a gameplay event so the
+// frame never reads as a "tap me" CTA.
 //
-//   1 blood/sec  → ~1 pulse/sec    (ambient heartbeat)
-//   10 blood/sec → ~10 pulses/sec  (noticeably alive)
-//   60 blood/sec → ~60 pulses/sec  (frame feels busy)
-//   600 blood/sec → 60 pulses/sec capped, each pulse intensifies 10×
-//                  so the frame reads as "boiling" without exceeding
-//                  the ~60 Hz visual budget of the browser.
+// Frequency scales naturally with the game loop: 1 blood/sec → ~1 pulse/
+// sec, 60 blood/sec → ~60 pulses/sec (60 Hz RAF cap). Above that each
+// pulse absorbs extra deltas as intensity — the frame feels like it's
+// boiling without exceeding the display refresh rate.
 //
-// The module tracks floor(blood) between physics ticks and fires on
-// positive deltas only — buys/ascend emit 'blood-changed' with negative
-// deltas but never alter floor(blood) upward, so they're naturally
-// filtered out.
+// Layered effects per century (each layer composes on the previous):
+//   C1 — silent (the player hasn't awakened)
+//   C2 — tint flash + crimson particle (warm red-orange)
+//   C3 — + reflective sweep across the frame ornaments, light 3D tilt
+//   C4 — + chromatic aberration on the frame proportional to rate,
+//         stronger 3D tilt, reflects more frequent
+//   C5 — + spectral halo box-shadow pulse, particles alternate
+//         crimson/violet/gold, strongest 3D tilt, reflects almost
+//         every pulse
 //
-// No-op on Century I (the player hasn't "awakened" yet).
+// Heavy effects (reflect, tilt, halo) are time-throttled — their own
+// animations must finish before re-triggering, or at very high rate
+// they'd fuse into a constant glow and lose impact.
 
 import { events } from '../game/events';
 import { gameState } from '../game/state';
@@ -22,41 +28,54 @@ import { getCenturyInForm } from '../game/forms';
 
 const TINT_PULSE_CLASS = 'portrait__frame-tint--pulse';
 const TINT_PULSE_MS = 280;
-const BODY_PULSE_CLASS = 'portrait__body--tick-pulse';
-const BODY_PULSE_MS = 120;
+const FRAME_TILT_CLASS = 'portrait__frame--tilt-pulse';
+const FRAME_TILT_MS = 180;
+const FRAME_REFLECT_CLASS = 'portrait__frame-reflect--sweep';
+const FRAME_REFLECT_MS = 420;
+const HALO_CLASS = 'portrait__body--halo-pulse';
+const HALO_MS = 320;
 const PARTICLE_LIFETIME_MS = 600;
-const COULURE_LIFETIME_MS = 2000;
-const STREAK_LIFETIME_MS = 600;
-const MAX_LIVE_PARTICLES = 8;
-const MAX_LIVE_COULURES = 3;
-const MAX_LIVE_STREAKS = 1;
+const MAX_LIVE_PARTICLES = 10;
 const MAX_INTENSITY = 3;
 
-// C3 spawns a coulure on every Nth tick.
-const COULURE_TICK_INTERVAL = 10;
-// C5 spawns a horizontal streak on every Nth tick.
-const STREAK_TICK_INTERVAL = 20;
-// C5 picks from this palette for each tick's flash colour.
-const C5_FLASH_PALETTE = ['#a81818', '#4a1850', '#5a4518'];
+// Minimum ms gap between successive triggers of each heavy effect. The
+// animations themselves last X ms; firing more often than that makes
+// them stack / restart and either degrades perf or kills impact.
+const REFLECT_MIN_GAP_MS = 380;
+const TILT_MIN_GAP_MS = 180;
+const HALO_MIN_GAP_MS = 300;
+
+// C5 particle palette — random pick per pulse gives the "unstable
+// multi-hue power" reading Kenny specced.
+const C5_PARTICLE_PALETTE: readonly { bg: string; glow: string }[] = [
+  { bg: '#c91818', glow: 'rgba(201, 24, 24, 0.85)' },
+  { bg: '#6a2aa0', glow: 'rgba(106, 42, 160, 0.75)' },
+  { bg: '#c9a961', glow: 'rgba(201, 169, 97, 0.75)' },
+];
 
 let installed = false;
 let bodyRef: HTMLElement | null = null;
 let tintRef: HTMLElement | null = null;
+let frameRef: HTMLImageElement | null = null;
+let reflectRef: HTMLElement | null = null;
 let lastBloodFloor = 0;
 let offTick: (() => void) | null = null;
 let offRateChanged: (() => void) | null = null;
 let liveParticles = 0;
-let liveCoulures = 0;
-let liveStreaks = 0;
-let tickCount = 0;
+let lastReflectAt = 0;
+let lastTiltAt = 0;
+let lastHaloAt = 0;
 
 export function installBloodTick(portraitBody: HTMLElement): () => void {
   if (installed) return noop;
   installed = true;
   bodyRef = portraitBody;
   tintRef = portraitBody.querySelector<HTMLElement>('.portrait__frame-tint');
+  frameRef = portraitBody.querySelector<HTMLImageElement>('.portrait__frame');
+  reflectRef = portraitBody.querySelector<HTMLElement>(
+    '.portrait__frame-reflect',
+  );
   lastBloodFloor = Math.floor(gameState.get().blood);
-  tickCount = 0;
   offTick = events.on('tick', onTick);
   offRateChanged = events.on('rate-changed', updateChromaticOffset);
   updateChromaticOffset();
@@ -71,6 +90,8 @@ function uninstall(): void {
   offRateChanged = null;
   bodyRef = null;
   tintRef = null;
+  frameRef = null;
+  reflectRef = null;
   installed = false;
 }
 
@@ -79,24 +100,23 @@ function noop(): void {
 }
 
 /**
- * C4 chromatic aberration — reads totalRate and writes the CSS custom
- * property --chromatic-offset on the body. CSS consumes it only when
- * [data-century='4'] is active, so this runs unconditionally but only
- * has visual impact in that century.
+ * C4 chromatic aberration intensity — writes --chromatic-offset on the
+ * body. CSS only consumes it under [data-century='4'], so this is safe
+ * to run unconditionally.
  *
- * Mapping (Kenny-spec):
- *   rate ≤ 10/sec  → 1px
- *   rate ≥ 100/sec → 3px
- * Linear interpolation between those two, clamped to [0, 3].
+ * Softer mapping (Kenny said the previous one was "beaucoup trop fort"):
+ *   log10(rate) * 0.5, clamped to [0, 1.5]
+ *     rate 0      → 0
+ *     rate 10     → 0.5px
+ *     rate 100    → 1px
+ *     rate 1000+  → 1.5px  (capped)
+ * Combined with the 0.5× multiplier in the CSS rule, the actual visible
+ * offset tops out at ~0.75px per drop-shadow side.
  */
 function updateChromaticOffset(): void {
   if (!bodyRef) return;
   const rate = gameState.getTotalRate();
-  let offset: number;
-  if (rate <= 0) offset = 0;
-  else if (rate <= 10) offset = rate / 10;
-  else if (rate >= 100) offset = 3;
-  else offset = 1 + ((rate - 10) / 90) * 2;
+  const offset = Math.min(1.5, Math.log10(Math.max(1, rate)) * 0.5);
   bodyRef.style.setProperty('--chromatic-offset', offset.toFixed(2));
 }
 
@@ -116,45 +136,38 @@ function onTick(): void {
 
   const delta = nowFloor - lastBloodFloor;
   lastBloodFloor = nowFloor;
-  tickCount += 1;
 
   // 1 integer increment per frame = baseline intensity. More than that
   // means the game loop caught multiple increments this frame — amplify
   // the single pulse rather than queuing more (keeps us at ~60 Hz cap).
   const intensity = Math.min(MAX_INTENSITY, delta);
 
-  // C5 randomises the flash colour per pulse — overrides the CSS default.
+  // C5 randomises the flash colour per pulse — crimson / violet / gold.
   if (century === 5) {
-    const pick =
-      C5_FLASH_PALETTE[Math.floor(Math.random() * C5_FLASH_PALETTE.length)];
-    tintRef.style.setProperty('--tick-color', pick);
+    const r = Math.random();
+    const flash = r < 0.5 ? '#a81818' : r < 0.8 ? '#6a2aa0' : '#c9a961';
+    tintRef.style.setProperty('--tick-color', flash);
   }
 
   fireTintFlash(intensity);
-  fireBodyScale(intensity);
-  if (liveParticles < MAX_LIVE_PARTICLES) spawnParticle();
+  if (liveParticles < MAX_LIVE_PARTICLES) spawnParticle(century);
 
-  // Periodic per-century extras.
-  if (
-    century === 3 &&
-    tickCount % COULURE_TICK_INTERVAL === 0 &&
-    liveCoulures < MAX_LIVE_COULURES
-  ) {
-    spawnCoulure();
+  // C3+ reflective sweep + subtle 3D tilt, throttled by their own
+  // animation duration.
+  if (century >= 3) {
+    maybeFireReflect(intensity);
+    maybeFireTilt(intensity);
   }
-  if (
-    century === 5 &&
-    tickCount % STREAK_TICK_INTERVAL === 0 &&
-    liveStreaks < MAX_LIVE_STREAKS
-  ) {
-    spawnStreak();
+
+  // C5 spectral halo on the body itself.
+  if (century === 5) {
+    maybeFireHalo(intensity);
   }
 }
 
 function fireTintFlash(intensity: number): void {
   if (!tintRef) return;
   tintRef.style.setProperty('--tick-intensity', String(intensity));
-  // Remove + reflow + re-add so the animation restarts even when back-to-back.
   tintRef.classList.remove(TINT_PULSE_CLASS);
   void tintRef.offsetWidth;
   tintRef.classList.add(TINT_PULSE_CLASS);
@@ -164,32 +177,69 @@ function fireTintFlash(intensity: number): void {
   );
 }
 
-function fireBodyScale(intensity: number): void {
-  if (!bodyRef) return;
-  bodyRef.style.setProperty('--tick-intensity', String(intensity));
-  bodyRef.classList.remove(BODY_PULSE_CLASS);
-  void bodyRef.offsetWidth;
-  bodyRef.classList.add(BODY_PULSE_CLASS);
+function maybeFireReflect(intensity: number): void {
+  if (!reflectRef) return;
+  const now = performance.now();
+  if (now - lastReflectAt < REFLECT_MIN_GAP_MS) return;
+  lastReflectAt = now;
+  reflectRef.style.setProperty('--tick-intensity', String(intensity));
+  reflectRef.classList.remove(FRAME_REFLECT_CLASS);
+  void reflectRef.offsetWidth;
+  reflectRef.classList.add(FRAME_REFLECT_CLASS);
   window.setTimeout(
-    () => bodyRef?.classList.remove(BODY_PULSE_CLASS),
-    BODY_PULSE_MS + 20,
+    () => reflectRef?.classList.remove(FRAME_REFLECT_CLASS),
+    FRAME_REFLECT_MS + 20,
   );
 }
 
-function spawnParticle(): void {
+function maybeFireTilt(intensity: number): void {
+  if (!frameRef) return;
+  const now = performance.now();
+  if (now - lastTiltAt < TILT_MIN_GAP_MS) return;
+  lastTiltAt = now;
+  frameRef.style.setProperty('--tick-intensity', String(intensity));
+  frameRef.classList.remove(FRAME_TILT_CLASS);
+  void frameRef.offsetWidth;
+  frameRef.classList.add(FRAME_TILT_CLASS);
+  window.setTimeout(
+    () => frameRef?.classList.remove(FRAME_TILT_CLASS),
+    FRAME_TILT_MS + 20,
+  );
+}
+
+function maybeFireHalo(intensity: number): void {
+  if (!bodyRef) return;
+  const now = performance.now();
+  if (now - lastHaloAt < HALO_MIN_GAP_MS) return;
+  lastHaloAt = now;
+  bodyRef.style.setProperty('--tick-intensity', String(intensity));
+  bodyRef.classList.remove(HALO_CLASS);
+  void bodyRef.offsetWidth;
+  bodyRef.classList.add(HALO_CLASS);
+  window.setTimeout(
+    () => bodyRef?.classList.remove(HALO_CLASS),
+    HALO_MS + 20,
+  );
+}
+
+function spawnParticle(century: number): void {
   if (!bodyRef) return;
   const p = document.createElement('span');
   p.className = 'portrait__tick-particle';
   p.setAttribute('aria-hidden', 'true');
-  // Pick a random edge (top/right/bottom/left), then position the
-  // particle within a ~10% band INSIDE that edge rather than strictly
-  // on it. Two benefits:
-  //   • the 4 edges no longer trace a visible rectangular ring (inset
-  //     varies per spawn so spawns land across a wider area)
-  //   • a 3-13% inset keeps particles fully inside the body, so
-  //     overflow:hidden never clips half of them.
-  // `along` also stays away from the corners so spawns look less
-  // grid-aligned.
+
+  // C5 picks from the crimson/violet/gold palette for each particle.
+  if (century === 5) {
+    const pick =
+      C5_PARTICLE_PALETTE[
+        Math.floor(Math.random() * C5_PARTICLE_PALETTE.length)
+      ];
+    p.style.background = pick.bg;
+    p.style.boxShadow = `0 0 6px ${pick.glow}`;
+  }
+
+  // Inset 3-13% from the chosen edge, 6-94% along — avoids the "4 lines
+  // forming a rectangle" pattern AND the overflow:hidden clipping.
   const edge = Math.floor(Math.random() * 4);
   const along = `${6 + Math.random() * 88}%`;
   const inset = `${3 + Math.random() * 10}%`;
@@ -212,42 +262,4 @@ function spawnParticle(): void {
     p.remove();
     liveParticles -= 1;
   }, PARTICLE_LIFETIME_MS + 50);
-}
-
-/**
- * C3 coulure — a thin vertical gradient that descends behind the
- * frame over 2s. Random horizontal position, one at a time ideally
- * but up to 3 stacked live.
- */
-function spawnCoulure(): void {
-  if (!bodyRef) return;
-  const c = document.createElement('span');
-  c.className = 'portrait__tick-coulure';
-  c.setAttribute('aria-hidden', 'true');
-  c.style.left = `${10 + Math.random() * 80}%`;
-  bodyRef.appendChild(c);
-  liveCoulures += 1;
-  window.setTimeout(() => {
-    c.remove();
-    liveCoulures -= 1;
-  }, COULURE_LIFETIME_MS + 50);
-}
-
-/**
- * C5 streak — a crimson blade sweeping horizontally behind the frame
- * over 400ms. Random vertical position in the mid 60% of the body so
- * it doesn't hug an edge.
- */
-function spawnStreak(): void {
-  if (!bodyRef) return;
-  const s = document.createElement('span');
-  s.className = 'portrait__tick-streak';
-  s.setAttribute('aria-hidden', 'true');
-  s.style.top = `${20 + Math.random() * 60}%`;
-  bodyRef.appendChild(s);
-  liveStreaks += 1;
-  window.setTimeout(() => {
-    s.remove();
-    liveStreaks -= 1;
-  }, STREAK_LIFETIME_MS + 50);
 }
