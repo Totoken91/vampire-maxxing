@@ -1307,45 +1307,19 @@ img.shop-card__price-icon {
   transition: opacity 1000ms ease-in-out 550ms;
 }
 
-/* ── Century II · Éveil ────────────────────────────────────────────── */
+/* ── Per-century static base ───────────────────────────────────────────
+   Each century sets FIXED values on the two VFX layers. No looping
+   animation — those created a false "tap me" affordance. Life comes
+   from event-driven pulses (see below: blood tick) instead. */
 
 .portrait__body[data-century='2'] .portrait__frame-tint {
-  opacity: 0.85;
-  /* Asymmetric cycle: the red phase is brief (peaks at 35% of cycle),
-     the gold holds the rest. Reads as "pulse of red through the gold"
-     rather than "gold ↔ red swing". */
-  animation: frame-tint-c2 3.7s cubic-bezier(0.45, 0.05, 0.55, 0.95)
-    infinite;
+  opacity: 0.5;
+  background-color: #c9a961;
 }
 
 .portrait__body[data-century='2'] .portrait__back-aura {
   opacity: 1;
-  animation: aura-pulse-c2 4.3s cubic-bezier(0.45, 0.05, 0.55, 0.95)
-    infinite alternate;
-}
-
-@keyframes frame-tint-c2 {
-  0% {
-    background-color: #c9a961;
-  }
-  35% {
-    background-color: #c9451a;
-  }
-  70% {
-    background-color: #c9a961;
-  }
-  100% {
-    background-color: #c9a961;
-  }
-}
-
-@keyframes aura-pulse-c2 {
-  from {
-    filter: opacity(0.4);
-  }
-  to {
-    filter: opacity(0.75);
-  }
+  filter: opacity(0.3);
 }
 
 /* ── Century upgrade impact: flash / shake / pulse ─────────────────── */
@@ -1435,16 +1409,6 @@ img.shop-card__price-icon {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .portrait__back-aura,
-  .portrait__frame-tint {
-    animation: none !important;
-  }
-  .portrait__body[data-century='2'] .portrait__frame-tint {
-    background-color: #c9681f;
-  }
-  .portrait__body[data-century='2'] .portrait__back-aura {
-    filter: opacity(0.55);
-  }
   .is-century-shake,
   .portrait__body--century-pulse {
     animation: none !important;
