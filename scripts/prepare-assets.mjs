@@ -47,12 +47,19 @@ const JOBS = [
     invertAlpha: true,
     description: 'Portrait frame mask (alpha inverted: interior opaque, ornaments transparent)',
   },
-  // Century-specific portrait frames — K1 corruption system. Kenny drops
-  // frame-century-{1..5}.png at the project root; pipeline shrinks them
-  // to WebP q90. Any missing century falls back at runtime to the base
-  // baroque frame, so partial asset drops still render cleanly.
-  ...[1, 2, 3, 4, 5].map((n) => ({
-    source: `frame-century-${n}.png`,
+  // Century-specific portrait frames — K1 corruption system. Each
+  // century gets its own painted PNG; pipeline shrinks to WebP q90.
+  // Any missing century falls back at runtime to the baroque base frame,
+  // so partial asset drops still render cleanly. The `source` is the
+  // filename Kenny actually used at the project root — rename-free.
+  ...[
+    { n: 1, source: 'wood-frame.png' },
+    { n: 2, source: 'frame-century-2.png' },
+    { n: 3, source: 'frame-century-3.png' },
+    { n: 4, source: 'frame-century-4.png' },
+    { n: 5, source: 'frame-century-5.png' },
+  ].map(({ n, source }) => ({
+    source,
     dest: `public/assets/ornaments/frame-century-${n}.webp`,
     maxWidth: 960,
     trim: true,
