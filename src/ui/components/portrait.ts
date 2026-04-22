@@ -102,14 +102,25 @@ export class Portrait extends Component<HTMLElement> {
     frame.src = FRAME_SRC;
     frame.decoding = 'async';
 
+    // K1 — Century corruption layers. Both are always in the DOM, both
+    // default to opacity 0, both react to [data-century="N"] on the body.
+    // backAura paints BEHIND everything, frameTint paints ON TOP of the
+    // frame using it as a mask so only the gilded ornaments get tinted.
+    const backAura = el('div', 'portrait__back-aura');
+    backAura.setAttribute('aria-hidden', 'true');
+    const frameTint = el('div', 'portrait__frame-tint');
+    frameTint.setAttribute('aria-hidden', 'true');
+
     const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
 
+    body.appendChild(backAura);
     body.appendChild(overlayBack);
     body.appendChild(image);
     body.appendChild(placeholder);
     body.appendChild(overlayFront);
     body.appendChild(frame);
+    body.appendChild(frameTint);
     body.appendChild(title);
 
     root.appendChild(label);
@@ -156,8 +167,8 @@ export class Portrait extends Component<HTMLElement> {
   private render(): void {
     const prestige = gameState.getPrestigeCount();
     const form = getCurrentFormDefinition(prestige);
-    const century = toRoman(getCenturyInForm(prestige));
-    this.title.textContent = `${form.subtitle} · Century ${century}`;
+    const centuryNum = getCenturyInForm(prestige);
+    this.title.textContent = `${form.subtitle} · Century ${toRoman(centuryNum)}`;
     this.placeholder.textContent = form.subtitle;
 
     this.image.onload = () => {
@@ -167,5 +178,10 @@ export class Portrait extends Component<HTMLElement> {
       this.body.classList.remove('portrait__body--has-image');
     };
     this.image.src = form.portraitPath;
+
+    // data-century drives all corruption VFX via CSS. Century I = idle
+    // (no animation); II+ each add their own layers. Transitions between
+    // centuries fade in over 2.5s via CSS transition on opacity.
+    this.body.setAttribute('data-century', String(centuryNum));
   }
 }

@@ -1235,6 +1235,122 @@ img.shop-card__price-icon {
   transform: scale(0.96);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   CENTURY CORRUPTION — K1 two-layer VFX system
+   ──────────────────────────────────────────────────────────────────────
+   The portrait is NEVER modified — all effects live on two dedicated
+   layers that frame it:
+     • .portrait__back-aura  paints BEHIND everything (z:0), seen
+       through the transparent ajours between frame ornaments.
+     • .portrait__frame-tint paints ON TOP of the frame (z:3, after
+       .portrait__frame in DOM order) and uses the frame PNG as a
+       CSS mask so only the gilded ornaments receive the tint.
+
+   State is driven by [data-century="N"] on .portrait__body. Both layers
+   default to opacity:0 with a 2.5s ease transition, so moving from one
+   century to the next produces a soft cross-fade.
+
+   Non-negotiable rules (keep in mind when adding Century III+):
+     • No linear trajectories — always cubic-bezier or ease-in-out.
+     • Durations are non-divisible primes (7.3s, 6.1s, 9s, 11s, 5s…)
+       so layers never re-sync into a detectable loop.
+     • Palette stays in desaturated crimson / dark gold / purple-black.
+       Absolutely no saturated pure red (#ff0000 and kin).
+     • transform / opacity / filter only. No width/height/top/left
+       animation anywhere.
+   ════════════════════════════════════════════════════════════════════ */
+
+.portrait__back-aura {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Diffuse crimson core — covers ~60% of the frame then fades to
+     transparent. Visible only in the transparent ajours of the frame
+     and in the thin border between frame opening and portrait. */
+  background: radial-gradient(
+    ellipse 60% 60% at center,
+    rgba(42, 4, 8, 1) 0%,
+    rgba(42, 4, 8, 0) 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  /* Fade-in between centuries. Pulse is driven by filter:opacity so it
+     doesn't fight with this transition. */
+  transition: opacity 2500ms ease-in-out;
+  filter: opacity(0.3);
+}
+
+.portrait__frame-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  /* CSS mask = the baroque frame PNG itself. Only the gilded ornament
+     pixels get the tint; the transparent interior and background of
+     the frame stay untouched. */
+  -webkit-mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background-color: #c9a961;
+  /* mix-blend-mode: color keeps the luminance of the frame PNG below
+     and only applies the chrominance of this layer — the engraved
+     ornament detail reads through the tint. */
+  mix-blend-mode: color;
+  opacity: 0;
+  transition: opacity 2500ms ease-in-out;
+}
+
+/* ── Century II · Éveil ────────────────────────────────────────────── */
+
+.portrait__body[data-century='2'] .portrait__frame-tint {
+  opacity: 0.75;
+  animation: frame-tint-c2 7.3s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+    infinite alternate;
+}
+
+.portrait__body[data-century='2'] .portrait__back-aura {
+  opacity: 1;
+  animation: aura-pulse-c2 6.1s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+    infinite alternate;
+}
+
+@keyframes frame-tint-c2 {
+  from {
+    background-color: #c9a961;
+  }
+  to {
+    background-color: #a8612e;
+  }
+}
+
+@keyframes aura-pulse-c2 {
+  from {
+    filter: opacity(0.2);
+  }
+  to {
+    filter: opacity(0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portrait__back-aura,
+  .portrait__frame-tint {
+    animation: none !important;
+  }
+  .portrait__body[data-century='2'] .portrait__frame-tint {
+    background-color: #b88a45;
+  }
+  .portrait__body[data-century='2'] .portrait__back-aura {
+    filter: opacity(0.3);
+  }
+}
+
 /* Image + placeholder live inside the frame's inner rectangle.
    The 4 inset values were measured against portrait-frame-baroque.png (866×961).
    If the frame is regenerated, adjust these here. */
