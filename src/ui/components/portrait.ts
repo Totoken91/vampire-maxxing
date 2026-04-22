@@ -107,22 +107,11 @@ export class Portrait extends Component<HTMLElement> {
     frame.src = FRAME_SRC;
     frame.decoding = 'async';
 
-    // K1 — Century corruption layers. All present in DOM, react to
-    // [data-century="N"] on the body.
-    //   backAura     : paints BEHIND everything (z:0), diffuse crimson
-    //                  halo that changes colour per century.
-    //   rays         : sunburst — red rays emanating outward from the
-    //                  portrait centre, triggered on every tick from
-    //                  C2+. Masked to exclude the central face zone so
-    //                  the portrait stays untouched.
-    //   frameReflect : paints ON TOP of the frame (z:3) via PNG mask,
-    //                  sweeps a highlight gradient on tick (C3+).
+    // K1 — backAura is the only corruption layer left (static per
+    // century, diffuse crimson halo behind everything). All tick-based
+    // effects are now carried by particles in blood-tick.ts alone.
     const backAura = el('div', 'portrait__back-aura');
     backAura.setAttribute('aria-hidden', 'true');
-    const rays = el('div', 'portrait__rays');
-    rays.setAttribute('aria-hidden', 'true');
-    const frameReflect = el('div', 'portrait__frame-reflect');
-    frameReflect.setAttribute('aria-hidden', 'true');
 
     const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
@@ -131,10 +120,8 @@ export class Portrait extends Component<HTMLElement> {
     body.appendChild(overlayBack);
     body.appendChild(image);
     body.appendChild(placeholder);
-    body.appendChild(rays);
     body.appendChild(overlayFront);
     body.appendChild(frame);
-    body.appendChild(frameReflect);
     body.appendChild(title);
 
     root.appendChild(label);

@@ -1282,51 +1282,6 @@ img.shop-card__price-icon {
   filter: opacity(0.5);
 }
 
-/* Sunburst rays — emanate outward from the portrait's centre on every
-   tick (C2+). A repeating conic gradient creates 8 soft rays; a radial
-   mask excludes the central ~30% so the portrait face stays untouched.
-   Each burst scales outward + rotates slightly + fades, driven by a
-   single 700ms keyframe. mix-blend-mode: screen so the rays add red
-   light rather than cover. */
-.portrait__rays {
-  position: absolute;
-  /* Square, centred on the body, slightly wider so the rays reach
-     past the frame into the transparent overflow. */
-  left: 50%;
-  top: 50%;
-  width: 135%;
-  aspect-ratio: 1 / 1;
-  transform: translate(-50%, -50%) scale(0.85) rotate(0deg);
-  transform-origin: center center;
-  z-index: 2;
-  pointer-events: none;
-  background: repeating-conic-gradient(
-    from 0deg,
-    transparent 0deg 38deg,
-    var(--ray-color, rgba(201, 24, 24, 0.75)) 41deg 44deg,
-    transparent 47deg 45deg
-  );
-  -webkit-mask: radial-gradient(
-    circle at center,
-    transparent 0%,
-    transparent 28%,
-    black 45%,
-    black 78%,
-    transparent 100%
-  );
-  mask: radial-gradient(
-    circle at center,
-    transparent 0%,
-    transparent 28%,
-    black 45%,
-    black 78%,
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  opacity: 0;
-  filter: blur(0.8px);
-}
-
 /* ── Per-century static base ───────────────────────────────────────────
    Each century sets FIXED values on the two VFX layers. No looping
    animation — those created a false "tap me" affordance. Life comes
@@ -1339,17 +1294,11 @@ img.shop-card__price-icon {
    C5 overrides --tick-color from JS on every pulse to get the random
    red/purple/dark-gold alternation specced in the design. */
 
-.portrait__body[data-century='2'] {
-  --ray-color: rgba(201, 70, 30, 0.55);
-}
 .portrait__body[data-century='2'] .portrait__back-aura {
   opacity: 1;
   filter: opacity(0.3);
 }
 
-.portrait__body[data-century='3'] {
-  --ray-color: rgba(168, 24, 24, 0.7);
-}
 .portrait__body[data-century='3'] .portrait__back-aura {
   opacity: 1;
   filter: opacity(0.5);
@@ -1360,9 +1309,6 @@ img.shop-card__price-icon {
   );
 }
 
-.portrait__body[data-century='4'] {
-  --ray-color: rgba(138, 8, 24, 0.82);
-}
 .portrait__body[data-century='4'] .portrait__back-aura {
   opacity: 1;
   filter: opacity(0.65);
@@ -1372,26 +1318,7 @@ img.shop-card__price-icon {
     rgba(74, 8, 26, 0) 100%
   );
 }
-/* C4 chromatic aberration — reduced to a subtle red/cyan fringe.
-   --chromatic-offset is computed in JS from the total rate, capped
-   around 1.5px max (down from 3px originally), and the drop-shadow
-   alphas are dimmed so the effect reads as "the frame is slightly
-   off-register" rather than "the frame is broken". Only selects
-   under [data-century='4']. */
-.portrait__body[data-century='4'] .portrait__frame {
-  filter: drop-shadow(
-      calc(var(--chromatic-offset, 0) * 0.5px) 0 0 rgba(255, 30, 30, 0.28)
-    )
-    drop-shadow(
-      calc(var(--chromatic-offset, 0) * -0.5px) 0 0 rgba(50, 150, 255, 0.22)
-    );
-}
 
-.portrait__body[data-century='5'] {
-  /* C5 base ray colour — JS overrides per burst with crimson / violet /
-     dark gold for the "unstable power" reading. */
-  --ray-color: rgba(168, 24, 24, 0.9);
-}
 .portrait__body[data-century='5'] .portrait__back-aura {
   opacity: 1;
   filter: opacity(0.8);
@@ -1414,137 +1341,6 @@ img.shop-card__price-icon {
    The --tick-intensity custom property is set from JS (1 at baseline,
    up to 3 when multiple integer increments happen in one frame). */
 
-/* Sunburst — rays expand outward while rotating gently, fade out.
-   Centring translate is preserved across all frames so the element
-   stays anchored to the body centre. The cubic-bezier(.16,1,.3,1) is
-   an "expo out" curve — rays snap out fast then gracefully drift. */
-@keyframes rays-burst {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.85) rotate(0deg);
-  }
-  22% {
-    opacity: calc(0.85 * var(--tick-intensity, 1));
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%)
-      scale(calc(1.2 + 0.08 * var(--tick-intensity, 1)))
-      rotate(14deg);
-  }
-}
-
-.portrait__rays--burst {
-  animation: rays-burst 720ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Frame-only 3D tilt — applied on C3+ per tick. Stays off the body so
-   .portrait__body:active { transform: scale(0.96) } for the click
-   feedback keeps working. Intensity scales with --tilt-intensity
-   (per-century, set below) multiplied by --tick-intensity (per pulse). */
-.portrait__frame--tilt-pulse {
-  animation: frame-tilt-pulse 180ms ease-out;
-}
-
-@keyframes frame-tilt-pulse {
-  0%,
-  100% {
-    transform: perspective(700px) rotateY(0deg) rotateX(0deg);
-  }
-  50% {
-    transform: perspective(700px)
-      rotateY(
-        calc(0.6deg * var(--tick-intensity, 1) * var(--tilt-intensity, 0))
-      )
-      rotateX(
-        calc(-0.3deg * var(--tick-intensity, 1) * var(--tilt-intensity, 0))
-      );
-  }
-}
-
-/* Per-century tilt amplitude — Century II stays flat (0), C3+ scale up. */
-.portrait__body {
-  --tilt-intensity: 0;
-}
-.portrait__body[data-century='3'] {
-  --tilt-intensity: 1;
-}
-.portrait__body[data-century='4'] {
-  --tilt-intensity: 1.6;
-}
-.portrait__body[data-century='5'] {
-  --tilt-intensity: 2.4;
-}
-
-/* Reflective highlight sweep — C3+ only. A diagonal bright band slides
-   across the frame ornaments via background-position. Masked by the
-   frame PNG so only the gilded pixels shimmer. 420ms sweep, triggered
-   by JS on tick (throttled). Uses the same mask stack as frame-tint. */
-.portrait__frame-reflect {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  -webkit-mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
-  -webkit-mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
-  background: linear-gradient(
-    110deg,
-    transparent 40%,
-    rgba(255, 245, 220, 0.45) 47%,
-    rgba(255, 255, 245, 0.85) 50%,
-    rgba(255, 245, 220, 0.45) 53%,
-    transparent 60%
-  );
-  background-size: 300% 100%;
-  background-position: 130% 0;
-  mix-blend-mode: screen;
-  opacity: 0;
-}
-
-.portrait__frame-reflect--sweep {
-  animation: frame-reflect-sweep 420ms ease-out;
-}
-
-@keyframes frame-reflect-sweep {
-  0% {
-    background-position: 130% 0;
-    opacity: 0;
-  }
-  25% {
-    opacity: 0.95;
-  }
-  75% {
-    opacity: 0.95;
-  }
-  100% {
-    background-position: -130% 0;
-    opacity: 0;
-  }
-}
-
-/* C5 spectral halo — box-shadow outer glow that flashes on tick.
-   box-shadow doesn't touch transform so it never conflicts with the
-   body's click-feedback scale. Only applies under [data-century='5']. */
-.portrait__body[data-century='5'].portrait__body--halo-pulse {
-  animation: body-c5-halo 320ms ease-out;
-}
-
-@keyframes body-c5-halo {
-  0%,
-  100% {
-    box-shadow: 0 0 0 rgba(201, 24, 24, 0);
-  }
-  40% {
-    box-shadow: 0 0 calc(26px * var(--tick-intensity, 1))
-      rgba(201, 24, 24, 0.55);
-  }
-}
 
 .portrait__tick-particle {
   position: absolute;
@@ -1666,14 +1462,9 @@ img.shop-card__price-icon {
 @media (prefers-reduced-motion: reduce) {
   .is-century-shake,
   .portrait__body--century-pulse,
-  .portrait__rays--burst,
-  .portrait__frame--tilt-pulse,
-  .portrait__frame-reflect--sweep,
-  .portrait__body--halo-pulse,
   .portrait__tick-particle {
     animation: none !important;
   }
-  .portrait__rays,
   .portrait__tick-particle {
     opacity: 0 !important;
   }
