@@ -38,12 +38,14 @@ const PARTICLE_LIFETIME_MS = 600;
 const MAX_LIVE_PARTICLES = 10;
 const MAX_INTENSITY = 3;
 
-// Minimum ms gap between successive triggers of each heavy effect. The
-// animations themselves last X ms; firing more often than that makes
-// them stack / restart and either degrades perf or kills impact.
-const REFLECT_MIN_GAP_MS = 380;
-const TILT_MIN_GAP_MS = 180;
-const HALO_MIN_GAP_MS = 300;
+// Minimum ms gap between successive triggers. Each gap MUST be >= its
+// animation duration + a rest margin; otherwise the next trigger fires
+// while the previous animation is still playing, classList cycling
+// restarts it, and at 60 Hz ticks we get a visible tremor.
+const TINT_MIN_GAP_MS = 300; // anim 280 + margin
+const REFLECT_MIN_GAP_MS = 560; // anim 420 + margin
+const TILT_MIN_GAP_MS = 320; // anim 180 + margin
+const HALO_MIN_GAP_MS = 480; // anim 320 + margin
 
 // C5 particle palette — random pick per pulse gives the "unstable
 // multi-hue power" reading Kenny specced.
@@ -62,9 +64,16 @@ let lastBloodFloor = 0;
 let offTick: (() => void) | null = null;
 let offRateChanged: (() => void) | null = null;
 let liveParticles = 0;
+let lastTintAt = 0;
 let lastReflectAt = 0;
 let lastTiltAt = 0;
 let lastHaloAt = 0;
+// Pending class-removal timeouts. Cleared on re-fire so two in-flight
+// animations don't cross-clobber each other's cleanup.
+let tintTimeout: number | null = null;
+let reflectTimeout: number | null = null;
+let tiltTimeout: number | null = null;
+let haloTimeout: number | null = null;
 
 export function installBloodTick(portraitBody: HTMLElement): () => void {
   if (installed) return noop;
@@ -88,6 +97,11 @@ function uninstall(): void {
   offRateChanged?.();
   offTick = null;
   offRateChanged = null;
+  if (tintTimeout !== null) window.clearTimeout(tintTimeout);
+  if (reflectTimeout !== null) window.clearTimeout(reflectTimeout);
+  if (tiltTimeout !== null) window.clearTimeout(tiltTimeout);
+  if (haloTimeout !== null) window.clearTimeout(haloTimeout);
+  tintTimeout = reflectTimeout = tiltTimeout = haloTimeout = null;
   bodyRef = null;
   tintRef = null;
   frameRef = null;
@@ -167,14 +181,18 @@ function onTick(): void {
 
 function fireTintFlash(intensity: number): void {
   if (!tintRef) return;
+  const now = performance.now();
+  if (now - lastTintAt < TINT_MIN_GAP_MS) return;
+  lastTintAt = now;
+  if (tintTimeout !== null) window.clearTimeout(tintTimeout);
   tintRef.style.setProperty('--tick-intensity', String(intensity));
   tintRef.classList.remove(TINT_PULSE_CLASS);
   void tintRef.offsetWidth;
   tintRef.classList.add(TINT_PULSE_CLASS);
-  window.setTimeout(
-    () => tintRef?.classList.remove(TINT_PULSE_CLASS),
-    TINT_PULSE_MS + 20,
-  );
+  tintTimeout = window.setTimeout(() => {
+    tintRef?.classList.remove(TINT_PULSE_CLASS);
+    tintTimeout = null;
+  }, TINT_PULSE_MS + 20);
 }
 
 function maybeFireReflect(intensity: number): void {
@@ -182,14 +200,15 @@ function maybeFireReflect(intensity: number): void {
   const now = performance.now();
   if (now - lastReflectAt < REFLECT_MIN_GAP_MS) return;
   lastReflectAt = now;
+  if (reflectTimeout !== null) window.clearTimeout(reflectTimeout);
   reflectRef.style.setProperty('--tick-intensity', String(intensity));
   reflectRef.classList.remove(FRAME_REFLECT_CLASS);
   void reflectRef.offsetWidth;
   reflectRef.classList.add(FRAME_REFLECT_CLASS);
-  window.setTimeout(
-    () => reflectRef?.classList.remove(FRAME_REFLECT_CLASS),
-    FRAME_REFLECT_MS + 20,
-  );
+  reflectTimeout = window.setTimeout(() => {
+    reflectRef?.classList.remove(FRAME_REFLECT_CLASS);
+    reflectTimeout = null;
+  }, FRAME_REFLECT_MS + 20);
 }
 
 function maybeFireTilt(intensity: number): void {
@@ -197,14 +216,15 @@ function maybeFireTilt(intensity: number): void {
   const now = performance.now();
   if (now - lastTiltAt < TILT_MIN_GAP_MS) return;
   lastTiltAt = now;
+  if (tiltTimeout !== null) window.clearTimeout(tiltTimeout);
   frameRef.style.setProperty('--tick-intensity', String(intensity));
   frameRef.classList.remove(FRAME_TILT_CLASS);
   void frameRef.offsetWidth;
   frameRef.classList.add(FRAME_TILT_CLASS);
-  window.setTimeout(
-    () => frameRef?.classList.remove(FRAME_TILT_CLASS),
-    FRAME_TILT_MS + 20,
-  );
+  tiltTimeout = window.setTimeout(() => {
+    frameRef?.classList.remove(FRAME_TILT_CLASS);
+    tiltTimeout = null;
+  }, FRAME_TILT_MS + 20);
 }
 
 function maybeFireHalo(intensity: number): void {
@@ -212,14 +232,15 @@ function maybeFireHalo(intensity: number): void {
   const now = performance.now();
   if (now - lastHaloAt < HALO_MIN_GAP_MS) return;
   lastHaloAt = now;
+  if (haloTimeout !== null) window.clearTimeout(haloTimeout);
   bodyRef.style.setProperty('--tick-intensity', String(intensity));
   bodyRef.classList.remove(HALO_CLASS);
   void bodyRef.offsetWidth;
   bodyRef.classList.add(HALO_CLASS);
-  window.setTimeout(
-    () => bodyRef?.classList.remove(HALO_CLASS),
-    HALO_MS + 20,
-  );
+  haloTimeout = window.setTimeout(() => {
+    bodyRef?.classList.remove(HALO_CLASS);
+    haloTimeout = null;
+  }, HALO_MS + 20);
 }
 
 function spawnParticle(century: number): void {
