@@ -1363,7 +1363,7 @@ img.shop-card__price-icon {
    cycle so it's a rare, deliberate flash (not a strobe). */
 
 .portrait__body {
-  animation: body-3d-tilt 14s ease-in-out infinite;
+  animation: body-3d-tilt 9s ease-in-out infinite;
 }
 .portrait__body[data-century='1'] {
   animation: none;
@@ -1377,16 +1377,16 @@ img.shop-card__price-icon {
 @keyframes body-3d-tilt {
   0%,
   100% {
-    transform: perspective(900px) rotateY(0deg) rotateX(0deg);
+    transform: perspective(600px) rotateY(0deg) rotateX(0deg);
   }
   25% {
-    transform: perspective(900px) rotateY(1.2deg) rotateX(-0.5deg);
+    transform: perspective(600px) rotateY(3.5deg) rotateX(-1.4deg);
   }
   50% {
-    transform: perspective(900px) rotateY(0deg) rotateX(0.5deg);
+    transform: perspective(600px) rotateY(0deg) rotateX(1.4deg);
   }
   75% {
-    transform: perspective(900px) rotateY(-1.2deg) rotateX(-0.5deg);
+    transform: perspective(600px) rotateY(-3.5deg) rotateX(-1.4deg);
   }
 }
 
