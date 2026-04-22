@@ -115,20 +115,29 @@ function spawnParticle(): void {
   const p = document.createElement('span');
   p.className = 'portrait__tick-particle';
   p.setAttribute('aria-hidden', 'true');
-  // Random frame edge (top / right / bottom / left), random position along.
+  // Pick a random edge (top/right/bottom/left), then position the
+  // particle within a ~10% band INSIDE that edge rather than strictly
+  // on it. Two benefits:
+  //   • the 4 edges no longer trace a visible rectangular ring (inset
+  //     varies per spawn so spawns land across a wider area)
+  //   • a 3-13% inset keeps particles fully inside the body, so
+  //     overflow:hidden never clips half of them.
+  // `along` also stays away from the corners so spawns look less
+  // grid-aligned.
   const edge = Math.floor(Math.random() * 4);
-  const along = `${Math.random() * 100}%`;
+  const along = `${6 + Math.random() * 88}%`;
+  const inset = `${3 + Math.random() * 10}%`;
   if (edge === 0) {
-    p.style.top = '0';
+    p.style.top = inset;
     p.style.left = along;
   } else if (edge === 1) {
-    p.style.right = '0';
+    p.style.right = inset;
     p.style.top = along;
   } else if (edge === 2) {
-    p.style.bottom = '0';
+    p.style.bottom = inset;
     p.style.left = along;
   } else {
-    p.style.left = '0';
+    p.style.left = inset;
     p.style.top = along;
   }
   bodyRef.appendChild(p);
