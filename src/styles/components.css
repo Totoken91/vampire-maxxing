@@ -1375,7 +1375,10 @@ img.shop-card__price-icon {
   background: #c91818;
   box-shadow: 0 0 6px rgba(201, 24, 24, 0.85);
   pointer-events: none;
-  z-index: 2;
+  /* Above the frame (z:3), the frame-tint (z:3), and the title (z:4).
+     Particles read as sparks flicked off the frame ornaments — they
+     must sit on top of them, not behind. */
+  z-index: 5;
   opacity: 0;
   animation: tick-particle-fade 600ms ease-out forwards;
 }
