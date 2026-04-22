@@ -130,10 +130,13 @@ export class Portrait extends Component<HTMLElement> {
     body.appendChild(placeholder);
     body.appendChild(overlayFront);
     body.appendChild(frame);
-    body.appendChild(title);
 
+    // Title lives OUTSIDE the frame body so its position is independent
+    // of the frame PNG's internal ornament geometry. Per-century frames
+    // no longer need to reserve a bottom plate for the caption.
     root.appendChild(label);
     root.appendChild(body);
+    root.appendChild(title);
 
     super(root);
     this.body = body;

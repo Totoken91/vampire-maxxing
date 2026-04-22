@@ -1313,11 +1313,10 @@ img.shop-card__price-icon {
 
 /* Title sits over the bottom cartouche of the frame PNG. */
 .portrait__title {
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: 5%;
-  z-index: 4;
+  /* Caption below the frame body — decoupled from the frame PNG so
+     every Century can swap its ornament without the title drifting. */
+  margin-top: 10px;
+  padding: 0 10%;
   text-align: center;
   font-family: var(--font-serif);
   font-style: italic;
