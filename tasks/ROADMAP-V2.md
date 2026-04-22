@@ -15,8 +15,11 @@
 | **A — Fix ship-blockers** | A1, A2 | Progressive disclosure, INVOKE, cooldowns, UX laws, juice tab |
 | **B — Meta progression** | B0a, B0b, B1, B2 | Archi prep + upgrades = dread sinks, Shop a un sens |
 | **C — Content depth** | C1, C2 | Tome = codex vivant, Servants = gestion réelle |
+| **K — MVP readiness (v1.1 prod target)** | K1, K2, K3, K4, K5 | Century VFX scaling, IAP Play Billing, FTB popup, Milestone juice, Daily gift |
 | **D — Monétisation réelle** | D1, D2, D3 | IAP Play Billing + FTB popup + LiveOps scaffold |
 | **E — Release prep** | E1, E2, E3, E4 | i18n, audio compression, ASO, AAB internal track |
+
+**Note** : la phase K a été ajoutée suite à l'audit croisé des 3 skills (idle-expert / monetization-shark / ux-sensei) le 2026-04-22. v1.0.0 est en closed testing mais manque les pilonnes monetization + retention pour un vrai MVP. K = ce qui doit shipper en v1.1.0 AVANT Production release. D1+D2+D3 chevauchent avec K2 et seront mergés.
 | **F — Post-launch #1 : Map & Regions** | F1, F2, F3 | Premier axe d'expansion horizontal, events narratifs |
 | **G — Post-launch #2 : Awakenings** | G1, G2 | VFX overlay system + 5 états transcendants post-Thirst |
 | **H — Post-launch #3 : Unique Thralls (Sanctum)** | H1, H2, H3 | Roster de personnages nommés, cartes 2:3 collection |
@@ -234,6 +237,120 @@ Plus tard (post-launch) : **Bloodline Keeper 19,99 €** (whale), **Ritual Bundl
 - Joueur peut dépenser dread dans les 5 upgrades
 - Chaque upgrade visible donne un effet ressenti en jeu
 - Blood Altar fait un auto-claim visible (toast "+X blood from the altar")
+
+---
+
+## Phase K — MVP readiness (v1.1.0 prod target)
+
+Audit 2026-04-22 a identifié 3 trous critiques pour un MVP monétisé :
+1. Zéro IAP → -70% revenue
+2. Progression intra-forme (Century I → V) invisible → violation Law 2 (tease next unlock)
+3. Pas de D2/D3 retention hook → D7 retention projeté < 10%
+
+Ces 5 tickets ferment ces trous. Ship en v1.1.0 au moment du promote Production.
+
+### K1 — Century VFX progressif (awakening-style, autour du portrait)
+
+**Why** : actuellement la Century I/II/III/IV/V dans une même forme n'apporte aucun feedback visuel au-delà du chiffre romain du titre. Le joueur grind 3-7 ascends sans sensation de power up jusqu'au form bump. Kenny's intuition : VFX ambiants **autour** du portrait (pas dessus) qui scalent par Century, à la manière des Awakenings de The Thirst mais pour tous les cycles.
+
+**Scope**
+- `src/fx/century-aura.ts` — controller qui spawne des particules AUTOUR du portrait (pas sur l'image). Lit `getCenturyInForm()` à chaque tick, ajuste les spawners.
+- 3 nouvelles classes de particules dans le particleEngine existant :
+  - `CenturyEmber` — braises rouge/or qui montent depuis sous le portrait, traversent l'espace hors du cadre
+  - `CrimsonDrip` — gouttes de sang qui tombent depuis les bords du cadre baroque
+  - `GoldMote` — petits éclats dorés orbitant lentement dans l'espace latéral du portrait
+- Progression par Century :
+  - **Century I** : base, pas de VFX ajoutés (embers globaux existants restent)
+  - **Century II** : embers spawn rate +1/s autour du portrait
+  - **Century III** : + crimson drips occasionnels des coins du cadre + aura rouge sur le cadre
+  - **Century IV** : + gold motes orbitant + drips plus fréquents
+  - **Century V** (imminent form bump) : intensité max, teasing imminent du form bump
+- Hook : Portrait component onMount/teardown → start/stop de l'aura. Re-read century au event `ascended`.
+
+**Definition of done**
+- Century II vs I : différence visuelle claire (embers flottent visiblement autour du portrait)
+- Century V : on SENT que la form bump est imminente (densité et intensité des VFX)
+- Aucun VFX ne touche l'image du portrait elle-même, tout vit dans l'espace autour
+- Particles comptent dans le budget < 200 particules simultanées
+- Performance 60fps stable
+
+### K2 — IAP Google Play Billing + 3 packs
+
+**Why** : shipper sans IAP = plafond revenue $300-500/mois. Avec 3 packs de base = $1500-3000/mois même DAU équivalents. Playbook 1.
+
+**Scope**
+- Pré-requis Kenny : Play Console merchant account activé + 3 produits IAP déclarés
+  - `vm_nights_blessing` 1.49€
+  - `vm_starter_pact` 2.99€
+  - `vm_founder_pact` 9.99€
+- Code : `@capacitor-community/in-app-purchases` (ou équiv récent), wrapper `src/platform/iap.ts` avec dynamic import (même pattern que ads.ts)
+- State : `ownedIAPs: Set<string>`, `iapFlags: { firstBlood: boolean, foundingElder: boolean, blessingUntil: number }`
+- Effects à l'achat :
+  - Night's Blessing → offline efficiency = 1.0 pendant 24h
+  - Starter Pact → +30 dread + title "First Blood" + register modifier `upgrade:iap_starter` = +5% thrallRate permanent
+  - Founder Pact → +50 dread + title "Founding Elder" + register modifier `-5% cost mult` permanent + exclusive portrait frame cosmetic
+- Restore purchases button dans le menu ⚙
+
+**Definition of done**
+- 3 packs achetables en test track via Play Console sandbox account
+- Effets appliqués au purchase + persistés dans save
+- Restore marche après wipe/reinstall
+
+### K3 — FTB Starter Pact popup
+
+**Why** : Playbook 1. Sans popup au bon moment, FTB conversion tombe à ~1%. Avec, elle passe à 3-5%.
+
+**Scope**
+- Trigger : après 3ème ascend OR 1h totalPlayTime (premier atteint)
+- One-shot modal "A rite awaits you..." avec offer Starter Pact 2.99€
+- Displays "Total value: 8.97€ → Now 2.99€" (value slashed)
+- Timer 72h visible (mais ne reset jamais si rate)
+- Flag persistant `firstOfferShown: true`
+- Post-purchase : gratitude toast + plus d'offre avant 24h
+
+**Definition of done**
+- Popup se déclenche une seule fois, au bon moment
+- Tap buy → Play Billing → purchase flow standard
+- Si refuse, l'offer reste accessible dans le Shop tab pendant 72h avec countdown visible
+
+### K4 — Milestone celebrations
+
+**Why** : actuellement quand tu achètes le 10ème Stray Rat (milestone ×2 silencieux). Aucune juice = missed Playbook 5 progression feedback.
+
+**Scope**
+- Détecter les milestones en `buyThrall()` : 10 / 25 / 50 / 100 / 200 / 300 / 400
+- Emit `milestone-reached` event avec { thrallId, milestone, newMult }
+- Toast premium : `STRAY RAT · ×4` + flavor line + particles dorées autour de la thrall-card
+- Screen-shake micro 2px
+- Haptic medium
+- Sound cue dédié
+
+**Definition of done**
+- Chaque milestone donne un moment "wow"
+- Pas de spam (délai min entre toasts si plusieurs milestones d'un coup)
+
+### K5 — Daily login gift
+
+**Why** : zéro hook D2-D7. Retention idle médiane sans daily = ~10% D7. Avec daily login streak = 18-22% D7.
+
+**Scope**
+- Au boot, si `lastDailyGift < today 00:00` : affiche modal "DAILY TRIBUTE — Day N / 7"
+- Reward ramping sur 7 jours :
+  - J1 : +1h rate offert (applied via offline gain)
+  - J2 : +1 dread
+  - J3 : +2h rate
+  - J4 : +2 dread
+  - J5 : +4h rate
+  - J6 : +5 dread
+  - J7 : +10h rate + titre "Seven Nights"
+- Reset au J8 (boucle)
+- Save : `dailyStreak: { lastClaim: timestamp, day: number }`
+- Skip un jour = reset day à 0
+
+**Definition of done**
+- Chaque boot du jour montre le modal une fois
+- Série persiste entre sessions
+- Skip propre (si tu rates un jour, day revient à 0)
 
 ---
 

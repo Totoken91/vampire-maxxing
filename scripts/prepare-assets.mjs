@@ -191,6 +191,31 @@ const JOBS = [
     webpQuality: 92,
     description: 'Dread currency icon (purple diamond gem)',
   },
+  // Thrall illustrations — 8 medallion portraits. Kenny provided them as
+  // stray-rat.png / feral-ghoul.png / fledgling.png / thrall.png /
+  // nightblade.png / blood-courtesan.png / eelder.png (doubled "e" to
+  // avoid collision with the Elder vampire-form portrait) / cardinal of
+  // the night.png (with spaces). Output as compact WebP q90 centered
+  // square — used as the left medallion of each thrall-card.
+  ...[
+    { id: 'rat', source: 'stray-rat.png' },
+    { id: 'ghoul', source: 'feral-ghoul.png' },
+    { id: 'fledgling', source: 'fledgling.png' },
+    { id: 'thrall', source: 'thrall.png' },
+    { id: 'blade', source: 'nightblade.png' },
+    { id: 'courtesan', source: 'blood-courtesan.png' },
+    { id: 'elder', source: 'eelder.png' },
+    { id: 'cardinal', source: 'cardinal of the night.png' },
+  ].map(({ id, source }) => ({
+    source,
+    dest: `public/assets/thralls/${id}.webp`,
+    maxWidth: 256,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 90,
+    description: `Thrall medallion — ${id}`,
+  })),
 ];
 
 async function exists(p) {

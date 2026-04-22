@@ -12,7 +12,6 @@ type CardState = 'locked' | 'affordable' | 'default';
 
 export class ThrallCard extends Component<HTMLElement> {
   private readonly thrall: Thrall;
-  private readonly icon: HTMLElement;
   private readonly ownedEl: HTMLElement;
   private readonly rateEl: HTMLElement;
   private readonly costEl: HTMLElement;
@@ -24,11 +23,14 @@ export class ThrallCard extends Component<HTMLElement> {
     root.setAttribute('data-thrall', thrall.id);
 
     const icon = el('div', 'thrall-card__icon');
-    icon.textContent = thrall.name
-      .split(/\s/)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase();
+    // The medallion frame comes from CSS (background-image); the thrall
+    // portrait sits inside it, circular-cropped so the ornate gold ring
+    // stays visible around the illustration.
+    const iconImg = el('img', 'thrall-card__icon-img') as HTMLImageElement;
+    iconImg.src = `/assets/thralls/${thrall.id}.webp`;
+    iconImg.alt = '';
+    iconImg.decoding = 'async';
+    icon.appendChild(iconImg);
 
     const info = el('div', 'thrall-card__info');
     const name = el('div', 'thrall-card__name', thrall.name);
@@ -52,7 +54,6 @@ export class ThrallCard extends Component<HTMLElement> {
 
     super(root);
     this.thrall = thrall;
-    this.icon = icon;
     this.ownedEl = owned;
     this.rateEl = rate;
     this.costEl = cost;
@@ -82,11 +83,6 @@ export class ThrallCard extends Component<HTMLElement> {
     const rate = gameState.getThrallRate(this.thrall.id);
     this.ownedEl.textContent = `×${owned}`;
     this.rateEl.textContent = owned > 0 ? `${fmtShort(rate)}/s` : '—';
-    this.icon.textContent = this.thrall.name
-      .split(/\s/)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase();
     this.renderAffordability();
   }
 

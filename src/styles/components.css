@@ -1454,16 +1454,31 @@ img.shop-card__price-icon {
 .thrall-card__icon {
   width: 42px;
   height: 42px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--gold-dim);
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 10px;
-  letter-spacing: 0.05em;
+  /* The gold medallion frame stays on top as a background ring. */
   background: url('/assets/ornaments/thrall-medallion.png') center / contain no-repeat;
   filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
+}
+
+/* The thrall portrait sits inside the medallion ring, circular-cropped
+   so the ornate gold edge remains visible. */
+.thrall-card__icon-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70%;
+  height: 70%;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.thrall-card[data-state='locked'] .thrall-card__icon-img {
+  filter: grayscale(1) brightness(0.35);
 }
 
 .thrall-card[data-state='affordable'] .thrall-card__icon {
