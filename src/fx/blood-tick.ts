@@ -109,13 +109,15 @@ function spawnParticle(century: number): void {
     p.style.boxShadow = `0 0 6px ${pick.glow}`;
   }
 
-  // Pick a random edge, then offset 3-13% inward and 6-94% along so
-  // particles scatter in a band rather than tracing a 4-line rectangle.
-  // The inset also keeps every particle fully inside the body so
-  // overflow:hidden never clips half of them.
+  // Pick a random edge, random position along (6-94% avoids the
+  // corners), and a mix of negative / positive inset so particles
+  // scatter in a band that straddles the frame edge. Negative inset
+  // places the particle slightly OUTSIDE the body bounds — since the
+  // body is overflow:visible, those particles are visible beyond the
+  // frame and read clearly against the dark surrounding UI.
   const edge = Math.floor(Math.random() * 4);
   const along = `${6 + Math.random() * 88}%`;
-  const inset = `${3 + Math.random() * 10}%`;
+  const inset = `${-5 + Math.random() * 14}%`;
   if (edge === 0) {
     p.style.top = inset;
     p.style.left = along;

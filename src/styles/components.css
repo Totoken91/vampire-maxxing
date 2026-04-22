@@ -1228,7 +1228,11 @@ img.shop-card__price-icon {
   cursor: pointer;
   transition: transform 80ms var(--ease-out-pop);
   background: transparent;
-  overflow: hidden;
+  /* overflow visible so tick particles can spawn slightly past the frame
+     edges — Kenny wanted them to "déborder un peu" for visibility. The
+     scaled portrait image (scale 0.78) never exceeds body bounds, so
+     nothing else leaks. */
+  overflow: visible;
 }
 
 .portrait__body:active {
@@ -1294,6 +1298,126 @@ img.shop-card__price-icon {
    C5 overrides --tick-color from JS on every pulse to get the random
    red/purple/dark-gold alternation specced in the design. */
 
+/* Frame tint — recolors the gold ornaments of the frame PNG via a CSS
+   mask + mix-blend-mode:color. At C2 the tint is transparent so the
+   gold frame stays pristine (gold-on-gold would just over-saturate).
+   From C3 onwards, progressively darker non-gold colours corrupt the
+   frame's hue. Pure static — no tick-driven animation. */
+.portrait__frame-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  -webkit-mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background-color: transparent;
+  mix-blend-mode: color;
+  opacity: 0;
+  transition: opacity 1000ms ease-in-out 550ms;
+}
+
+/* Frame reflect — carries a slow periodic highlight sweep across the
+   ornaments. Fires once every ~10s regardless of blood/sec so the
+   gold "catches light" at a contemplative cadence. Pure CSS infinite
+   animation. */
+.portrait__frame-reflect {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  -webkit-mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url('/assets/ornaments/portrait-frame-baroque.png');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background: linear-gradient(
+    110deg,
+    transparent 40%,
+    rgba(255, 245, 220, 0.55) 47%,
+    rgba(255, 255, 245, 0.95) 50%,
+    rgba(255, 245, 220, 0.55) 53%,
+    transparent 60%
+  );
+  background-size: 300% 100%;
+  background-position: 130% 0;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+/* ── Continuous slow 3D tilt — body + everything inside in one block.
+   C2+ only. 14s cycle ease-in-out so the portrait feels alive without
+   ever drawing attention to itself. transform carries perspective +
+   rotateY/X — :active must override with !important so the click
+   feedback scale still shows.
+   ── Periodic reflect sweep — same idea: infinite animation on the
+   reflect layer, but the sweep itself only occupies ~4% of the 10s
+   cycle so it's a rare, deliberate flash (not a strobe). */
+
+.portrait__body {
+  animation: body-3d-tilt 14s ease-in-out infinite;
+}
+.portrait__body[data-century='1'] {
+  animation: none;
+}
+.portrait__body:active {
+  /* !important lifts the :active scale above the running tilt's
+     transform so the click always registers. */
+  transform: scale(0.96) !important;
+}
+
+@keyframes body-3d-tilt {
+  0%,
+  100% {
+    transform: perspective(900px) rotateY(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: perspective(900px) rotateY(1.2deg) rotateX(-0.5deg);
+  }
+  50% {
+    transform: perspective(900px) rotateY(0deg) rotateX(0.5deg);
+  }
+  75% {
+    transform: perspective(900px) rotateY(-1.2deg) rotateX(-0.5deg);
+  }
+}
+
+.portrait__body:not([data-century='1']) .portrait__frame-reflect {
+  animation: frame-reflect-sweep 10s linear infinite;
+}
+
+@keyframes frame-reflect-sweep {
+  0% {
+    background-position: 130% 0;
+    opacity: 0;
+  }
+  2% {
+    opacity: 0;
+  }
+  4% {
+    opacity: 0.85;
+  }
+  10% {
+    opacity: 0.85;
+    background-position: -130% 0;
+  }
+  13% {
+    opacity: 0;
+  }
+  100% {
+    background-position: -130% 0;
+    opacity: 0;
+  }
+}
+
 .portrait__body[data-century='2'] .portrait__back-aura {
   opacity: 1;
   filter: opacity(0.3);
@@ -1308,6 +1432,10 @@ img.shop-card__price-icon {
     rgba(58, 8, 18, 0) 100%
   );
 }
+.portrait__body[data-century='3'] .portrait__frame-tint {
+  opacity: 0.55;
+  background-color: #8a4018; /* dark gold / soiled */
+}
 
 .portrait__body[data-century='4'] .portrait__back-aura {
   opacity: 1;
@@ -1318,6 +1446,17 @@ img.shop-card__price-icon {
     rgba(74, 8, 26, 0) 100%
   );
 }
+.portrait__body[data-century='4'] .portrait__frame-tint {
+  opacity: 0.65;
+  background-color: #6a0818; /* deep crimson */
+}
+/* C4 chromatic aberration — STATIC, always on at C4+, independent of
+   blood/sec. Two drop-shadows with opposite X offsets (red/cyan).
+   Very subtle — reads as "the frame is slightly off-register". */
+.portrait__body[data-century='4'] .portrait__frame {
+  filter: drop-shadow(0.6px 0 0 rgba(255, 30, 30, 0.3))
+    drop-shadow(-0.6px 0 0 rgba(50, 150, 255, 0.22));
+}
 
 .portrait__body[data-century='5'] .portrait__back-aura {
   opacity: 1;
@@ -1327,6 +1466,16 @@ img.shop-card__price-icon {
     rgba(42, 8, 26, 1) 0%,
     rgba(42, 8, 26, 0) 100%
   );
+}
+.portrait__body[data-century='5'] .portrait__frame-tint {
+  opacity: 0.75;
+  background-color: #3a0820; /* purple-black */
+}
+/* C5 chromatic aberration — slightly stronger than C4 but still
+   static + subtle. */
+.portrait__body[data-century='5'] .portrait__frame {
+  filter: drop-shadow(0.9px 0 0 rgba(255, 30, 30, 0.35))
+    drop-shadow(-0.9px 0 0 rgba(50, 150, 255, 0.26));
 }
 
 /* ── Blood tick: event-driven mini-pulse ───────────────────────────────
@@ -1462,10 +1611,13 @@ img.shop-card__price-icon {
 @media (prefers-reduced-motion: reduce) {
   .is-century-shake,
   .portrait__body--century-pulse,
-  .portrait__tick-particle {
+  .portrait__tick-particle,
+  .portrait__body,
+  .portrait__frame-reflect {
     animation: none !important;
   }
-  .portrait__tick-particle {
+  .portrait__tick-particle,
+  .portrait__frame-reflect {
     opacity: 0 !important;
   }
 }

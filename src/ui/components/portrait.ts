@@ -107,11 +107,24 @@ export class Portrait extends Component<HTMLElement> {
     frame.src = FRAME_SRC;
     frame.decoding = 'async';
 
-    // K1 — backAura is the only corruption layer left (static per
-    // century, diffuse crimson halo behind everything). All tick-based
-    // effects are now carried by particles in blood-tick.ts alone.
+    // K1 — corruption layers. None are tick-driven; the body itself
+    // runs a slow 3D tilt (C2+) and the reflect layer runs a periodic
+    // sweep every ~10s (C2+), all via pure CSS animation.
+    //   backAura   : diffuse crimson halo BEHIND everything (z:0),
+    //                per-century colour + opacity.
+    //   frameTint  : recolors the frame ornaments via PNG mask +
+    //                mix-blend-mode:color. Transparent at C2 so the
+    //                gold frame stays pristine; from C3 onwards,
+    //                progressively darker non-gold static tint.
+    //   frameRefl. : same mask, carries a slow periodic highlight
+    //                sweep so the gold "catches light" once every
+    //                ~10s regardless of blood/sec.
     const backAura = el('div', 'portrait__back-aura');
     backAura.setAttribute('aria-hidden', 'true');
+    const frameTint = el('div', 'portrait__frame-tint');
+    frameTint.setAttribute('aria-hidden', 'true');
+    const frameReflect = el('div', 'portrait__frame-reflect');
+    frameReflect.setAttribute('aria-hidden', 'true');
 
     const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
@@ -122,6 +135,8 @@ export class Portrait extends Component<HTMLElement> {
     body.appendChild(placeholder);
     body.appendChild(overlayFront);
     body.appendChild(frame);
+    body.appendChild(frameTint);
+    body.appendChild(frameReflect);
     body.appendChild(title);
 
     root.appendChild(label);
