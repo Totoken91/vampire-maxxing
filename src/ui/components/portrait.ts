@@ -143,14 +143,6 @@ export class Portrait extends Component<HTMLElement> {
       if (activeOverlayBack === this.overlayBack) activeOverlayBack = null;
     });
 
-    // Century I breathing — always active, the base layer of the layered
-    // portrait corruption system. The rest of the layers (II-V) will be
-    // toggled via data-century on the body in later commits.
-    this.body.classList.add('portrait__body--breathing');
-    this.addTeardown(() =>
-      this.body.classList.remove('portrait__body--breathing'),
-    );
-
     // Aspect-ratio is hardcoded in CSS to match the frame PNG's natural shape.
     // If the frame asset is regenerated at a different aspect, update both.
   }
