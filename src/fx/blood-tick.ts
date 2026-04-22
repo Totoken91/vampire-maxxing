@@ -35,8 +35,21 @@ const FRAME_REFLECT_MS = 420;
 const HALO_CLASS = 'portrait__body--halo-pulse';
 const HALO_MS = 320;
 const PARTICLE_LIFETIME_MS = 600;
-const MAX_LIVE_PARTICLES = 10;
+const MAX_LIVE_PARTICLES = 8;
 const MAX_INTENSITY = 3;
+
+// Per-century particle spawn throttle (ms between spawns). C2 stays
+// sparse — a few embers per second, reads as "awakening". C5 is dense
+// — nearly continuous, reads as "apotheosis". Without this cap, at
+// high production rate we'd saturate MAX_LIVE_PARTICLES every frame
+// and the frame would strobe red.
+const PARTICLE_MIN_GAP_BY_CENTURY: Record<number, number> = {
+  2: 400,
+  3: 260,
+  4: 180,
+  5: 110,
+};
+const PARTICLE_FALLBACK_GAP_MS = 400;
 
 // Minimum ms gap between successive triggers. Each gap MUST be >= its
 // animation duration + a rest margin; otherwise the next trigger fires
@@ -68,6 +81,7 @@ let lastTintAt = 0;
 let lastReflectAt = 0;
 let lastTiltAt = 0;
 let lastHaloAt = 0;
+let lastParticleAt = 0;
 // Pending class-removal timeouts. Cleared on re-fire so two in-flight
 // animations don't cross-clobber each other's cleanup.
 let tintTimeout: number | null = null;
@@ -164,7 +178,7 @@ function onTick(): void {
   }
 
   fireTintFlash(intensity);
-  if (liveParticles < MAX_LIVE_PARTICLES) spawnParticle(century);
+  maybeSpawnParticle(century);
 
   // C3+ reflective sweep + subtle 3D tilt, throttled by their own
   // animation duration.
@@ -241,6 +255,16 @@ function maybeFireHalo(intensity: number): void {
     bodyRef?.classList.remove(HALO_CLASS);
     haloTimeout = null;
   }, HALO_MS + 20);
+}
+
+function maybeSpawnParticle(century: number): void {
+  if (liveParticles >= MAX_LIVE_PARTICLES) return;
+  const now = performance.now();
+  const gap =
+    PARTICLE_MIN_GAP_BY_CENTURY[century] ?? PARTICLE_FALLBACK_GAP_MS;
+  if (now - lastParticleAt < gap) return;
+  lastParticleAt = now;
+  spawnParticle(century);
 }
 
 function spawnParticle(century: number): void {
