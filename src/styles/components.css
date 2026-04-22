@@ -1265,20 +1265,21 @@ img.shop-card__price-icon {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* Diffuse crimson core — covers ~60% of the frame then fades to
-     transparent. Visible only in the transparent ajours of the frame
-     and in the thin border between frame opening and portrait. */
+  /* Crimson core now covers ~90% of the frame so it bleeds through
+     more of the transparent ajours and the border around the portrait,
+     not just the corners. */
   background: radial-gradient(
-    ellipse 60% 60% at center,
+    ellipse 90% 90% at center,
     rgba(42, 4, 8, 1) 0%,
     rgba(42, 4, 8, 0) 100%
   );
   mix-blend-mode: screen;
   opacity: 0;
-  /* Fade-in between centuries. Pulse is driven by filter:opacity so it
-     doesn't fight with this transition. */
-  transition: opacity 2500ms ease-in-out;
-  filter: opacity(0.3);
+  /* Fade-in AFTER the upgrade flash finishes (550ms) rather than during
+     it. 1000ms duration means VFX are at full intensity ~1.6s after
+     trigger — the flash carries the moment, the ambience settles in. */
+  transition: opacity 1000ms ease-in-out 550ms;
+  filter: opacity(0.5);
 }
 
 .portrait__frame-tint {
@@ -1303,38 +1304,133 @@ img.shop-card__price-icon {
      ornament detail reads through the tint. */
   mix-blend-mode: color;
   opacity: 0;
-  transition: opacity 2500ms ease-in-out;
+  transition: opacity 1000ms ease-in-out 550ms;
 }
 
 /* ── Century II · Éveil ────────────────────────────────────────────── */
 
 .portrait__body[data-century='2'] .portrait__frame-tint {
-  opacity: 0.75;
-  animation: frame-tint-c2 7.3s cubic-bezier(0.45, 0.05, 0.55, 0.95)
-    infinite alternate;
+  opacity: 0.85;
+  /* Asymmetric cycle: the red phase is brief (peaks at 35% of cycle),
+     the gold holds the rest. Reads as "pulse of red through the gold"
+     rather than "gold ↔ red swing". */
+  animation: frame-tint-c2 3.7s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+    infinite;
 }
 
 .portrait__body[data-century='2'] .portrait__back-aura {
   opacity: 1;
-  animation: aura-pulse-c2 6.1s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+  animation: aura-pulse-c2 4.3s cubic-bezier(0.45, 0.05, 0.55, 0.95)
     infinite alternate;
 }
 
 @keyframes frame-tint-c2 {
-  from {
+  0% {
     background-color: #c9a961;
   }
-  to {
-    background-color: #a8612e;
+  35% {
+    background-color: #c9451a;
+  }
+  70% {
+    background-color: #c9a961;
+  }
+  100% {
+    background-color: #c9a961;
   }
 }
 
 @keyframes aura-pulse-c2 {
   from {
-    filter: opacity(0.2);
+    filter: opacity(0.4);
   }
   to {
-    filter: opacity(0.4);
+    filter: opacity(0.75);
+  }
+}
+
+/* ── Century upgrade impact: flash / shake / pulse ─────────────────── */
+
+.century-upgrade-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 220, 210, 1) 0%,
+    rgba(200, 40, 40, 0.9) 45%,
+    rgba(80, 8, 12, 0.6) 100%
+  );
+  opacity: 0;
+  animation: century-upgrade-flash 550ms ease-out forwards;
+}
+
+.century-upgrade-flash--reduced {
+  animation: century-upgrade-flash-reduced 550ms ease-out forwards;
+}
+
+@keyframes century-upgrade-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes century-upgrade-flash-reduced {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.18;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.is-century-shake {
+  animation: century-shake 300ms ease-out;
+}
+
+@keyframes century-shake {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-5px, 2px);
+  }
+  40% {
+    transform: translate(4px, -3px);
+  }
+  60% {
+    transform: translate(-4px, 3px);
+  }
+  80% {
+    transform: translate(3px, -1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.portrait__body--century-pulse {
+  animation: portrait-century-pulse 220ms ease-out;
+}
+
+@keyframes portrait-century-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
@@ -1344,10 +1440,14 @@ img.shop-card__price-icon {
     animation: none !important;
   }
   .portrait__body[data-century='2'] .portrait__frame-tint {
-    background-color: #b88a45;
+    background-color: #c9681f;
   }
   .portrait__body[data-century='2'] .portrait__back-aura {
-    filter: opacity(0.3);
+    filter: opacity(0.55);
+  }
+  .is-century-shake,
+  .portrait__body--century-pulse {
+    animation: none !important;
   }
 }
 

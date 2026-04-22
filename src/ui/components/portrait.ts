@@ -17,6 +17,7 @@ import { events } from '../../game/events';
 import { gameState } from '../../game/state';
 import { getCurrentFormDefinition, getCenturyInForm } from '../../game/forms';
 import { toRoman } from '../../utils/roman';
+import { triggerCenturyUpgrade } from '../../fx/century-upgrade';
 
 const FRAME_SRC = '/assets/ornaments/portrait-frame-baroque.png';
 
@@ -75,6 +76,9 @@ export class Portrait extends Component<HTMLElement> {
   private readonly title: HTMLElement;
   private readonly overlayFront: HTMLElement;
   private readonly overlayBack: HTMLElement;
+  /** Last century rendered. null before first render so we don't fire
+   * the upgrade impact on component mount. */
+  private lastCentury: number | null = null;
 
   constructor() {
     const root = el('div', 'portrait');
@@ -181,7 +185,15 @@ export class Portrait extends Component<HTMLElement> {
 
     // data-century drives all corruption VFX via CSS. Century I = idle
     // (no animation); II+ each add their own layers. Transitions between
-    // centuries fade in over 2.5s via CSS transition on opacity.
+    // centuries fade in AFTER the upgrade flash (CSS transition-delay).
     this.body.setAttribute('data-century', String(centuryNum));
+
+    // Fire the upgrade impact when the century actually changes. First
+    // render (lastCentury === null) is skipped — we don't want a flash
+    // on page load.
+    if (this.lastCentury !== null && this.lastCentury !== centuryNum) {
+      triggerCenturyUpgrade(this.body);
+    }
+    this.lastCentury = centuryNum;
   }
 }
