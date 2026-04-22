@@ -47,37 +47,6 @@ const JOBS = [
     invertAlpha: true,
     description: 'Portrait frame mask (alpha inverted: interior opaque, ornaments transparent)',
   },
-  // Century-specific portrait frames — K1 corruption system. Each
-  // century gets its own painted PNG; pipeline forces the OUTPUT to
-  // EXACTLY the baroque frame dimensions (866×961) so the portrait
-  // interior and CSS insets stay aligned across all 5 layers. Missing
-  // centuries fall back at runtime to the baroque base frame.
-  //
-  // Century 1 (wood frame): baked-in brightness drop + desaturation so
-  // the light wood doesn't pop against the gothic UI.
-  {
-    source: 'wood-frame.png',
-    dest: 'public/assets/ornaments/frame-century-1.webp',
-    trim: true,
-    width: 866,
-    height: 961,
-    fit: 'fill',
-    modulate: { brightness: 0.42, saturation: 0.7 },
-    format: 'webp',
-    webpQuality: 90,
-    description: 'Portrait frame — Century 1 (darkened wood)',
-  },
-  ...[2, 3, 4, 5].map((n) => ({
-    source: `frame-century-${n}.png`,
-    dest: `public/assets/ornaments/frame-century-${n}.webp`,
-    trim: true,
-    width: 866,
-    height: 961,
-    fit: 'fill',
-    format: 'webp',
-    webpQuality: 90,
-    description: `Portrait frame — Century ${n}`,
-  })),
   {
     source: 'minion-banner.png',
     dest: 'public/assets/ornaments/thrall-card-bg.png',

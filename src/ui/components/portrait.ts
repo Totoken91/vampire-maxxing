@@ -18,20 +18,7 @@ import { gameState } from '../../game/state';
 import { getCurrentFormDefinition, getCenturyInForm } from '../../game/forms';
 import { toRoman } from '../../utils/roman';
 
-// Base frame used as fallback when a century-specific asset is missing.
-const FRAME_FALLBACK = '/assets/ornaments/portrait-frame-baroque.png';
-
-// K1 — the portrait corrupts across the 5 centuries of a form via frame
-// swaps. Each WebP is a repainted version of the baroque cadre: runes
-// awakening, blood coulures, fissures, spectral decay. Any file not yet
-// delivered falls back at runtime to the base baroque PNG via onerror.
-const FRAME_BY_CENTURY: Record<number, string> = {
-  1: '/assets/ornaments/frame-century-1.webp',
-  2: '/assets/ornaments/frame-century-2.webp',
-  3: '/assets/ornaments/frame-century-3.webp',
-  4: '/assets/ornaments/frame-century-4.webp',
-  5: '/assets/ornaments/frame-century-5.webp',
-};
+const FRAME_SRC = '/assets/ornaments/portrait-frame-baroque.png';
 
 export type OverlayLayer = 'front' | 'back';
 
@@ -84,7 +71,6 @@ export const portraitOverlays = {
 export class Portrait extends Component<HTMLElement> {
   private readonly body: HTMLElement;
   private readonly image: HTMLImageElement;
-  private readonly frame: HTMLImageElement;
   private readonly placeholder: HTMLElement;
   private readonly title: HTMLElement;
   private readonly overlayFront: HTMLElement;
@@ -113,14 +99,8 @@ export class Portrait extends Component<HTMLElement> {
 
     const frame = el('img', 'portrait__frame') as HTMLImageElement;
     frame.alt = '';
-    frame.src = FRAME_FALLBACK;
+    frame.src = FRAME_SRC;
     frame.decoding = 'async';
-    // Fallback chain: if the century-specific WebP 404s (asset not yet
-    // provided), swap to the base baroque frame. Guarded so we don't loop.
-    frame.addEventListener('error', () => {
-      if (frame.src.endsWith(FRAME_FALLBACK)) return;
-      frame.src = FRAME_FALLBACK;
-    });
 
     const placeholder = el('div', 'portrait__placeholder');
     const title = el('div', 'portrait__title');
@@ -141,7 +121,6 @@ export class Portrait extends Component<HTMLElement> {
     super(root);
     this.body = body;
     this.image = image;
-    this.frame = frame;
     this.placeholder = placeholder;
     this.title = title;
     this.overlayFront = overlayFront;
@@ -180,8 +159,8 @@ export class Portrait extends Component<HTMLElement> {
   private render(): void {
     const prestige = gameState.getPrestigeCount();
     const form = getCurrentFormDefinition(prestige);
-    const centuryNum = getCenturyInForm(prestige);
-    this.title.textContent = `${form.subtitle} · Century ${toRoman(centuryNum)}`;
+    const century = toRoman(getCenturyInForm(prestige));
+    this.title.textContent = `${form.subtitle} · Century ${century}`;
     this.placeholder.textContent = form.subtitle;
 
     this.image.onload = () => {
@@ -191,12 +170,5 @@ export class Portrait extends Component<HTMLElement> {
       this.body.classList.remove('portrait__body--has-image');
     };
     this.image.src = form.portraitPath;
-
-    // Swap the frame to match the current century. Missing assets fall
-    // back to the baroque base via the 'error' listener set on mount.
-    const targetFrame = FRAME_BY_CENTURY[centuryNum] ?? FRAME_FALLBACK;
-    if (!this.frame.src.endsWith(targetFrame)) {
-      this.frame.src = targetFrame;
-    }
   }
 }
