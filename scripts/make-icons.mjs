@@ -120,6 +120,38 @@ async function makeAdaptiveForeground(size, outPath) {
     .then((b) => fs.writeFile(outPath, b));
 }
 
+async function makePlayStoreIcon(outPath) {
+  // Play Store hi-res icon: 512×512, face-centered crop so it reads
+  // at 48px thumbnail. Same palette as the launcher icon but tighter.
+  const size = 512;
+  const fg = await sharp(SRC)
+    .trim({ threshold: 15 })
+    // Crop to the head + shoulders (top ~70% of the portrait) then square.
+    .resize(size, size, { fit: 'cover', position: 'top' })
+    .png()
+    .toBuffer();
+  const radius = Math.round(size * 0.16);
+  const mask = Buffer.from(
+    `<svg width="${size}" height="${size}"><rect x="0" y="0" width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="#fff"/></svg>`,
+  );
+  const composed = await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: BG_COLOR,
+    },
+  })
+    .composite([{ input: fg, blend: 'over' }])
+    .png()
+    .toBuffer();
+  const rounded = await sharp(composed)
+    .composite([{ input: mask, blend: 'dest-in' }])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+  await fs.writeFile(outPath, rounded);
+}
+
 async function run() {
   // Legacy square + round
   for (const { density, size } of LEGACY) {
@@ -136,6 +168,13 @@ async function run() {
     await makeAdaptiveForeground(size, path.join(dir, 'ic_launcher_foreground.png'));
     console.log(`✓ mipmap-${density}/ic_launcher_foreground.png (${size}×${size})`);
   }
+  // Play Store hi-res listing icon (separate from launcher icons).
+  const storeDir = path.join(ROOT, 'docs/store-listing');
+  await fs.mkdir(storeDir, { recursive: true });
+  const storePath = path.join(storeDir, 'play-icon-512.png');
+  await makePlayStoreIcon(storePath);
+  console.log(`✓ Play Store icon 512×512 → docs/store-listing/play-icon-512.png`);
+
   console.log('\nDone. Rebuild the APK to pick up the new icons.');
 }
 

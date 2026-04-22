@@ -51,11 +51,26 @@ export interface SaveV1 {
   };
 }
 
-/** Current save shape. Extends the v1 fields with permanent upgrade levels. */
+/** Current save shape. Extends the v1 fields with permanent upgrade levels
+ * plus optional lore + run history added incrementally. The newer fields
+ * are optional so saves written before they existed still load cleanly —
+ * state.applySave() falls back to empty collections. */
 export interface SaveV2 extends Omit<SaveV1, 'v'> {
   v: 2;
   /** Level per UpgradeId; missing keys default to 0. */
   upgrades: Record<string, number>;
+  /** Thrall ids whose Bestiary lore has been revealed. */
+  unlockedThrallLore?: string[];
+  /** Form ids whose Histories lore has been revealed. */
+  unlockedFormLore?: string[];
+  /** Last 10 runs (newest first). */
+  runHistory?: Array<{
+    ts: number;
+    maxBlood: number;
+    dreadGained: number;
+    form: string;
+    formChanged: boolean;
+  }>;
 }
 
 export type AnySave = Partial<SaveV2> & { v?: number };

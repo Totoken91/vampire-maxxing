@@ -10,7 +10,6 @@ import { maybeShowOfflineModal } from './ui/components/offline-modal';
 import { showToast } from './ui/components/toast';
 import { events } from './game/events';
 import { gameState } from './game/state';
-import { THRALLS_BY_ID } from './game/config/thralls';
 import { installMusic } from './audio/music';
 import { playButton } from './audio/sfx';
 import { initAds } from './platform/ads';
@@ -22,6 +21,8 @@ import {
   republishAllUpgradeModifiers,
 } from './game/upgrades';
 import { fmt } from './utils/format';
+import { THRALLS, THRALLS_BY_ID } from './game/config/thralls';
+import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
 
 const root = document.getElementById('app');
 if (!root) {
@@ -75,6 +76,22 @@ async function boot(): Promise<void> {
     showToast('THE ALTAR DRINKS', `+${fmt(amount)} blood while you slept.`);
   });
 
+  // Back-fill lore unlocks for existing saves from before the Bestiary /
+  // Histories shipped. Any thrall the player has ever bought unlocks its
+  // entry; any form reached so far unlocks its history.
+  backfillLoreUnlocks();
+
+  // Toast on lore unlock.
+  events.on('lore-unlocked', ({ kind, id }) => {
+    if (kind === 'thrall') {
+      const def = THRALLS_BY_ID[id as keyof typeof THRALLS_BY_ID];
+      if (def) showToast('NEW ENTRY', `${def.name} added to the Bestiary.`);
+    } else {
+      const def = FORMS_BY_ID[id as VampireForm];
+      if (def) showToast('NEW ENTRY', `${def.subtitle} added to the Histories.`);
+    }
+  });
+
   // SFX on SUCCESSFUL thrall purchase only (the event only fires when the
   // buy went through — blood < cost silently returns false upstream).
   events.on('thrall-bought', () => playButton());
@@ -97,3 +114,24 @@ async function boot(): Promise<void> {
 }
 
 void boot();
+
+/**
+ * Saves written before the Tome lore expansion don't yet record which
+ * thralls/forms have revealed their entries. Infer from existing state:
+ * every thrall ever purchased → thrall lore; every form up to the highest
+ * reached → history lore. Safe to run every boot; it only adds, never
+ * removes.
+ */
+function backfillLoreUnlocks(): void {
+  const snap = gameState.get();
+  for (const thrall of THRALLS) {
+    if (snap.thralls[thrall.id].totalPurchased > 0) {
+      snap.unlockedThrallLore.add(thrall.id);
+    }
+  }
+  const highest = snap.stats.highestFormReached;
+  const highestIdx = FORMS.findIndex((f) => f.id === highest);
+  for (let i = 0; i <= highestIdx; i++) {
+    snap.unlockedFormLore.add(FORMS[i].id);
+  }
+}

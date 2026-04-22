@@ -58,6 +58,25 @@ export interface GameSnapshot {
   unseenAchievements: Set<string>;
   /** Level of each permanent upgrade. Keyed by UpgradeId, defaults to 0. */
   upgrades: Record<string, number>;
+  /** Thrall ids whose Bestiary lore has been revealed (1st purchase). */
+  unlockedThrallLore: Set<string>;
+  /** Form ids whose Histories lore has been revealed (reached that form). */
+  unlockedFormLore: Set<string>;
+  /** Last 10 runs, pushed on ascend. Rolling window. */
+  runHistory: RunEntry[];
+}
+
+export interface RunEntry {
+  /** Unix ms when the run ended (ascend time). */
+  ts: number;
+  /** Total run blood at ascend. */
+  maxBlood: number;
+  /** Dread gained (after curse + modifiers). */
+  dreadGained: number;
+  /** Form the player was in when they ascended. */
+  form: VampireForm;
+  /** Whether ascending bumped the form. */
+  formChanged: boolean;
 }
 
 function emptyThralls(): Record<ThrallId, ThrallOwnership> {
@@ -89,6 +108,9 @@ function emptySnapshot(): GameSnapshot {
     ritesLastUsed: {},
     unseenAchievements: new Set<string>(),
     upgrades: {},
+    unlockedThrallLore: new Set<string>(),
+    unlockedFormLore: new Set<string>(),
+    runHistory: [],
   };
 }
 
@@ -234,6 +256,12 @@ export class GameState {
     t.owned += 1;
     t.totalPurchased += 1;
 
+    // First-ever purchase of this thrall reveals its Bestiary lore.
+    if (!this.snapshot.unlockedThrallLore.has(id)) {
+      this.snapshot.unlockedThrallLore.add(id);
+      events.emit('lore-unlocked', { kind: 'thrall', id });
+    }
+
     events.emit('thrall-bought', { id, owned: t.owned });
     events.emit('blood-changed', { blood: this.snapshot.blood, delta: -cost });
     events.emit('rate-changed', { totalRate: this.getTotalRate() });
@@ -270,6 +298,9 @@ export class GameState {
     const dreadMult = modifierRegistry.getMultiplier('dreadGain');
     const gain = Math.floor(baseGain * dreadMult * rewardedMultiplier * curseMult);
     const previousForm = this.getForm();
+    // Capture the run's peak blood BEFORE zeroing it — the Run log needs
+    // the pre-reset value.
+    const peakBlood = this.snapshot.totalRunBlood;
 
     this.snapshot.dread += gain;
     this.snapshot.stats.totalAscends += 1;
@@ -286,6 +317,23 @@ export class GameState {
     if (formChanged) {
       this.snapshot.stats.highestFormReached = newForm;
       events.emit('form-changed', { form: newForm });
+      // Reveal the Histories lore for the newly reached form.
+      if (!this.snapshot.unlockedFormLore.has(newForm)) {
+        this.snapshot.unlockedFormLore.add(newForm);
+        events.emit('lore-unlocked', { kind: 'form', id: newForm });
+      }
+    }
+
+    // Push run entry. Capped at 10 most recent; oldest drops off.
+    this.snapshot.runHistory.unshift({
+      ts: Date.now(),
+      maxBlood: peakBlood,
+      dreadGained: gain,
+      form: previousForm,
+      formChanged,
+    });
+    if (this.snapshot.runHistory.length > 10) {
+      this.snapshot.runHistory.length = 10;
     }
 
     // Always-fires sibling event — form-changed only triggers on threshold
@@ -440,6 +488,9 @@ export class GameState {
       ritesLastUsed: { ...this.snapshot.ritesLastUsed },
       unseenAchievements: Array.from(this.snapshot.unseenAchievements),
       upgrades: { ...this.snapshot.upgrades },
+      unlockedThrallLore: Array.from(this.snapshot.unlockedThrallLore),
+      unlockedFormLore: Array.from(this.snapshot.unlockedFormLore),
+      runHistory: [...this.snapshot.runHistory],
     };
   }
 
@@ -462,6 +513,18 @@ export class GameState {
     this.snapshot.ritesLastUsed = { ...(save.ritesLastUsed ?? {}) };
     this.snapshot.unseenAchievements = new Set(save.unseenAchievements ?? []);
     this.snapshot.upgrades = { ...(save.upgrades ?? {}) };
+    this.snapshot.unlockedThrallLore = new Set(save.unlockedThrallLore ?? []);
+    this.snapshot.unlockedFormLore = new Set(save.unlockedFormLore ?? []);
+    // Save stores `form` as a loose string; narrow it back into RunEntry.
+    this.snapshot.runHistory = Array.isArray(save.runHistory)
+      ? save.runHistory.map((r) => ({
+          ts: r.ts,
+          maxBlood: r.maxBlood,
+          dreadGained: r.dreadGained,
+          form: r.form as VampireForm,
+          formChanged: r.formChanged,
+        }))
+      : [];
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */

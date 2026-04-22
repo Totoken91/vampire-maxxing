@@ -18,6 +18,7 @@ export interface GameEvents {
   'tab-unlocked': { tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop' };
   'upgrade-bought': { id: string; level: number };
   'altar-claimed': { amount: number };
+  'lore-unlocked': { kind: 'thrall' | 'form'; id: string };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

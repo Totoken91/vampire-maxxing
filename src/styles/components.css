@@ -380,6 +380,301 @@
   opacity: 0.6;
 }
 
+/* ───────── Tome Bestiary + Histories ───────── */
+
+.lore-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.lore-card {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: var(--sp-3);
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(139, 116, 68, 0.22);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+}
+
+.lore-card--unlocked {
+  cursor: pointer;
+  border-color: rgba(201, 169, 98, 0.45);
+  background: linear-gradient(
+    135deg,
+    rgba(60, 45, 20, 0.25),
+    rgba(12, 8, 12, 0.55)
+  );
+}
+
+.lore-card--unlocked:hover,
+.lore-card--unlocked:focus-visible {
+  border-color: var(--gold);
+  outline: none;
+}
+
+.lore-card--unlocked:active {
+  transform: scale(0.99);
+}
+
+.lore-card--locked {
+  opacity: 0.55;
+  filter: saturate(0.4);
+}
+
+.lore-card__glyph {
+  font-size: 18px;
+  color: var(--ink-faint);
+  line-height: 1;
+  align-self: center;
+  text-align: center;
+}
+
+.lore-card--unlocked .lore-card__glyph {
+  color: var(--gold);
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.4));
+}
+
+.lore-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lore-card__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.lore-card--locked .lore-card__title {
+  color: var(--ink-dim);
+}
+
+.lore-card__subtitle {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.lore-card__preview {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ───────── Lore modal (opens on card tap) ───────── */
+
+.lore-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 5, 10, 0.82);
+  z-index: 235;
+  animation: confirm-fade-in 220ms ease-out;
+  backdrop-filter: blur(3px);
+}
+
+.lore-modal__backdrop--exit {
+  animation: confirm-fade-in 220ms ease-in reverse forwards;
+}
+
+.lore-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, 92vw);
+  max-height: 86vh;
+  padding: 46px 30px 30px;
+  z-index: 236;
+  color: var(--ink);
+  background: url('/assets/ornaments/menu-panel.webp') center / 100% 100%
+    no-repeat;
+  animation: confirm-pop-in 300ms var(--ease-out-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-dim) transparent;
+}
+
+.lore-modal--exit {
+  animation: confirm-pop-out 240ms ease-in forwards;
+}
+
+.lore-modal::-webkit-scrollbar {
+  width: 3px;
+}
+
+.lore-modal::-webkit-scrollbar-thumb {
+  background: var(--gold-dim);
+}
+
+.lore-modal__close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold-dim);
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.12s;
+  z-index: 2;
+}
+
+.lore-modal__close:hover,
+.lore-modal__close:focus-visible {
+  color: var(--gold);
+  outline: none;
+}
+
+.lore-modal__close:active {
+  transform: scale(0.9);
+}
+
+.lore-modal__label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 0.4em;
+  text-align: center;
+  margin-bottom: -2px;
+}
+
+.lore-modal__title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 22px;
+  color: var(--ink);
+  letter-spacing: 0.18em;
+  text-align: center;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.lore-modal__subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-bottom: var(--sp-3);
+}
+
+.lore-modal__body {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  color: var(--ink);
+  letter-spacing: 0.012em;
+  line-height: 1.6;
+  text-align: justify;
+  padding: 0 2px;
+}
+
+/* ───────── Tome Run log ───────── */
+
+.run-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run-log__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--sp-2);
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(139, 116, 68, 0.2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+.run-log__when {
+  color: var(--ink-faint);
+  letter-spacing: 0.2em;
+  font-size: 9px;
+  text-transform: uppercase;
+  min-width: 64px;
+}
+
+.run-log__form {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+.run-log__blood {
+  color: var(--blood-glow);
+}
+
+.run-log__dread {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--gold);
+}
+
+.run-log__icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 2px rgba(107, 45, 143, 0.5));
+}
+
+.run-log__badge {
+  grid-column: 1 / -1;
+  font-size: 8px;
+  color: var(--gold);
+  letter-spacing: 0.35em;
+  text-align: right;
+  margin-top: -2px;
+}
+
+.tome-empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: var(--sp-3) 0;
+  letter-spacing: 0.02em;
+}
+
 .shop-list {
   display: flex;
   flex-direction: column;
