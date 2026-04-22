@@ -48,22 +48,32 @@ const JOBS = [
     description: 'Portrait frame mask (alpha inverted: interior opaque, ornaments transparent)',
   },
   // Century-specific portrait frames — K1 corruption system. Each
-  // century gets its own painted PNG; pipeline shrinks to WebP q90.
-  // Any missing century falls back at runtime to the baroque base frame,
-  // so partial asset drops still render cleanly. The `source` is the
-  // filename Kenny actually used at the project root — rename-free.
-  ...[
-    { n: 1, source: 'wood-frame.png' },
-    { n: 2, source: 'frame-century-2.png' },
-    { n: 3, source: 'frame-century-3.png' },
-    { n: 4, source: 'frame-century-4.png' },
-    { n: 5, source: 'frame-century-5.png' },
-  ].map(({ n, source }) => ({
-    source,
-    dest: `public/assets/ornaments/frame-century-${n}.webp`,
-    maxWidth: 960,
+  // century gets its own painted PNG; pipeline forces the OUTPUT to
+  // EXACTLY the baroque frame dimensions (866×961) so the portrait
+  // interior and CSS insets stay aligned across all 5 layers. Missing
+  // centuries fall back at runtime to the baroque base frame.
+  //
+  // Century 1 (wood frame): baked-in brightness drop + desaturation so
+  // the light wood doesn't pop against the gothic UI.
+  {
+    source: 'wood-frame.png',
+    dest: 'public/assets/ornaments/frame-century-1.webp',
     trim: true,
-    preserveAspect: true,
+    width: 866,
+    height: 961,
+    fit: 'fill',
+    modulate: { brightness: 0.42, saturation: 0.7 },
+    format: 'webp',
+    webpQuality: 90,
+    description: 'Portrait frame — Century 1 (darkened wood)',
+  },
+  ...[2, 3, 4, 5].map((n) => ({
+    source: `frame-century-${n}.png`,
+    dest: `public/assets/ornaments/frame-century-${n}.webp`,
+    trim: true,
+    width: 866,
+    height: 961,
+    fit: 'fill',
     format: 'webp',
     webpQuality: 90,
     description: `Portrait frame — Century ${n}`,
@@ -294,6 +304,12 @@ async function run() {
         fit: job.fit,
         background: job.background ?? { r: 0, g: 0, b: 0, alpha: 0 },
       });
+    }
+
+    // modulate: { brightness, saturation, hue } — used to darken / desaturate
+    // an asset at bake time so it doesn't fight the dark UI.
+    if (job.modulate) {
+      pipeline = pipeline.modulate(job.modulate);
     }
 
     let outBuffer =
