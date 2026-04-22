@@ -27,7 +27,7 @@ import { gameState } from '../game/state';
 import { getCenturyInForm } from '../game/forms';
 
 const TINT_PULSE_CLASS = 'portrait__frame-tint--pulse';
-const TINT_PULSE_MS = 280;
+const TINT_PULSE_MS = 180;
 const FRAME_TILT_CLASS = 'portrait__frame--tilt-pulse';
 const FRAME_TILT_MS = 180;
 const FRAME_REFLECT_CLASS = 'portrait__frame-reflect--sweep';
@@ -55,7 +55,12 @@ const PARTICLE_FALLBACK_GAP_MS = 400;
 // animation duration + a rest margin; otherwise the next trigger fires
 // while the previous animation is still playing, classList cycling
 // restarts it, and at 60 Hz ticks we get a visible tremor.
-const TINT_MIN_GAP_MS = 300; // anim 280 + margin
+// At 60 Hz ticks at very high production, these are the real cadence
+// of each effect — NOT the physics tick rate. Each gap is the anim
+// duration + rest margin, so a new trigger never interrupts a running
+// anim. Numbers tuned so the frame reads as "pulsed" (distinct beats
+// with clear rest between) rather than "strobing".
+const TINT_MIN_GAP_MS = 500; // anim 180 + 320ms rest — clear heartbeat
 const REFLECT_MIN_GAP_MS = 560; // anim 420 + margin
 const TILT_MIN_GAP_MS = 320; // anim 180 + margin
 const HALO_MIN_GAP_MS = 480; // anim 320 + margin

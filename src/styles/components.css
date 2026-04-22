@@ -1298,12 +1298,16 @@ img.shop-card__price-icon {
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
-  background-color: #c9a961;
+  background-color: var(--tint-base, transparent);
   /* mix-blend-mode: color keeps the luminance of the frame PNG below
      and only applies the chrominance of this layer — the engraved
      ornament detail reads through the tint. */
   mix-blend-mode: color;
-  opacity: 0;
+  /* Rest opacity is per-century. At C2 it's 0 (the gold frame is
+     already gold — a static gold tint would just boost saturation,
+     reading as "too much"). C3+ raise it progressively. */
+  --tint-rest-opacity: 0;
+  opacity: var(--tint-rest-opacity);
   transition: opacity 1000ms ease-in-out 550ms;
 }
 
@@ -1320,10 +1324,12 @@ img.shop-card__price-icon {
    red/purple/dark-gold alternation specced in the design. */
 
 .portrait__body[data-century='2'] .portrait__frame-tint {
-  opacity: 0.5;
-  --tint-base: #c9a961;
+  /* No static tint at C2 — the gold frame stays pristine. The flash
+     during a tick (tick-color) momentarily tints the ornaments, then
+     clears. */
+  --tint-rest-opacity: 0;
+  --tint-base: transparent;
   --tick-color: #c9451a;
-  background-color: var(--tint-base);
 }
 .portrait__body[data-century='2'] .portrait__back-aura {
   opacity: 1;
@@ -1331,10 +1337,9 @@ img.shop-card__price-icon {
 }
 
 .portrait__body[data-century='3'] .portrait__frame-tint {
-  opacity: 0.55;
+  --tint-rest-opacity: 0.5;
   --tint-base: #8a4018;
   --tick-color: #a81818;
-  background-color: var(--tint-base);
 }
 .portrait__body[data-century='3'] .portrait__back-aura {
   opacity: 1;
@@ -1347,10 +1352,9 @@ img.shop-card__price-icon {
 }
 
 .portrait__body[data-century='4'] .portrait__frame-tint {
-  opacity: 0.6;
+  --tint-rest-opacity: 0.55;
   --tint-base: #4a0818;
   --tick-color: #8a0818;
-  background-color: var(--tint-base);
 }
 .portrait__body[data-century='4'] .portrait__back-aura {
   opacity: 1;
@@ -1377,11 +1381,10 @@ img.shop-card__price-icon {
 }
 
 .portrait__body[data-century='5'] .portrait__frame-tint {
-  opacity: 0.7;
+  --tint-rest-opacity: 0.65;
   --tint-base: #2a0818;
   /* C5 baseline tick color — JS overrides per pulse with one of three. */
   --tick-color: #a81818;
-  background-color: var(--tint-base);
 }
 .portrait__body[data-century='5'] .portrait__back-aura {
   opacity: 1;
@@ -1407,25 +1410,28 @@ img.shop-card__price-icon {
 
 @keyframes frame-tint-pulse {
   0% {
+    opacity: var(--tint-rest-opacity);
     background-color: var(--tint-base);
     filter: brightness(1) saturate(1);
   }
-  28% {
-    /* Peak at ~80ms of the 280ms pulse. Background-color swaps to the
-       century-specific flash color; filter adds punch proportional to
-       --tick-intensity so high-rate ticks read stronger. */
+  30% {
+    /* Peak ~55ms into the 180ms pulse. Opacity bumps to 0.85 even
+       when rest is 0, so a C2 pulse briefly tints a frame that's
+       otherwise untouched. Filter punch scales with --tick-intensity. */
+    opacity: 0.85;
     background-color: var(--tick-color);
     filter: brightness(calc(1 + 0.3 * var(--tick-intensity, 1)))
       saturate(calc(1 + 0.8 * var(--tick-intensity, 1)));
   }
   100% {
+    opacity: var(--tint-rest-opacity);
     background-color: var(--tint-base);
     filter: brightness(1) saturate(1);
   }
 }
 
 .portrait__frame-tint--pulse {
-  animation: frame-tint-pulse 280ms ease-out;
+  animation: frame-tint-pulse 180ms ease-out;
 }
 
 /* Frame-only 3D tilt — applied on C3+ per tick. Stays off the body so
