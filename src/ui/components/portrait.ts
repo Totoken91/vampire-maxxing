@@ -18,6 +18,7 @@ import { gameState } from '../../game/state';
 import { getCurrentFormDefinition, getCenturyInForm } from '../../game/forms';
 import { toRoman } from '../../utils/roman';
 import { triggerCenturyUpgrade } from '../../fx/century-upgrade';
+import { installBloodTick } from '../../fx/blood-tick';
 
 const FRAME_SRC = '/assets/ornaments/portrait-frame-baroque.png';
 
@@ -157,6 +158,10 @@ export class Portrait extends Component<HTMLElement> {
       if (activeOverlayFront === this.overlayFront) activeOverlayFront = null;
       if (activeOverlayBack === this.overlayBack) activeOverlayBack = null;
     });
+
+    // Blood-tick VFX — event-driven pulse per integer blood increment.
+    // Silent on Century I, active from Century II onward.
+    this.addTeardown(installBloodTick(this.body));
 
     // Aspect-ratio is hardcoded in CSS to match the frame PNG's natural shape.
     // If the frame asset is regenerated at a different aspect, update both.
