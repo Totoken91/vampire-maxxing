@@ -26,8 +26,8 @@ import { events } from '../game/events';
 import { gameState } from '../game/state';
 import { getCenturyInForm } from '../game/forms';
 
-const TINT_PULSE_CLASS = 'portrait__frame-tint--pulse';
-const TINT_PULSE_MS = 180;
+const RAYS_BURST_CLASS = 'portrait__rays--burst';
+const RAYS_BURST_MS = 720;
 const FRAME_TILT_CLASS = 'portrait__frame--tilt-pulse';
 const FRAME_TILT_MS = 180;
 const FRAME_REFLECT_CLASS = 'portrait__frame-reflect--sweep';
@@ -60,7 +60,7 @@ const PARTICLE_FALLBACK_GAP_MS = 400;
 // duration + rest margin, so a new trigger never interrupts a running
 // anim. Numbers tuned so the frame reads as "pulsed" (distinct beats
 // with clear rest between) rather than "strobing".
-const TINT_MIN_GAP_MS = 500; // anim 180 + 320ms rest — clear heartbeat
+const RAYS_MIN_GAP_MS = 780; // anim 720 + 60ms rest — clear burst cadence
 const REFLECT_MIN_GAP_MS = 560; // anim 420 + margin
 const TILT_MIN_GAP_MS = 320; // anim 180 + margin
 const HALO_MIN_GAP_MS = 480; // anim 320 + margin
@@ -75,21 +75,21 @@ const C5_PARTICLE_PALETTE: readonly { bg: string; glow: string }[] = [
 
 let installed = false;
 let bodyRef: HTMLElement | null = null;
-let tintRef: HTMLElement | null = null;
+let raysRef: HTMLElement | null = null;
 let frameRef: HTMLImageElement | null = null;
 let reflectRef: HTMLElement | null = null;
 let lastBloodFloor = 0;
 let offTick: (() => void) | null = null;
 let offRateChanged: (() => void) | null = null;
 let liveParticles = 0;
-let lastTintAt = 0;
+let lastRaysAt = 0;
 let lastReflectAt = 0;
 let lastTiltAt = 0;
 let lastHaloAt = 0;
 let lastParticleAt = 0;
 // Pending class-removal timeouts. Cleared on re-fire so two in-flight
 // animations don't cross-clobber each other's cleanup.
-let tintTimeout: number | null = null;
+let raysTimeout: number | null = null;
 let reflectTimeout: number | null = null;
 let tiltTimeout: number | null = null;
 let haloTimeout: number | null = null;
@@ -98,7 +98,7 @@ export function installBloodTick(portraitBody: HTMLElement): () => void {
   if (installed) return noop;
   installed = true;
   bodyRef = portraitBody;
-  tintRef = portraitBody.querySelector<HTMLElement>('.portrait__frame-tint');
+  raysRef = portraitBody.querySelector<HTMLElement>('.portrait__rays');
   frameRef = portraitBody.querySelector<HTMLImageElement>('.portrait__frame');
   reflectRef = portraitBody.querySelector<HTMLElement>(
     '.portrait__frame-reflect',
@@ -116,13 +116,13 @@ function uninstall(): void {
   offRateChanged?.();
   offTick = null;
   offRateChanged = null;
-  if (tintTimeout !== null) window.clearTimeout(tintTimeout);
+  if (raysTimeout !== null) window.clearTimeout(raysTimeout);
   if (reflectTimeout !== null) window.clearTimeout(reflectTimeout);
   if (tiltTimeout !== null) window.clearTimeout(tiltTimeout);
   if (haloTimeout !== null) window.clearTimeout(haloTimeout);
-  tintTimeout = reflectTimeout = tiltTimeout = haloTimeout = null;
+  raysTimeout = reflectTimeout = tiltTimeout = haloTimeout = null;
   bodyRef = null;
-  tintRef = null;
+  raysRef = null;
   frameRef = null;
   reflectRef = null;
   installed = false;
@@ -154,7 +154,7 @@ function updateChromaticOffset(): void {
 }
 
 function onTick(): void {
-  if (!bodyRef || !tintRef) return;
+  if (!bodyRef) return;
 
   const century = getCenturyInForm(gameState.getPrestigeCount());
   if (century < 2) {
@@ -175,14 +175,19 @@ function onTick(): void {
   // the single pulse rather than queuing more (keeps us at ~60 Hz cap).
   const intensity = Math.min(MAX_INTENSITY, delta);
 
-  // C5 randomises the flash colour per pulse — crimson / violet / gold.
-  if (century === 5) {
+  // C5 randomises the ray colour per burst — crimson / violet / gold.
+  if (century === 5 && bodyRef) {
     const r = Math.random();
-    const flash = r < 0.5 ? '#a81818' : r < 0.8 ? '#6a2aa0' : '#c9a961';
-    tintRef.style.setProperty('--tick-color', flash);
+    const picked =
+      r < 0.55
+        ? 'rgba(168, 24, 24, 0.9)'
+        : r < 0.85
+          ? 'rgba(106, 42, 160, 0.8)'
+          : 'rgba(201, 169, 97, 0.75)';
+    bodyRef.style.setProperty('--ray-color', picked);
   }
 
-  fireTintFlash(intensity);
+  fireRaysBurst(intensity);
   maybeSpawnParticle(century);
 
   // C3+ reflective sweep + subtle 3D tilt, throttled by their own
@@ -198,20 +203,20 @@ function onTick(): void {
   }
 }
 
-function fireTintFlash(intensity: number): void {
-  if (!tintRef) return;
+function fireRaysBurst(intensity: number): void {
+  if (!raysRef) return;
   const now = performance.now();
-  if (now - lastTintAt < TINT_MIN_GAP_MS) return;
-  lastTintAt = now;
-  if (tintTimeout !== null) window.clearTimeout(tintTimeout);
-  tintRef.style.setProperty('--tick-intensity', String(intensity));
-  tintRef.classList.remove(TINT_PULSE_CLASS);
-  void tintRef.offsetWidth;
-  tintRef.classList.add(TINT_PULSE_CLASS);
-  tintTimeout = window.setTimeout(() => {
-    tintRef?.classList.remove(TINT_PULSE_CLASS);
-    tintTimeout = null;
-  }, TINT_PULSE_MS + 20);
+  if (now - lastRaysAt < RAYS_MIN_GAP_MS) return;
+  lastRaysAt = now;
+  if (raysTimeout !== null) window.clearTimeout(raysTimeout);
+  raysRef.style.setProperty('--tick-intensity', String(intensity));
+  raysRef.classList.remove(RAYS_BURST_CLASS);
+  void raysRef.offsetWidth;
+  raysRef.classList.add(RAYS_BURST_CLASS);
+  raysTimeout = window.setTimeout(() => {
+    raysRef?.classList.remove(RAYS_BURST_CLASS);
+    raysTimeout = null;
+  }, RAYS_BURST_MS + 20);
 }
 
 function maybeFireReflect(intensity: number): void {

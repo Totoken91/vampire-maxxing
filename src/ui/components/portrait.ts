@@ -107,19 +107,20 @@ export class Portrait extends Component<HTMLElement> {
     frame.src = FRAME_SRC;
     frame.decoding = 'async';
 
-    // K1 — Century corruption layers. All three are always in the DOM,
-    // default to opacity 0, react to [data-century="N"] on the body.
-    //   backAura    : paints BEHIND everything (z:0)
-    //   frameTint   : paints ON TOP of the frame (z:3) via PNG mask,
-    //                 tint + tick flash
-    //   frameReflect: paints ON TOP of the frame-tint (z:3, appended
-    //                 after) via the same PNG mask, sweeps a highlight
-    //                 gradient across the ornaments — the "reflective
-    //                 flash" specced for C3+
+    // K1 — Century corruption layers. All present in DOM, react to
+    // [data-century="N"] on the body.
+    //   backAura     : paints BEHIND everything (z:0), diffuse crimson
+    //                  halo that changes colour per century.
+    //   rays         : sunburst — red rays emanating outward from the
+    //                  portrait centre, triggered on every tick from
+    //                  C2+. Masked to exclude the central face zone so
+    //                  the portrait stays untouched.
+    //   frameReflect : paints ON TOP of the frame (z:3) via PNG mask,
+    //                  sweeps a highlight gradient on tick (C3+).
     const backAura = el('div', 'portrait__back-aura');
     backAura.setAttribute('aria-hidden', 'true');
-    const frameTint = el('div', 'portrait__frame-tint');
-    frameTint.setAttribute('aria-hidden', 'true');
+    const rays = el('div', 'portrait__rays');
+    rays.setAttribute('aria-hidden', 'true');
     const frameReflect = el('div', 'portrait__frame-reflect');
     frameReflect.setAttribute('aria-hidden', 'true');
 
@@ -130,9 +131,9 @@ export class Portrait extends Component<HTMLElement> {
     body.appendChild(overlayBack);
     body.appendChild(image);
     body.appendChild(placeholder);
+    body.appendChild(rays);
     body.appendChild(overlayFront);
     body.appendChild(frame);
-    body.appendChild(frameTint);
     body.appendChild(frameReflect);
     body.appendChild(title);
 
