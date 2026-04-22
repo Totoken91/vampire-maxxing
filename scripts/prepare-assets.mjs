@@ -47,6 +47,20 @@ const JOBS = [
     invertAlpha: true,
     description: 'Portrait frame mask (alpha inverted: interior opaque, ornaments transparent)',
   },
+  // Century-specific portrait frames — K1 corruption system. Kenny drops
+  // frame-century-{1..5}.png at the project root; pipeline shrinks them
+  // to WebP q90. Any missing century falls back at runtime to the base
+  // baroque frame, so partial asset drops still render cleanly.
+  ...[1, 2, 3, 4, 5].map((n) => ({
+    source: `frame-century-${n}.png`,
+    dest: `public/assets/ornaments/frame-century-${n}.webp`,
+    maxWidth: 960,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 90,
+    description: `Portrait frame — Century ${n}`,
+  })),
   {
     source: 'minion-banner.png',
     dest: 'public/assets/ornaments/thrall-card-bg.png',
