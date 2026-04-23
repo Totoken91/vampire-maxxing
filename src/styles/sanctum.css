@@ -65,52 +65,54 @@
      muted gold so the common tier still has an identity when we add
      those portraits later. */
   --rarity-color: #8a6a3a;
-  --rarity-glow: rgba(138, 106, 58, 0.35);
+  --rarity-glow: rgba(138, 106, 58, 0.3);
 
   position: relative;
   aspect-ratio: 2 / 3;
   background: linear-gradient(180deg, #1a0f16 0%, #0a0510 100%);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.14s var(--ease-out-pop), filter 0.2s;
+  isolation: isolate; /* contain blend/filter effects within card */
+  transition: transform 0.14s var(--ease-out-pop);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
 
 .thrall-card:active {
   transform: scale(0.97);
 }
 
-.thrall-card:hover:not(.thrall-card--silhouette) {
-  filter: drop-shadow(0 0 12px var(--rarity-glow));
-}
-
+/* Portrait — zoomed to face / upper torso. Shorter than the card so
+   the bottom strip frees room for name + archetype. object-position
+   "center top" plus a tiny y-offset lands the eyes near the vertical
+   midpoint of the visible area. */
 .thrall-card__portrait {
   position: absolute;
-  inset: 6px;
-  width: calc(100% - 12px);
-  height: calc(100% - 12px);
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  height: 64%;
   object-fit: cover;
-  object-position: center 18%;
+  object-position: center 6%;
   z-index: 1;
 }
 
-/* The frame is rendered by masking a solid colour with the grey
-   ornament PNG. mask-image alpha drives the silhouette; the background
-   paints the rarity colour into the mask-opaque zones. */
+/* The frame PNG is a grey/white ornament on transparent. We keep the
+   grey luminance detail intact by drawing the PNG as a background
+   image AND multiplying it against a solid rarity colour via
+   background-blend-mode:multiply — the bright grey lines become
+   rarity-coloured lines, the darker greys become darker tints. */
 .thrall-card__frame {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  -webkit-mask-image: url('/assets/ornaments/thrall-frame.png');
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-image: url('/assets/ornaments/thrall-frame.png');
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  mask-position: center;
-  background-color: var(--rarity-color);
-  filter: drop-shadow(0 0 6px var(--rarity-glow));
+  background-image:
+    linear-gradient(var(--rarity-color), var(--rarity-color)),
+    url('/assets/ornaments/thrall-frame.png');
+  background-size: 100% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-blend-mode: multiply;
 }
 
 .thrall-card__info {
@@ -169,21 +171,13 @@
   --rarity-glow: rgba(201, 24, 24, 0.6);
 }
 
-/* Legendary also gets a subtle perpetual shimmer — the frame is the
-   only thing that truly signals "this is a hero tier". */
-.thrall-card[data-rarity='legendary'] .thrall-card__frame {
-  animation: thrall-legendary-shimmer 4.3s ease-in-out infinite;
-}
-
-@keyframes thrall-legendary-shimmer {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 6px var(--rarity-glow));
-  }
-  50% {
-    filter: drop-shadow(0 0 12px var(--rarity-glow))
-      drop-shadow(0 0 20px rgba(201, 24, 24, 0.25));
-  }
+/* Legendary gets a subtle inner glow — contained within the card's
+   overflow:hidden so it never bleeds into neighbours. Uses inset
+   box-shadow (not drop-shadow) so it stays strictly inside the card. */
+.thrall-card[data-rarity='legendary'] {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 14px rgba(201, 24, 24, 0.25);
 }
 
 /* ── Silhouette (locked / not-yet-collected) ────────────────────── */
@@ -278,11 +272,6 @@
   color: var(--ink-dim);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .thrall-card[data-rarity='legendary'] .thrall-card__frame {
-    animation: none !important;
-  }
-}
 
 /* ── Sanctum tab layout — make it scroll cleanly ─────────────── */
 .tab-view--sanctum {

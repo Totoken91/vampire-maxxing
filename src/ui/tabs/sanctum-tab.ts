@@ -17,6 +17,7 @@ import {
   type Thrall,
   type ThrallArchetype,
 } from '../../game/config/thralls';
+import { showThrallDetail } from '../components/thrall-detail-modal';
 
 type FilterId = 'all' | ThrallArchetype;
 
@@ -135,14 +136,10 @@ export class SanctumTab {
   }
 
   private buildCard(t: Thrall): HTMLElement {
-    const card = el('div', 'thrall-card');
+    const card = el('button', 'thrall-card') as HTMLButtonElement;
+    card.type = 'button';
     card.dataset.rarity = t.rarity;
     card.dataset.archetype = t.archetype;
-
-    // The frame is a masked div — background colour = rarity colour,
-    // shape = grey ornament PNG's alpha channel.
-    const frame = el('div', 'thrall-card__frame');
-    card.appendChild(frame);
 
     const img = el('img', 'thrall-card__portrait') as HTMLImageElement;
     img.src = t.portraitPath;
@@ -150,12 +147,22 @@ export class SanctumTab {
     img.decoding = 'async';
     card.appendChild(img);
 
+    // Frame renders ON TOP of the portrait — the grey ornament PNG
+    // tinted to the rarity colour via background-blend-mode: multiply.
+    const frame = el('div', 'thrall-card__frame');
+    card.appendChild(frame);
+
     const info = el('div', 'thrall-card__info');
     info.appendChild(el('div', 'thrall-card__name', t.name));
     info.appendChild(
       el('div', 'thrall-card__meta', archetypeLabel(t.archetype)),
     );
     card.appendChild(info);
+
+    card.addEventListener('click', () => {
+      if (navigator.vibrate) navigator.vibrate(6);
+      showThrallDetail(t);
+    });
 
     return card;
   }
