@@ -2,7 +2,7 @@
 // Any component can call `navigateTo('shop')` to switch tabs; views
 // subscribe via `onTabChange`.
 
-export type TabId = 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop';
+export type TabId = 'bloodline' | 'sanctum' | 'rites' | 'tome' | 'shop';
 
 const listeners = new Set<(tab: TabId) => void>();
 let current: TabId = 'bloodline';

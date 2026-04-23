@@ -1798,7 +1798,7 @@ img.shop-card__price-icon {
   gap: var(--sp-3);
   align-items: center;
   padding: 4px var(--sp-4) 4px 8px;
-  background: url('/assets/ornaments/servant-card-bg.png') center / 100% 100% no-repeat;
+  background: url('/assets/ornaments/thrall-card-bg.png') center / 100% 100% no-repeat;
   border: none;
   min-height: 46px;
   cursor: pointer;

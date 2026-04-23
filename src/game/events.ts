@@ -15,7 +15,7 @@ export interface GameEvents {
   'tick': { dt: number };
   'tapped': { x: number; y: number; crit: boolean; gain: number };
   'achievement-unlocked': { id: string };
-  'tab-unlocked': { tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop' | 'sanctum' };
+  'tab-unlocked': { tab: 'bloodline' | 'sanctum' | 'rites' | 'tome' | 'shop' };
   'upgrade-bought': { id: string; level: number };
   'altar-claimed': { amount: number };
   'lore-unlocked': { kind: 'servant' | 'form'; id: string };

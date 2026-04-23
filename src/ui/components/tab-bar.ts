@@ -19,7 +19,7 @@ interface TabDef {
 
 const TABS: readonly TabDef[] = [
   { id: 'bloodline', label: 'BLOODLINE', icon: '/assets/ornaments/tab-bloodline.webp' },
-  { id: 'servants', label: 'SERVANTS', icon: '/assets/ornaments/tab-servants.webp' },
+  { id: 'sanctum', label: 'SANCTUM', icon: '/assets/ornaments/tab-servants.webp' },
   { id: 'rites', label: 'RITES', icon: '/assets/ornaments/tab-rites.webp' },
   { id: 'tome', label: 'TOME', icon: '/assets/ornaments/tab-tome.webp' },
   { id: 'shop', label: 'SHOP', icon: '/assets/ornaments/tab-shop.webp' },
@@ -115,7 +115,7 @@ export class TabBar extends Component<HTMLElement> {
     const current = getCurrentTab();
     const dots: Record<TabId, boolean> = {
       bloodline: false,
-      servants: false,
+      sanctum: false,
       // Rites dot: at least one usable rite while the player is somewhere
       // else. Clears when they actually open the tab.
       rites: current !== 'rites' && gameState.isTabUnlocked('rites') && anyRiteUsable(),

@@ -4,7 +4,7 @@
 // event subscriptions.
 
 import { BloodlineTab } from './tabs/bloodline-tab';
-import { ServantsTab } from './tabs/servants-tab';
+import { SanctumTab } from './tabs/sanctum-tab';
 import { RitesTab } from './tabs/rites-tab';
 import { TomeTab } from './tabs/tome-tab';
 import { ShopTab } from './tabs/shop-tab';
@@ -22,8 +22,8 @@ function createTabView(tab: TabId): TabView {
   switch (tab) {
     case 'bloodline':
       return new BloodlineTab();
-    case 'servants':
-      return new ServantsTab();
+    case 'sanctum':
+      return new SanctumTab();
     case 'rites':
       return new RitesTab();
     case 'tome':

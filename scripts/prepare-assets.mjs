@@ -217,8 +217,37 @@ const JOBS = [
     preserveAspect: true,
     format: 'webp',
     webpQuality: 90,
-    description: `Thrall medallion — ${id}`,
+    description: `Servant medallion — ${id}`,
   })),
+  // Phase L — the unique Thrall roster. 7 portraits + 1 grey ornament
+  // frame that gets tinted per-rarity via CSS mask. Sources live under
+  // `thralls system/` so we point src there directly. Portraits are
+  // large 1024×1536 source, compressed to 640px tall WebP for cards.
+  ...[
+    { id: 'ashen-vale', source: 'thralls system/thrall-ashen-vale.png' },
+    { id: 'blood-countess', source: 'thralls system/thrall-blood-countess.png' },
+    { id: 'crimson-reaper', source: 'thralls system/thrall-crimson-reaper.png' },
+    { id: 'lord-of-night', source: 'thralls system/thrall-lord-of-night.png' },
+    { id: 'mirella', source: 'thralls system/thrall-mirella.png' },
+    { id: 'nox-the-hunger', source: 'thralls system/thrall-nox-the-hunger.png' },
+    { id: 'velmor-the-dread', source: 'thralls system/thrall-velmor-the-dread.png' },
+  ].map(({ id, source }) => ({
+    source,
+    dest: `public/assets/thralls/${id}.webp`,
+    maxWidth: 480,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 86,
+    description: `Thrall portrait — ${id}`,
+  })),
+  {
+    source: 'thralls system/cadre-thrall.png',
+    dest: 'public/assets/ornaments/thrall-frame.png',
+    maxWidth: 512,
+    preserveAspect: true,
+    description:
+      'Thrall card frame — grey/transparent PNG tinted per-rarity via CSS mask-image in .thrall-card__frame',
+  },
 ];
 
 async function exists(p) {

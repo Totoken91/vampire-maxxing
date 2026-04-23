@@ -1,0 +1,293 @@
+/* Phase L — Sanctum tab: the collectible Thrall roster.
+   Cards are rendered in a 3-col grid on mobile; each card carries:
+     • .thrall-card__frame — a masked div that renders the grey ornament
+       PNG tinted to the card's rarity colour via mask-image + solid bg.
+     • .thrall-card__portrait — the character illustration, clipped by
+       an inner inset so the frame reads "around" it.
+     • .thrall-card__info — name + archetype label along the bottom.
+   Locked (silhouette) variant fills in the remaining slots of the
+   "X/12" collection count with a question-mark placeholder. */
+
+/* ── Filter bar ─────────────────────────────────────────────────── */
+.sanctum-filters {
+  display: flex;
+  gap: 6px;
+  padding: 0 var(--sp-4) var(--sp-3);
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.sanctum-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.sanctum-filters__btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(139, 116, 68, 0.3);
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.sanctum-filters__btn:hover {
+  color: var(--gold-dim);
+}
+
+.sanctum-filters__btn--active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.22),
+    rgba(120, 90, 40, 0.12)
+  );
+}
+
+/* ── Grid ────────────────────────────────────────────────────────── */
+.sanctum-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 0 var(--sp-4) var(--sp-4);
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ── Card ────────────────────────────────────────────────────────── */
+.thrall-card {
+  /* Per-rarity colour set below via [data-rarity=…]. Default is a
+     muted gold so the common tier still has an identity when we add
+     those portraits later. */
+  --rarity-color: #8a6a3a;
+  --rarity-glow: rgba(138, 106, 58, 0.35);
+
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: linear-gradient(180deg, #1a0f16 0%, #0a0510 100%);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.14s var(--ease-out-pop), filter 0.2s;
+}
+
+.thrall-card:active {
+  transform: scale(0.97);
+}
+
+.thrall-card:hover:not(.thrall-card--silhouette) {
+  filter: drop-shadow(0 0 12px var(--rarity-glow));
+}
+
+.thrall-card__portrait {
+  position: absolute;
+  inset: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+  object-fit: cover;
+  object-position: center 18%;
+  z-index: 1;
+}
+
+/* The frame is rendered by masking a solid colour with the grey
+   ornament PNG. mask-image alpha drives the silhouette; the background
+   paints the rarity colour into the mask-opaque zones. */
+.thrall-card__frame {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  -webkit-mask-image: url('/assets/ornaments/thrall-frame.png');
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url('/assets/ornaments/thrall-frame.png');
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background-color: var(--rarity-color);
+  filter: drop-shadow(0 0 6px var(--rarity-glow));
+}
+
+.thrall-card__info {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  text-align: center;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+.thrall-card__name {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.thrall-card__meta {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--rarity-color);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  filter: brightness(1.4);
+}
+
+/* ── Per-rarity colours ─────────────────────────────────────────── */
+.thrall-card[data-rarity='common'] {
+  --rarity-color: #8a6a3a;
+  --rarity-glow: rgba(138, 106, 58, 0.35);
+}
+
+.thrall-card[data-rarity='rare'] {
+  --rarity-color: #6a2a8a;
+  --rarity-glow: rgba(106, 42, 138, 0.45);
+}
+
+.thrall-card[data-rarity='epic'] {
+  --rarity-color: #a82020;
+  --rarity-glow: rgba(168, 32, 32, 0.45);
+}
+
+.thrall-card[data-rarity='legendary'] {
+  --rarity-color: #c91818;
+  --rarity-glow: rgba(201, 24, 24, 0.6);
+}
+
+/* Legendary also gets a subtle perpetual shimmer — the frame is the
+   only thing that truly signals "this is a hero tier". */
+.thrall-card[data-rarity='legendary'] .thrall-card__frame {
+  animation: thrall-legendary-shimmer 4.3s ease-in-out infinite;
+}
+
+@keyframes thrall-legendary-shimmer {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px var(--rarity-glow));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--rarity-glow))
+      drop-shadow(0 0 20px rgba(201, 24, 24, 0.25));
+  }
+}
+
+/* ── Silhouette (locked / not-yet-collected) ────────────────────── */
+.thrall-card--silhouette {
+  --rarity-color: #3a2820;
+  --rarity-glow: rgba(50, 40, 30, 0.2);
+  cursor: default;
+}
+
+.thrall-card--silhouette .thrall-card__portrait {
+  display: none;
+}
+
+.thrall-card__silhouette-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 64px;
+  color: var(--ink-faint);
+  opacity: 0.35;
+}
+
+.thrall-card__info--locked {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.thrall-card__info--locked + * {
+  display: none;
+}
+
+/* ── Active Thralls footer ─────────────────────────────────────── */
+.sanctum-active {
+  flex: 0 0 auto;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border-top: 1px solid rgba(139, 116, 68, 0.25);
+  text-align: center;
+}
+
+.sanctum-active__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--gold-dim);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
+}
+
+.sanctum-active__slots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: var(--sp-2);
+}
+
+.sanctum-active__slot {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(139, 116, 68, 0.4);
+  background: rgba(0, 0, 0, 0.4);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--gold-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sanctum-active__slot--locked {
+  border-color: rgba(139, 116, 68, 0.2);
+  color: var(--ink-faint);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.sanctum-active__slot-lock {
+  font-size: 16px;
+}
+
+.sanctum-active__hint {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thrall-card[data-rarity='legendary'] .thrall-card__frame {
+    animation: none !important;
+  }
+}
+
+/* ── Sanctum tab layout — make it scroll cleanly ─────────────── */
+.tab-view--sanctum {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

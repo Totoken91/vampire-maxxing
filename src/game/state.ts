@@ -402,12 +402,15 @@ export class GameState {
 
   // ─────────── Tab gating ───────────
 
-  isTabUnlocked(tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop'): boolean {
+  isTabUnlocked(tab: 'bloodline' | 'sanctum' | 'rites' | 'tome' | 'shop'): boolean {
     switch (tab) {
       case 'bloodline':
         return true;
-      case 'servants':
-        return Object.values(this.snapshot.servants).some((t) => t.owned > 0);
+      case 'sanctum':
+        // MVP: always visible — the roster shows silhouettes for locked
+        // thralls so there's always something to read. Gating will move
+        // to "has at least 1 thrall" once acquisition lands in Phase L.
+        return true;
       case 'rites':
         return this.snapshot.stats.totalAscends >= 1;
       case 'tome':
