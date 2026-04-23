@@ -84,18 +84,18 @@
   transform: scale(0.97);
 }
 
-/* Portrait sits INSIDE the frame's interior (8px inset on all sides)
-   so it doesn't bleed over the frame's ornamental border. object-fit
-   cover fills the interior; transform: scale(1.55) from the top
-   zooms into the head/face. clip-path: inset(0) confines the scaled
-   overflow to the portrait's own box — without it the 1.55× scale
-   leaks past the frame border into the adjacent card. */
+/* Portrait sits INSIDE the frame's ornamental border. The frame PNG's
+   ornaments occupy the outer ~10-12px band of the card's surface;
+   the portrait is inset 14px so it never crosses the ornament line.
+   clip-path: inset(0) confines the transform: scale overflow to the
+   portrait's own box (otherwise the 1.55× zoom bleeds into the
+   frame + neighbour cards). */
 .thrall-card__portrait {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 8px;
-  right: 8px;
+  top: 14px;
+  bottom: 38px; /* leaves room for info strip + bottom frame ornament */
+  left: 12px;
+  right: 12px;
   object-fit: cover;
   object-position: center top;
   transform: scale(1.55);
@@ -137,37 +137,37 @@
   mask-position: center;
 }
 
+/* Info sits inside the frame's interior (same insets as portrait
+   horizontally) and strictly ABOVE the frame's bottom ornament
+   (bottom: 14px matches the frame border thickness). Dark-glass
+   background keeps the text legible over any portrait colour
+   beneath. */
 .thrall-card__info {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 14px;
+  left: 12px;
+  right: 12px;
   z-index: 3;
   text-align: center;
-  padding: var(--sp-2) 4px 8px;
+  padding: 4px 2px 3px;
   pointer-events: none;
-  /* Dark gradient fade from transparent at top to near-opaque at
-     bottom so the name/archetype stay readable over any portrait. */
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.8) 60%,
-    rgba(0, 0, 0, 0.95) 100%
-  );
+  background: rgba(0, 0, 0, 0.82);
+  border-top: 1px solid rgba(139, 116, 68, 0.18);
 }
 
 .thrall-card__name {
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.1;
   color: var(--ink);
   letter-spacing: 0.02em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  /* Single-line with ellipsis — the full name is available in the
+     detail modal, so we don't need to wrap on the card. */
+  white-space: nowrap;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
 }
 
 .thrall-card__meta {
