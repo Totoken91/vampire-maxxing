@@ -71,6 +71,12 @@ export interface SaveV2 extends Omit<SaveV1, 'v'> {
     form: string;
     formChanged: boolean;
   }>;
+  /** K5 — daily gift streak state. Absent in older saves (treated as
+   * "never claimed"). */
+  daily?: {
+    streakDay: number;
+    lastClaimedDate: string;
+  };
 }
 
 export type AnySave = Partial<SaveV2> & { v?: number };

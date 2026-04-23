@@ -5,6 +5,7 @@ import { mountApp } from './ui/app';
 import { startLoop } from './game/loop';
 import { installFx } from './fx';
 import { installMilestone } from './fx/milestone';
+import { showDailyModal } from './ui/components/daily-modal';
 import { installFtue } from './ftue';
 import { startAutosave } from './game/autosave';
 import { maybeShowOfflineModal } from './ui/components/offline-modal';
@@ -102,6 +103,25 @@ async function boot(): Promise<void> {
     maybeShowOfflineModal(offlineReport, (amount) => {
       gameState.applyOfflineGain(amount);
     });
+  }
+
+  // K5 daily gift — show AFTER the offline modal dismisses so we never
+  // stack two modals. If no offline modal was shown (elapsed < 60s), the
+  // daily fires immediately. MutationObserver watches the offline
+  // backdrop and triggers the daily when it's detached.
+  if (gameState.canClaimDaily()) {
+    const offlineBackdrop = document.querySelector('.offline-modal__backdrop');
+    if (!offlineBackdrop) {
+      showDailyModal();
+    } else {
+      const observer = new MutationObserver(() => {
+        if (!document.body.contains(offlineBackdrop)) {
+          observer.disconnect();
+          showDailyModal();
+        }
+      });
+      observer.observe(document.body, { childList: true });
+    }
   }
 
   if (import.meta.env.DEV) {

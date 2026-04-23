@@ -1,0 +1,286 @@
+/* Daily gift modal — K5. Mirrors the offline-modal visual language
+   (baroque card, gold edges, italic subtitle) but with a 7-day chain
+   strip as the main element. */
+
+.daily-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(8, 5, 10, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: daily-backdrop-in 300ms ease-out;
+  padding: var(--sp-4);
+}
+
+.daily-modal__backdrop--exit {
+  animation: daily-backdrop-out 300ms ease-in forwards;
+}
+
+@keyframes daily-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes daily-backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.daily-modal {
+  position: relative;
+  max-width: 380px;
+  width: 100%;
+  padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 15, 20, 0.98),
+    rgba(12, 8, 12, 1)
+  );
+  border: 1px solid var(--gold-dim);
+  text-align: center;
+  box-shadow:
+    0 0 50px rgba(201, 169, 98, 0.18),
+    0 8px 40px rgba(0, 0, 0, 0.7);
+  animation: daily-modal-in 400ms var(--ease-out-pop);
+}
+
+.daily-modal::before,
+.daily-modal::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--gold);
+}
+
+.daily-modal::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.daily-modal::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+@keyframes daily-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.daily-modal__close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--gold-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-serif);
+}
+
+.daily-modal__close:hover {
+  color: var(--gold);
+}
+
+.daily-modal__title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
+}
+
+.daily-modal__sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin-bottom: var(--sp-4);
+}
+
+/* Chain of 7 pills — past / current / future. Current pulses softly
+   so the player's eye lands on it first. */
+.daily-modal__chain {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: var(--sp-3);
+}
+
+.daily-modal__day {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(139, 116, 68, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.daily-modal__day--past {
+  border-color: rgba(139, 116, 68, 0.55);
+  color: var(--gold-dim);
+}
+
+.daily-modal__day--past::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  font-size: 14px;
+}
+
+.daily-modal__day--past .daily-modal__day-num {
+  opacity: 0;
+}
+
+.daily-modal__day--current {
+  border-color: var(--gold);
+  background: rgba(201, 24, 24, 0.15);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(201, 24, 24, 0.4);
+  animation: daily-current-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes daily-current-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(201, 24, 24, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(201, 24, 24, 0.6);
+  }
+}
+
+.daily-modal__day--future {
+  opacity: 0.55;
+}
+
+.daily-modal__day--climax {
+  border-color: var(--gold);
+  /* Day 7 keeps a subtle gold tint even when it's "future" so the
+     player sees the weekly climax is coming. */
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.1),
+    rgba(201, 169, 98, 0.02)
+  );
+}
+
+.daily-modal__day--current.daily-modal__day--climax {
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.35),
+    rgba(201, 24, 24, 0.15)
+  );
+}
+
+.daily-modal__day-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-modal__day-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--gold-dim);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
+}
+
+.daily-modal__reward-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-bottom: 2px;
+}
+
+.daily-modal__reward-blood {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--blood-glow);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+
+.daily-modal__reward-dread {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: #a98bde;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--sp-3);
+}
+
+.daily-modal__btn {
+  width: 100%;
+  padding: 14px;
+  margin-top: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.22),
+    rgba(120, 90, 40, 0.12)
+  );
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  transition: background 0.2s, transform 0.12s;
+}
+
+.daily-modal__btn:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.35),
+    rgba(120, 90, 40, 0.18)
+  );
+}
+
+.daily-modal__btn:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-modal,
+  .daily-modal__backdrop,
+  .daily-modal__backdrop--exit,
+  .daily-modal__day--current {
+    animation: none !important;
+  }
+}

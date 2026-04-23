@@ -15,6 +15,12 @@ import {
 import { getCurrentForm, getCenturyInForm } from './forms';
 import { hasUnlock } from './config/prestige-unlocks';
 import { modifierRegistry } from './modifiers';
+import {
+  isConsecutiveDay,
+  localDateKey,
+  rewardFor,
+  type DailyReward,
+} from './config/daily';
 import { defaultV1, loadSave, writeSave, type SaveV2 } from './save';
 
 interface ThrallOwnership {
@@ -68,6 +74,14 @@ export interface GameSnapshot {
    * any fires. Reset to -1 on ascend; backfilled on load from
    * totalRunBlood so reopening the app doesn't re-trigger past ones. */
   lastMilestoneExp: number;
+  /** K5 — daily gift streak. streakDay is the last day of the 7-cycle
+   * the player claimed (0 = never claimed, 1-7 after claims).
+   * lastClaimedDate is the local "YYYY-MM-DD" at claim time — an empty
+   * string means no prior claim exists. */
+  daily: {
+    streakDay: number;
+    lastClaimedDate: string;
+  };
 }
 
 export interface RunEntry {
@@ -116,6 +130,7 @@ function emptySnapshot(): GameSnapshot {
     unlockedFormLore: new Set<string>(),
     runHistory: [],
     lastMilestoneExp: -1,
+    daily: { streakDay: 0, lastClaimedDate: '' },
   };
 }
 
@@ -480,6 +495,55 @@ export class GameState {
     this.snapshot.dread = Math.max(0, this.snapshot.dread - amount);
   }
 
+  // ─────────── K5 Daily gift ───────────
+
+  /** True iff the local calendar day changed since the last claim. */
+  canClaimDaily(): boolean {
+    return this.snapshot.daily.lastClaimedDate !== localDateKey();
+  }
+
+  /**
+   * Preview of the next claim — the day-of-cycle it will land on and
+   * the reward amounts. Does NOT mutate state. `isNewStreak` is true
+   * when today's claim restarts the cycle (either after a gap or
+   * because the previous claim was day 7).
+   */
+  getPendingDailyReward(): {
+    day: number;
+    reward: DailyReward;
+    isNewStreak: boolean;
+  } {
+    const today = localDateKey();
+    const { streakDay, lastClaimedDate } = this.snapshot.daily;
+    const consecutive = isConsecutiveDay(lastClaimedDate, today);
+    let day: number;
+    let isNewStreak: boolean;
+    if (consecutive && streakDay >= 1 && streakDay < 7) {
+      day = streakDay + 1;
+      isNewStreak = false;
+    } else if (consecutive && streakDay === 7) {
+      day = 1;
+      isNewStreak = true;
+    } else {
+      day = 1;
+      isNewStreak = lastClaimedDate !== '';
+    }
+    return { day, reward: rewardFor(day - 1, this.getTotalRate()), isNewStreak };
+  }
+
+  /**
+   * Apply the pending daily gift. Caller MUST gate on canClaimDaily().
+   * Returns the amounts granted so the UI can display them.
+   */
+  claimDaily(): { day: number; reward: DailyReward } {
+    const pending = this.getPendingDailyReward();
+    this.snapshot.daily.streakDay = pending.day;
+    this.snapshot.daily.lastClaimedDate = localDateKey();
+    this.addBlood(pending.reward.blood);
+    this.snapshot.dread += pending.reward.dread;
+    return { day: pending.day, reward: pending.reward };
+  }
+
   // ─────────── Persistence helpers ───────────
 
   private toSave(): SaveV2 {
@@ -502,6 +566,7 @@ export class GameState {
       unlockedThrallLore: Array.from(this.snapshot.unlockedThrallLore),
       unlockedFormLore: Array.from(this.snapshot.unlockedFormLore),
       runHistory: [...this.snapshot.runHistory],
+      daily: { ...this.snapshot.daily },
     };
   }
 
@@ -544,6 +609,10 @@ export class GameState {
       this.snapshot.totalRunBlood > 0
         ? Math.floor(Math.log10(this.snapshot.totalRunBlood))
         : -1;
+    // K5 — daily streak; absent on older saves means "never claimed".
+    this.snapshot.daily = save.daily
+      ? { streakDay: save.daily.streakDay, lastClaimedDate: save.daily.lastClaimedDate }
+      : { streakDay: 0, lastClaimedDate: '' };
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */
