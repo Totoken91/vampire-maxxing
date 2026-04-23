@@ -19,6 +19,9 @@ export interface GameEvents {
   'upgrade-bought': { id: string; level: number };
   'altar-claimed': { amount: number };
   'lore-unlocked': { kind: 'thrall' | 'form'; id: string };
+  /** K4 — totalRunBlood crossed a 10^N threshold (N >= 4, so 10K upward).
+   * Fires once per crossing per run; reset on ascend. */
+  'milestone-reached': { threshold: number; exponent: number };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

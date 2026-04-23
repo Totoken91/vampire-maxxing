@@ -4,6 +4,7 @@ import './styles/index.css';
 import { mountApp } from './ui/app';
 import { startLoop } from './game/loop';
 import { installFx } from './fx';
+import { installMilestone } from './fx/milestone';
 import { installFtue } from './ftue';
 import { startAutosave } from './game/autosave';
 import { maybeShowOfflineModal } from './ui/components/offline-modal';
@@ -39,6 +40,7 @@ async function boot(): Promise<void> {
   republishAllUpgradeModifiers();
 
   installFx(document.body);
+  installMilestone();
   mountApp(appRoot);
   startLoop();
   startAutosave();

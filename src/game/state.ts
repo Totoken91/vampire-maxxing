@@ -64,6 +64,10 @@ export interface GameSnapshot {
   unlockedFormLore: Set<string>;
   /** Last 10 runs, pushed on ascend. Rolling window. */
   runHistory: RunEntry[];
+  /** K4 — the highest 10^N milestone already fired THIS RUN. -1 before
+   * any fires. Reset to -1 on ascend; backfilled on load from
+   * totalRunBlood so reopening the app doesn't re-trigger past ones. */
+  lastMilestoneExp: number;
 }
 
 export interface RunEntry {
@@ -111,8 +115,14 @@ function emptySnapshot(): GameSnapshot {
     unlockedThrallLore: new Set<string>(),
     unlockedFormLore: new Set<string>(),
     runHistory: [],
+    lastMilestoneExp: -1,
   };
 }
+
+// K4 — minimum exponent that triggers a milestone toast. 10^4 = 10,000.
+// Smaller numbers reach a player too quickly and read as noise; 10K is
+// the first "that felt like something" threshold in the early curve.
+const MIN_MILESTONE_EXP = 4;
 
 export interface OfflineReport {
   elapsedSec: number;
@@ -307,6 +317,7 @@ export class GameState {
     this.snapshot.blood = 0;
     this.snapshot.totalRunBlood = 0;
     this.snapshot.pendingCurseMult = 1;
+    this.snapshot.lastMilestoneExp = -1;
     for (const t of THRALLS) {
       this.snapshot.thralls[t.id].owned = 0;
     }
@@ -525,6 +536,14 @@ export class GameState {
           formChanged: r.formChanged,
         }))
       : [];
+    // K4 — derive the milestone watermark from the saved run total so
+    // re-opening the app doesn't re-fire the toast for a threshold
+    // already crossed earlier in the same run. Not persisted directly;
+    // inferred from totalRunBlood.
+    this.snapshot.lastMilestoneExp =
+      this.snapshot.totalRunBlood > 0
+        ? Math.floor(Math.log10(this.snapshot.totalRunBlood))
+        : -1;
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */
@@ -566,6 +585,25 @@ export class GameState {
     this.snapshot.totalRunBlood += delta;
     this.snapshot.totalLifetimeBlood += delta;
     events.emit('blood-changed', { blood: this.snapshot.blood, delta });
+    this.checkMilestone();
+  }
+
+  /**
+   * K4 — fire a 'milestone-reached' event when totalRunBlood crosses
+   * a 10^N threshold we haven't seen yet this run. One emission per
+   * crossing (if the delta skips multiple thresholds, only the highest
+   * fires, which avoids toast spam on rare giant ticks).
+   */
+  private checkMilestone(): void {
+    if (this.snapshot.totalRunBlood < 10) return;
+    const exp = Math.floor(Math.log10(this.snapshot.totalRunBlood));
+    if (exp < MIN_MILESTONE_EXP) return;
+    if (exp <= this.snapshot.lastMilestoneExp) return;
+    this.snapshot.lastMilestoneExp = exp;
+    events.emit('milestone-reached', {
+      threshold: 10 ** exp,
+      exponent: exp,
+    });
   }
 }
 
