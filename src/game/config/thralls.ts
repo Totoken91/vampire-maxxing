@@ -53,7 +53,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'harvester',
     lore: 'She feeds not on blood but on memory of blood — and grows fat where others starve.',
     portraitPath: '/assets/thralls/nox-the-hunger.webp',
-    primaryEffect: { type: 'blood_gen', value: 1.25 },
+    primaryEffect: { type: 'blood_gen', value: 1.08 },
   },
   {
     id: 'ashen-vale',
@@ -62,7 +62,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'hybrid',
     lore: 'Twice buried, thrice returned. The ash on his shoulders is from his own pyre.',
     portraitPath: '/assets/thralls/ashen-vale.webp',
-    primaryEffect: { type: 'hybrid', value: 1.15 },
+    primaryEffect: { type: 'hybrid', value: 1.05 },
   },
   {
     id: 'mirella',
@@ -71,7 +71,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'harvester',
     lore: 'A courtier with no court left. She smiles like a wound remembering.',
     portraitPath: '/assets/thralls/mirella.webp',
-    primaryEffect: { type: 'blood_gen', value: 1.6 },
+    primaryEffect: { type: 'blood_gen', value: 1.15 },
   },
   {
     id: 'velmor-the-dread',
@@ -80,7 +80,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'nocturne',
     lore: 'Sleeps an age between breaths. Even his absence collects interest.',
     portraitPath: '/assets/thralls/velmor-the-dread.webp',
-    primaryEffect: { type: 'offline_gain', value: 1.8 },
+    primaryEffect: { type: 'offline_gain', value: 1.15 },
   },
   {
     id: 'lord-of-night',
@@ -89,7 +89,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'harvester',
     lore: 'He does not serve you. He merely recognises, for now, the shape of your hunger.',
     portraitPath: '/assets/thralls/lord-of-night.webp',
-    primaryEffect: { type: 'blood_gen', value: 2.0 },
+    primaryEffect: { type: 'blood_gen', value: 1.25 },
   },
   {
     id: 'blood-countess',
@@ -98,7 +98,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'nocturne',
     lore: 'Her mirror drinks faster than she does. She has not seen herself in four hundred years.',
     portraitPath: '/assets/thralls/blood-countess.webp',
-    primaryEffect: { type: 'offline_gain', value: 2.0 },
+    primaryEffect: { type: 'offline_gain', value: 1.25 },
   },
   {
     id: 'crimson-reaper',
@@ -107,7 +107,7 @@ export const THRALLS: readonly Thrall[] = [
     archetype: 'predator',
     lore: 'Where she walks, the clocks stutter and the dogs go quiet. She is not hunting — she is arriving.',
     portraitPath: '/assets/thralls/crimson-reaper.webp',
-    primaryEffect: { type: 'active_gain', value: 1.8 },
+    primaryEffect: { type: 'active_gain', value: 1.25 },
   },
 ];
 

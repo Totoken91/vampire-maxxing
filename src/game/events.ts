@@ -2,6 +2,7 @@
 // Listeners subscribe with a key and receive the matching payload.
 
 import type { ServantId } from './config/servants';
+import type { ThrallId } from './config/thralls';
 import type { VampireForm } from './config/forms';
 
 export interface GameEvents {
@@ -22,6 +23,10 @@ export interface GameEvents {
   /** K4 — totalRunBlood crossed a 10^N threshold (N >= 4, so 10K upward).
    * Fires once per crossing per run; reset on ascend. */
   'milestone-reached': { threshold: number; exponent: number };
+  /** L2 — a thrall was acquired (welcome summon, milestone, pull…).
+   * firstTime is true only on the initial unlock; re-grants (awaken
+   * via duplicates) land with firstTime:false. */
+  'thrall-obtained': { id: ThrallId; firstTime: boolean };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

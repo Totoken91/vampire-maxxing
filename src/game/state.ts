@@ -3,6 +3,7 @@
 
 import { BALANCE } from './config/balance';
 import { SERVANTS, SERVANTS_BY_ID, type ServantId } from './config/servants';
+import { THRALLS, type ThrallId } from './config/thralls';
 import type { VampireForm } from './config/forms';
 import { events } from './events';
 import {
@@ -26,6 +27,22 @@ import { defaultV1, loadSave, writeSave, type SaveV3 } from './save';
 interface ServantOwnership {
   owned: number;
   totalPurchased: number;
+}
+
+/** Per-thrall player state for the collectible roster. Tracks whether
+ * the player has unlocked it, current level/xp, awakening star count
+ * (raised by collecting duplicates), and the "new" flag that drives
+ * the tab-bar dot + card highlight until the player opens the detail
+ * modal. */
+export interface PlayerThrallState {
+  owned: boolean;
+  level: number;
+  xp: number;
+  stars: number;
+  firstObtainedAt: number;
+  /** Pulled/granted this session and not yet acknowledged by the
+   * player opening the thrall detail modal. */
+  isNew: boolean;
 }
 
 interface BoostState {
@@ -82,6 +99,10 @@ export interface GameSnapshot {
     streakDay: number;
     lastClaimedDate: string;
   };
+  /** L2 — per-thrall ownership/level/stars. All ids present; owned
+   * flag flips to true on acquisition (welcome summon, milestone,
+   * pull, etc.). */
+  playerThralls: Record<ThrallId, PlayerThrallState>;
 }
 
 export interface RunEntry {
@@ -101,6 +122,21 @@ function emptyServants(): Record<ServantId, ServantOwnership> {
   const acc = {} as Record<ServantId, ServantOwnership>;
   for (const t of SERVANTS) {
     acc[t.id] = { owned: 0, totalPurchased: 0 };
+  }
+  return acc;
+}
+
+function emptyPlayerThralls(): Record<ThrallId, PlayerThrallState> {
+  const acc = {} as Record<ThrallId, PlayerThrallState>;
+  for (const t of THRALLS) {
+    acc[t.id] = {
+      owned: false,
+      level: 1,
+      xp: 0,
+      stars: 0,
+      firstObtainedAt: 0,
+      isNew: false,
+    };
   }
   return acc;
 }
@@ -131,6 +167,7 @@ function emptySnapshot(): GameSnapshot {
     runHistory: [],
     lastMilestoneExp: -1,
     daily: { streakDay: 0, lastClaimedDate: '' },
+    playerThralls: emptyPlayerThralls(),
   };
 }
 
@@ -498,6 +535,58 @@ export class GameState {
     this.snapshot.dread = Math.max(0, this.snapshot.dread - amount);
   }
 
+  // ─────────── L2 Thralls roster ───────────
+
+  getPlayerThrall(id: ThrallId): Readonly<PlayerThrallState> {
+    return this.snapshot.playerThralls[id];
+  }
+
+  isThrallOwned(id: ThrallId): boolean {
+    return this.snapshot.playerThralls[id].owned;
+  }
+
+  /** Count of thralls the player currently has unlocked. */
+  ownedThrallCount(): number {
+    let n = 0;
+    for (const t of THRALLS) {
+      if (this.snapshot.playerThralls[t.id].owned) n += 1;
+    }
+    return n;
+  }
+
+  /** True if there's at least one owned-but-unacknowledged thrall.
+   * Drives the Sanctum tab dot. */
+  hasUnseenThralls(): boolean {
+    for (const t of THRALLS) {
+      if (this.snapshot.playerThralls[t.id].isNew) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Grant a thrall. First grant sets owned=true + firstObtainedAt +
+   * isNew=true and emits 'thrall-obtained'. Subsequent grants (same
+   * thrall re-pulled) will eventually bump stars via the awakening
+   * system — for L2 they're a no-op so the welcome summon flow can
+   * ship first. Returns true on first-time acquisition.
+   */
+  obtainThrall(id: ThrallId): boolean {
+    const state = this.snapshot.playerThralls[id];
+    if (state.owned) return false;
+    state.owned = true;
+    state.firstObtainedAt = Date.now();
+    state.isNew = true;
+    events.emit('thrall-obtained', { id, firstTime: true });
+    return true;
+  }
+
+  /** Clear the `isNew` badge after the player has seen the detail
+   * modal or acknowledged the card. */
+  acknowledgeThrall(id: ThrallId): void {
+    const state = this.snapshot.playerThralls[id];
+    if (state.isNew) state.isNew = false;
+  }
+
   // ─────────── K5 Daily gift ───────────
 
   /** True iff the local calendar day changed since the last claim. */
@@ -570,6 +659,7 @@ export class GameState {
       unlockedFormLore: Array.from(this.snapshot.unlockedFormLore),
       runHistory: [...this.snapshot.runHistory],
       daily: { ...this.snapshot.daily },
+      playerThralls: { ...this.snapshot.playerThralls },
     };
   }
 
@@ -616,6 +706,17 @@ export class GameState {
     this.snapshot.daily = save.daily
       ? { streakDay: save.daily.streakDay, lastClaimedDate: save.daily.lastClaimedDate }
       : { streakDay: 0, lastClaimedDate: '' };
+    // L2 — roster state. Absent on pre-L2 saves → fresh empty map
+    // (everyone locked). Present but missing an id → default locked
+    // entry so adding thralls in future versions doesn't crash load.
+    const base = emptyPlayerThralls();
+    if (save.playerThralls) {
+      for (const t of THRALLS) {
+        const saved = save.playerThralls[t.id];
+        if (saved) base[t.id] = { ...saved };
+      }
+    }
+    this.snapshot.playerThralls = base;
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */

@@ -183,6 +183,70 @@
   filter: brightness(0.8) sepia(1) hue-rotate(345deg) saturate(3.2);
 }
 
+/* ── Locked state (portrait exists but not yet acquired) ─────────
+   Desaturate + darken the illustration and overlay a lock badge.
+   Rarity frame stays visible (teases what's coming) but at half
+   intensity so owned cards pop more against locked ones. */
+.thrall-card--locked .thrall-portrait {
+  filter: grayscale(0.95) brightness(0.35) contrast(0.9);
+}
+
+.thrall-card--locked .thrall-frame {
+  filter: brightness(0.55) sepia(1) saturate(0.5);
+}
+
+.thrall-card--locked .thrall-name,
+.thrall-card--locked .thrall-type {
+  display: none;
+}
+
+.thrall-lock {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 40px;
+  color: rgba(180, 160, 120, 0.55);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
+  pointer-events: none;
+}
+
+/* ── "New" acquisition indicator — pulse a small dot in the top-right
+   corner until the player taps the card to open the detail modal. */
+.thrall-card--new::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rarity-color);
+  box-shadow: 0 0 10px var(--rarity-color), 0 0 0 2px rgba(0, 0, 0, 0.8);
+  z-index: 4;
+  animation: thrall-new-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes thrall-new-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thrall-card--new::after {
+    animation: none;
+  }
+}
+
 /* ── Silhouette (locked / pending common slots) ─────────────────── */
 .thrall-card--silhouette {
   --rarity-color: #3a2820;

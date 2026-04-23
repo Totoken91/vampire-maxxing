@@ -77,6 +77,21 @@ export interface SaveV3 extends Omit<SaveV2, 'v' | 'thralls'> {
   v: 3;
   /** The 8 generators (formerly "thralls"). Keyed by ServantId. */
   servants: Record<ServantId, { owned: number; totalPurchased: number }>;
+  /** L2 — per-thrall roster state. Absent on pre-L2 saves means
+   * "everybody locked"; state.ts rebuilds the full map from defaults
+   * then overlays saved entries. Optional for back-compat; no version
+   * bump. */
+  playerThralls?: Record<
+    string,
+    {
+      owned: boolean;
+      level: number;
+      xp: number;
+      stars: number;
+      firstObtainedAt: number;
+      isNew: boolean;
+    }
+  >;
 }
 
 export type AnySave = Partial<SaveV3> &

@@ -17,6 +17,7 @@ import {
   getUpgradeLevel,
   type UpgradeId,
 } from '../game/upgrades';
+import { THRALLS, type ThrallId } from '../game/config/thralls';
 
 type Cheats = {
   gameState: typeof gameState;
@@ -32,6 +33,8 @@ type Cheats = {
   testOverlay: (layer?: 'front' | 'back', color?: string) => void;
   buyUpgrade: (id: UpgradeId) => boolean;
   getUpgradeLevel: (id: UpgradeId) => number;
+  grantThrall: (id: ThrallId) => boolean;
+  grantAllThralls: () => void;
 };
 
 declare global {
@@ -72,6 +75,12 @@ export function installCheats(): void {
     },
     buyUpgrade,
     getUpgradeLevel,
+    grantThrall(id) {
+      return gameState.obtainThrall(id);
+    },
+    grantAllThralls() {
+      for (const t of THRALLS) gameState.obtainThrall(t.id);
+    },
     reset() {
       gameState.reset();
       events.emit('blood-changed', { blood: 0, delta: 0 });
