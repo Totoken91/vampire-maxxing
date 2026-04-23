@@ -248,6 +248,29 @@ const JOBS = [
     description:
       'Thrall card frame — grey/transparent PNG tinted per-rarity via CSS mask-image in .thrall-card__frame',
   },
+  // Sanctum filter buttons — the ALL button (red-glowing active state)
+  // and the per-archetype button (dark baroque inactive state). Both
+  // are 3:2 landscape PNGs that render as the filter-btn backgrounds.
+  {
+    source: 'thralls system/sanctum-all-button.png',
+    dest: 'public/assets/ornaments/sanctum-filter-active.webp',
+    maxWidth: 480,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 90,
+    description: 'Sanctum filter active state — red-glowing ornate cartouche',
+  },
+  {
+    source: 'thralls system/thrall-type-button.png',
+    dest: 'public/assets/ornaments/sanctum-filter-idle.webp',
+    maxWidth: 480,
+    trim: true,
+    preserveAspect: true,
+    format: 'webp',
+    webpQuality: 90,
+    description: 'Sanctum filter idle state — dark gilded cartouche',
+  },
 ];
 
 async function exists(p) {
