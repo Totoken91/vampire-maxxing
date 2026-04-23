@@ -1,12 +1,15 @@
-/* Phase L — Sanctum tab: the collectible Thrall roster.
-   Cards are rendered in a 3-col grid on mobile; each card carries:
-     • .thrall-card__frame — a masked div that renders the grey ornament
-       PNG tinted to the card's rarity colour via mask-image + solid bg.
-     • .thrall-card__portrait — the character illustration, clipped by
-       an inner inset so the frame reads "around" it.
-     • .thrall-card__info — name + archetype label along the bottom.
-   Locked (silhouette) variant fills in the remaining slots of the
-   "X/12" collection count with a question-mark placeholder. */
+/* Phase L — Sanctum tab.
+   Card structure follows the strict spec:
+     <div class="thrall-card">
+       <img class="thrall-portrait" />
+       <img class="thrall-frame"    />
+       <div class="thrall-name">    </div>
+       <div class="thrall-type">    </div>
+     </div>
+   No card background, no CSS border — the frame PNG is the visible
+   border. Portrait and frame are both position:absolute inset:0,
+   each 100% × 100% of the parent, so they cannot desync.
+*/
 
 /* ── Filter bar ─────────────────────────────────────────────────── */
 .sanctum-filters {
@@ -49,177 +52,141 @@
 }
 
 /* ── Grid ────────────────────────────────────────────────────────── */
-.sanctum-grid {
+.thralls-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 16px;
+  align-items: start;
   padding: 0 var(--sp-4) var(--sp-4);
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* ── Card ────────────────────────────────────────────────────────── */
+/* ── Card — strict spec ─────────────────────────────────────────── */
 .thrall-card {
-  /* Per-rarity colour set below via [data-rarity=…]. Default is a
-     muted gold so the common tier still has an identity when we add
-     those portraits later. */
-  --rarity-color: #8a6a3a;
-  --rarity-glow: rgba(138, 106, 58, 0.3);
-
   position: relative;
-  aspect-ratio: 2 / 3;
-  background: linear-gradient(180deg, #1a0f16 0%, #0a0510 100%);
-  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  overflow: visible;
   cursor: pointer;
-  isolation: isolate;
   transition: transform 0.14s var(--ease-out-pop);
-  /* No CSS border — the frame PNG ornament IS the visible border.
-     A 1px dark halo keeps cards visually distinct against the tab
-     background without competing with the ornament. */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
+  /* Per-rarity custom properties — consumed below for tinting the
+     frame img + styling the type label. Defaults are muted gold so
+     the common tier lands cleanly once those portraits ship. */
+  --rarity-color: #a88450;
 }
 
 .thrall-card:active {
   transform: scale(0.97);
 }
 
-/* Portrait sits STRICTLY inside the frame's inner opening. Frame
-   renders at 86% of card (7% margin each side) + an ~4% ornament
-   border on top of that → portrait inset ~11% from edges, plus an
-   extra reserve at the bottom for the info strip + frame bottom
-   ornament. clip-path: inset(0) confines the transform: scale
-   overflow so the 1.55× zoom never leaks past the portrait box. */
-.thrall-card__portrait {
+.thrall-portrait {
   position: absolute;
-  top: 13%;
-  bottom: 26%;
-  left: 11%;
-  right: 11%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center top;
-  transform: scale(1.35);
-  transform-origin: center top;
-  clip-path: inset(0);
   z-index: 1;
 }
 
-/* Frame fills the full card (no more dead-space margin). The
-   ornament PNG is drawn first (transparent zones stay transparent,
-   grey/white luminance preserved) then ::after paints the rarity
-   colour masked to the same silhouette with mix-blend-mode: color
-   so the grey ornament becomes a tinted ornament with detail intact. */
-.thrall-card__frame {
+.thrall-frame {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
   pointer-events: none;
-  background: url('/assets/ornaments/thrall-frame.png') center / 100% 100%
-    no-repeat;
+  z-index: 2;
 }
 
-.thrall-card__frame::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--rarity-color);
-  mix-blend-mode: color;
-  -webkit-mask-image: url('/assets/ornaments/thrall-frame.png');
-  mask-image: url('/assets/ornaments/thrall-frame.png');
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-}
+/* ── Name + type labels — absolute, inside the frame's bottom
+   cartouche area. Coordinates tuned against the cadre-thrall PNG's
+   layout. */
 
-/* Info strip sits ABOVE the frame's bottom ornament, matching the
-   portrait's horizontal inset. 12% bottom = gap around frame (7%) +
-   bottom ornament thickness (~5%). */
-.thrall-card__info {
+.thrall-name {
   position: absolute;
-  bottom: 14%;
-  left: 11%;
-  right: 11%;
+  left: 8%;
+  right: 8%;
+  bottom: 13%;
   z-index: 3;
   text-align: center;
-  padding: 3px 2px;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.82);
-  border-top: 1px solid rgba(139, 116, 68, 0.18);
-}
-
-.thrall-card__name {
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.1;
   color: var(--ink);
   letter-spacing: 0.02em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
-  /* Single-line with ellipsis — the full name is available in the
-     detail modal, so we don't need to wrap on the card. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
-.thrall-card__meta {
+.thrall-type {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 7%;
+  z-index: 3;
+  text-align: center;
   font-family: var(--font-mono);
   font-size: 8px;
   color: var(--rarity-color);
-  letter-spacing: 0.28em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  margin-top: 2px;
   filter: brightness(1.4);
+  pointer-events: none;
 }
 
-/* ── Per-rarity colours ──────────────────────────────────────────
-   Drives card border AND the frame tint via mix-blend-mode:color
-   on .thrall-card__frame::after. */
+/* ── Per-rarity tint on the frame img (CSS filter chain) ─────────
+   Source PNG is grey/white → sepia + hue-rotate + saturate shifts
+   toward each rarity's hue while preserving the ornament detail. */
 
 .thrall-card[data-rarity='common'] {
   --rarity-color: #a88450;
-  --rarity-glow: rgba(168, 132, 80, 0.35);
+}
+.thrall-card[data-rarity='common'] .thrall-frame {
+  filter: brightness(0.75) sepia(1) saturate(1.4);
 }
 
 .thrall-card[data-rarity='rare'] {
   --rarity-color: #8a3fb5;
-  --rarity-glow: rgba(138, 63, 181, 0.4);
+}
+.thrall-card[data-rarity='rare'] .thrall-frame {
+  filter: brightness(0.85) sepia(1) hue-rotate(225deg) saturate(3.5);
 }
 
 .thrall-card[data-rarity='epic'] {
   --rarity-color: #c02838;
-  --rarity-glow: rgba(192, 40, 56, 0.4);
+}
+.thrall-card[data-rarity='epic'] .thrall-frame {
+  filter: brightness(0.85) sepia(1) hue-rotate(325deg) saturate(5);
 }
 
 .thrall-card[data-rarity='legendary'] {
   --rarity-color: #e01818;
-  --rarity-glow: rgba(224, 24, 24, 0.55);
+}
+.thrall-card[data-rarity='legendary'] .thrall-frame {
+  filter: brightness(0.9) sepia(1) hue-rotate(345deg) saturate(8);
 }
 
-/* Legendary gets a subtle inner glow — contained within the card's
-   overflow:hidden so it never bleeds into neighbours. Uses inset
-   box-shadow (not drop-shadow) so it stays strictly inside the card. */
-.thrall-card[data-rarity='legendary'] {
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.6),
-    inset 0 0 14px rgba(201, 24, 24, 0.25);
-}
-
-/* ── Silhouette (locked / not-yet-collected) ────────────────────── */
+/* ── Silhouette (locked / pending common slots) ─────────────────── */
 .thrall-card--silhouette {
   --rarity-color: #3a2820;
-  --rarity-glow: rgba(50, 40, 30, 0.2);
   cursor: default;
 }
 
-.thrall-card--silhouette .thrall-card__portrait {
-  display: none;
+.thrall-card--silhouette .thrall-frame {
+  filter: brightness(0.35) sepia(1) saturate(0.6);
 }
 
-.thrall-card__silhouette-mark {
+.thrall-silhouette-mark {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -227,22 +194,18 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-serif);
-  font-size: 64px;
+  font-size: 56px;
   color: var(--ink-faint);
   opacity: 0.35;
+  pointer-events: none;
 }
 
-.thrall-card__info--locked {
+.thrall-name--locked {
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--ink-faint);
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  text-align: center;
-}
-
-.thrall-card__info--locked + * {
-  display: none;
 }
 
 /* ── Active Thralls footer ─────────────────────────────────────── */
@@ -299,7 +262,6 @@
   font-size: 11px;
   color: var(--ink-dim);
 }
-
 
 /* ── Sanctum tab layout — make it scroll cleanly ─────────────── */
 .tab-view--sanctum {

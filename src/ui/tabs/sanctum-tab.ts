@@ -63,7 +63,7 @@ export class SanctumTab {
     this.root.appendChild(filterRow);
 
     // ── Grid
-    this.grid = el('div', 'sanctum-grid');
+    this.grid = el('div', 'thralls-grid');
     this.root.appendChild(this.grid);
     this.renderGrid();
 
@@ -141,23 +141,23 @@ export class SanctumTab {
     card.dataset.rarity = t.rarity;
     card.dataset.archetype = t.archetype;
 
-    const img = el('img', 'thrall-card__portrait') as HTMLImageElement;
-    img.src = t.portraitPath;
-    img.alt = t.name;
-    img.decoding = 'async';
-    card.appendChild(img);
+    const portrait = el('img', 'thrall-portrait') as HTMLImageElement;
+    portrait.src = t.portraitPath;
+    portrait.alt = t.name;
+    portrait.decoding = 'async';
+    card.appendChild(portrait);
 
-    // Frame renders ON TOP of the portrait — the grey ornament PNG
-    // tinted to the rarity colour via background-blend-mode: multiply.
-    const frame = el('div', 'thrall-card__frame');
+    const frame = el('img', 'thrall-frame') as HTMLImageElement;
+    frame.src = '/assets/ornaments/thrall-frame.png';
+    frame.alt = '';
+    frame.decoding = 'async';
     card.appendChild(frame);
 
-    const info = el('div', 'thrall-card__info');
-    info.appendChild(el('div', 'thrall-card__name', t.name));
-    info.appendChild(
-      el('div', 'thrall-card__meta', archetypeLabel(t.archetype)),
-    );
-    card.appendChild(info);
+    const name = el('div', 'thrall-name', t.name);
+    card.appendChild(name);
+
+    const type = el('div', 'thrall-type', archetypeLabel(t.archetype).toUpperCase());
+    card.appendChild(type);
 
     card.addEventListener('click', () => {
       if (navigator.vibrate) navigator.vibrate(6);
@@ -170,11 +170,13 @@ export class SanctumTab {
   private buildSilhouette(): HTMLElement {
     const card = el('div', 'thrall-card thrall-card--silhouette');
     card.dataset.rarity = 'unknown';
-    card.appendChild(el('div', 'thrall-card__frame'));
-    card.appendChild(el('div', 'thrall-card__silhouette-mark', '?'));
-    card.appendChild(
-      el('div', 'thrall-card__info thrall-card__info--locked', 'unknown'),
-    );
+    const frame = el('img', 'thrall-frame') as HTMLImageElement;
+    frame.src = '/assets/ornaments/thrall-frame.png';
+    frame.alt = '';
+    frame.decoding = 'async';
+    card.appendChild(frame);
+    card.appendChild(el('div', 'thrall-silhouette-mark', '?'));
+    card.appendChild(el('div', 'thrall-name thrall-name--locked', 'unknown'));
     return card;
   }
 }
