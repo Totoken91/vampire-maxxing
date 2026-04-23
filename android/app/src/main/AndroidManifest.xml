@@ -44,4 +44,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- In-app billing (Play Console SKUs). Required before Play Console
+         lets you publish one-time products on this app's listing.
+         Consumed by the Capacitor Play Billing plugin wired in Phase L10. -->
+    <uses-permission android:name="com.android.vending.BILLING" />
 </manifest>
