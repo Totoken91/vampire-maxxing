@@ -92,32 +92,29 @@
    overflow so the 1.55× zoom never leaks past the portrait box. */
 .thrall-card__portrait {
   position: absolute;
-  top: 11%;
-  bottom: 22%; /* portrait top — info strip — bottom frame ornament */
-  left: 10%;
-  right: 10%;
+  top: 13%;
+  bottom: 26%;
+  left: 11%;
+  right: 11%;
   object-fit: cover;
   object-position: center top;
-  transform: scale(1.55);
+  transform: scale(1.35);
   transform-origin: center top;
   clip-path: inset(0);
   z-index: 1;
 }
 
-/* Frame renders at 86% of the card, centred — the 7% breathing room
-   on each side stops adjacent cards' frames from touching and keeps
-   the ornament visually contained. Two-layer composition:
-   1. Grey/white ornament PNG drawn AS-IS (background-image) — all
-      transparent zones stay transparent, luminance detail preserved.
-   2. ::after overlay masked to the same silhouette, painted in the
-      rarity colour with mix-blend-mode: color — keeps the frame's
-      luminance but replaces its hue. Grey ornament → rarity tint. */
+/* Frame fills the full card (no more dead-space margin). The
+   ornament PNG is drawn first (transparent zones stay transparent,
+   grey/white luminance preserved) then ::after paints the rarity
+   colour masked to the same silhouette with mix-blend-mode: color
+   so the grey ornament becomes a tinted ornament with detail intact. */
 .thrall-card__frame {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: url('/assets/ornaments/thrall-frame.png') center / 86% 86%
+  background: url('/assets/ornaments/thrall-frame.png') center / 100% 100%
     no-repeat;
 }
 
@@ -129,8 +126,8 @@
   mix-blend-mode: color;
   -webkit-mask-image: url('/assets/ornaments/thrall-frame.png');
   mask-image: url('/assets/ornaments/thrall-frame.png');
-  -webkit-mask-size: 86% 86%;
-  mask-size: 86% 86%;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
@@ -142,9 +139,9 @@
    bottom ornament thickness (~5%). */
 .thrall-card__info {
   position: absolute;
-  bottom: 12%;
-  left: 10%;
-  right: 10%;
+  bottom: 14%;
+  left: 11%;
+  right: 11%;
   z-index: 3;
   text-align: center;
   padding: 3px 2px;
