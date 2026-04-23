@@ -84,18 +84,18 @@
   transform: scale(0.97);
 }
 
-/* Portrait sits INSIDE the frame's ornamental border. The frame PNG's
-   ornaments occupy the outer ~10-12px band of the card's surface;
-   the portrait is inset 14px so it never crosses the ornament line.
-   clip-path: inset(0) confines the transform: scale overflow to the
-   portrait's own box (otherwise the 1.55× zoom bleeds into the
-   frame + neighbour cards). */
+/* Portrait sits STRICTLY inside the frame's inner opening. Frame
+   renders at 86% of card (7% margin each side) + an ~4% ornament
+   border on top of that → portrait inset ~11% from edges, plus an
+   extra reserve at the bottom for the info strip + frame bottom
+   ornament. clip-path: inset(0) confines the transform: scale
+   overflow so the 1.55× zoom never leaks past the portrait box. */
 .thrall-card__portrait {
   position: absolute;
-  top: 14px;
-  bottom: 38px; /* leaves room for info strip + bottom frame ornament */
-  left: 12px;
-  right: 12px;
+  top: 11%;
+  bottom: 22%; /* portrait top — info strip — bottom frame ornament */
+  left: 10%;
+  right: 10%;
   object-fit: cover;
   object-position: center top;
   transform: scale(1.55);
@@ -104,20 +104,20 @@
   z-index: 1;
 }
 
-/* Two-layer frame rendering:
-   1. The grey/white ornament PNG is drawn AS-IS on the base layer,
-      transparent zones remain transparent, all luminance detail
-      (bright lines vs darker shading) preserved.
-   2. A ::after overlay, MASKED to the same PNG silhouette, paints
-      the rarity colour with mix-blend-mode:color — keeps the frame's
-      luminance, replaces its hue. The result is the grey ornament
-      tinted in the rarity colour with all carved detail intact. */
+/* Frame renders at 86% of the card, centred — the 7% breathing room
+   on each side stops adjacent cards' frames from touching and keeps
+   the ornament visually contained. Two-layer composition:
+   1. Grey/white ornament PNG drawn AS-IS (background-image) — all
+      transparent zones stay transparent, luminance detail preserved.
+   2. ::after overlay masked to the same silhouette, painted in the
+      rarity colour with mix-blend-mode: color — keeps the frame's
+      luminance but replaces its hue. Grey ornament → rarity tint. */
 .thrall-card__frame {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: url('/assets/ornaments/thrall-frame.png') center / 100% 100%
+  background: url('/assets/ornaments/thrall-frame.png') center / 86% 86%
     no-repeat;
 }
 
@@ -129,27 +129,25 @@
   mix-blend-mode: color;
   -webkit-mask-image: url('/assets/ornaments/thrall-frame.png');
   mask-image: url('/assets/ornaments/thrall-frame.png');
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
+  -webkit-mask-size: 86% 86%;
+  mask-size: 86% 86%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
 }
 
-/* Info sits inside the frame's interior (same insets as portrait
-   horizontally) and strictly ABOVE the frame's bottom ornament
-   (bottom: 14px matches the frame border thickness). Dark-glass
-   background keeps the text legible over any portrait colour
-   beneath. */
+/* Info strip sits ABOVE the frame's bottom ornament, matching the
+   portrait's horizontal inset. 12% bottom = gap around frame (7%) +
+   bottom ornament thickness (~5%). */
 .thrall-card__info {
   position: absolute;
-  bottom: 14px;
-  left: 12px;
-  right: 12px;
+  bottom: 12%;
+  left: 10%;
+  right: 10%;
   z-index: 3;
   text-align: center;
-  padding: 4px 2px 3px;
+  padding: 3px 2px;
   pointer-events: none;
   background: rgba(0, 0, 0, 0.82);
   border-top: 1px solid rgba(139, 116, 68, 0.18);
