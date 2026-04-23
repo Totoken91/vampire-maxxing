@@ -84,14 +84,24 @@
   transform: scale(0.97);
 }
 
-.thrall-portrait {
+/* Wrapper clips the zoomed portrait so the scale(1.6) can't leak
+   past the card. Card itself keeps overflow:visible so the frame's
+   ornament corners can breathe if they design-overshoot. */
+.thrall-portrait-wrapper {
   position: absolute;
   inset: 0;
+  overflow: hidden;
+  z-index: 1;
+  border-radius: 4px;
+}
+
+.thrall-portrait {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
-  z-index: 1;
+  object-position: center 20%;
+  transform: scale(1.6);
+  transform-origin: center 25%;
 }
 
 .thrall-frame {

@@ -141,11 +141,13 @@ export class SanctumTab {
     card.dataset.rarity = t.rarity;
     card.dataset.archetype = t.archetype;
 
+    const portraitWrap = el('div', 'thrall-portrait-wrapper');
     const portrait = el('img', 'thrall-portrait') as HTMLImageElement;
     portrait.src = t.portraitPath;
     portrait.alt = t.name;
     portrait.decoding = 'async';
-    card.appendChild(portrait);
+    portraitWrap.appendChild(portrait);
+    card.appendChild(portraitWrap);
 
     const frame = el('img', 'thrall-frame') as HTMLImageElement;
     frame.src = '/assets/ornaments/thrall-frame.png';
