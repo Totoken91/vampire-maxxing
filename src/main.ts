@@ -23,7 +23,7 @@ import {
   republishAllUpgradeModifiers,
 } from './game/upgrades';
 import { fmt } from './utils/format';
-import { THRALLS, THRALLS_BY_ID } from './game/config/thralls';
+import { SERVANTS, SERVANTS_BY_ID } from './game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
 
 const root = document.getElementById('app');
@@ -48,9 +48,9 @@ async function boot(): Promise<void> {
 
   // Default toast on every first-of-tier purchase. FTUE registers AFTER this
   // and overrides with "FIRST SPARK" when applicable.
-  events.on('thrall-bought', ({ id, owned }) => {
+  events.on('servant-bought', ({ id, owned }) => {
     if (owned !== 1) return;
-    const name = THRALLS_BY_ID[id].name;
+    const name = SERVANTS_BY_ID[id].name;
     showToast('CLAIMED', `A new ${name.toLowerCase()} kneels before you.`);
   });
 
@@ -86,8 +86,8 @@ async function boot(): Promise<void> {
 
   // Toast on lore unlock.
   events.on('lore-unlocked', ({ kind, id }) => {
-    if (kind === 'thrall') {
-      const def = THRALLS_BY_ID[id as keyof typeof THRALLS_BY_ID];
+    if (kind === 'servant') {
+      const def = SERVANTS_BY_ID[id as keyof typeof SERVANTS_BY_ID];
       if (def) showToast('NEW ENTRY', `${def.name} added to the Bestiary.`);
     } else {
       const def = FORMS_BY_ID[id as VampireForm];
@@ -97,7 +97,7 @@ async function boot(): Promise<void> {
 
   // SFX on SUCCESSFUL thrall purchase only (the event only fires when the
   // buy went through — blood < cost silently returns false upstream).
-  events.on('thrall-bought', () => playButton());
+  events.on('servant-bought', () => playButton());
 
   if (offlineReport) {
     maybeShowOfflineModal(offlineReport, (amount) => {
@@ -146,9 +146,9 @@ void boot();
  */
 function backfillLoreUnlocks(): void {
   const snap = gameState.get();
-  for (const thrall of THRALLS) {
-    if (snap.thralls[thrall.id].totalPurchased > 0) {
-      snap.unlockedThrallLore.add(thrall.id);
+  for (const servant of SERVANTS) {
+    if (snap.servants[servant.id].totalPurchased > 0) {
+      snap.unlockedServantLore.add(servant.id);
     }
   }
   const highest = snap.stats.highestFormReached;

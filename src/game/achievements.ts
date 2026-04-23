@@ -28,7 +28,7 @@ export function checkAchievements(): string[] {
  * without running every rAF.
  */
 export function installAchievementChecks(): void {
-  events.on('thrall-bought', () => checkAchievements());
+  events.on('servant-bought', () => checkAchievements());
   events.on('form-changed', () => checkAchievements());
 
   let tickAccum = 0;

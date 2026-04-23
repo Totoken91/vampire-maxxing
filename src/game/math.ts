@@ -2,18 +2,18 @@
 // All formulas are documented in docs/04-BALANCE.md.
 
 import { BALANCE } from './config/balance';
-import type { Thrall } from './config/thralls';
+import type { Servant } from './config/servants';
 
-/** Cost of the next purchase of a thrall, given how many are already owned. */
-export function thrallCost(baseCost: number, owned: number): number {
+/** Cost of the next purchase of a servant, given how many are already owned. */
+export function servantCost(baseCost: number, owned: number): number {
   return Math.floor(baseCost * BALANCE.COST_MULTIPLIER ** owned);
 }
 
 /**
- * Cumulative milestone multiplier for a thrall based on how many are owned.
+ * Cumulative milestone multiplier for a servant based on how many are owned.
  * Thresholds: 10/25/50/100/200/300/400 → ×1080 at 400 owned.
  */
-export function thrallMilestoneMult(owned: number): number {
+export function servantMilestoneMult(owned: number): number {
   let m = 1;
   if (owned >= 10) m *= 2;
   if (owned >= 25) m *= 2;
@@ -25,15 +25,15 @@ export function thrallMilestoneMult(owned: number): number {
   return m;
 }
 
-/** Per-second rate of a single thrall type. */
-export function thrallRate(
-  thrall: Pick<Thrall, 'baseRate'>,
+/** Per-second rate of a single servant type. */
+export function servantRate(
+  servant: Pick<Servant, 'baseRate'>,
   owned: number,
   globalMult: number,
   boost: number,
 ): number {
   if (owned <= 0) return 0;
-  return owned * thrall.baseRate * thrallMilestoneMult(owned) * globalMult * boost;
+  return owned * servant.baseRate * servantMilestoneMult(owned) * globalMult * boost;
 }
 
 /** Global multiplier applied to all rates + click, based on accumulated Dread. */
@@ -74,7 +74,7 @@ export function offlineGain(
   return currentTotalRate * sec * efficiency;
 }
 
-/** Whether a thrall tier is visually unlocked based on total lifetime blood. */
-export function isThrallUnlocked(unlockTotal: number, totalLifetimeBlood: number): boolean {
+/** Whether a servant tier is visually unlocked based on total lifetime blood. */
+export function isServantUnlocked(unlockTotal: number, totalLifetimeBlood: number): boolean {
   return totalLifetimeBlood >= unlockTotal;
 }

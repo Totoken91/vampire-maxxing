@@ -58,7 +58,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
     maxLevel: 10,
     costs: [5, 10, 20, 40, 80, 160, 320, 640, 1280, 2500],
     effect: {
-      target: 'thrallRate',
+      target: 'servantRate',
       op: 'mult',
       valueAtLevel: (level) => 1 + level * 0.05,
     },
@@ -66,13 +66,13 @@ export const UPGRADES: readonly UpgradeDef[] = [
   {
     id: 'bloodline_scholar',
     title: 'Bloodline Scholar',
-    description: 'Thrall cost multiplier −0.01 per level. 1.15 → 1.10 at max.',
+    description: 'Servant cost multiplier −0.01 per level. 1.15 → 1.10 at max.',
     flavor: 'You study the economy of eternity.',
     icon: '\u2692',
     maxLevel: 5,
     costs: [15, 40, 100, 250, 600],
     effect: {
-      target: 'thrallCost',
+      target: 'servantCost',
       op: 'add',
       valueAtLevel: (level) => -level * 0.01,
     },

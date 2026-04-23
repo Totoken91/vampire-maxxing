@@ -3,19 +3,19 @@
 // reached. Tone: dark academia premium prose, 80-130 words per entry.
 // Written in English (i18n FR comes in Phase E1).
 
-import type { ThrallId } from './thralls';
+import type { ServantId } from './servants';
 import type { VampireForm } from './forms';
 
-export const THRALL_LORE: Readonly<Record<ThrallId, string>> = {
+export const SERVANT_LORE: Readonly<Record<ServantId, string>> = {
   rat: `The first ally is small, and it does not sleep. The rats of the old quarters have watched every vampire awaken for nine centuries. They know the taste of dying breath before the dying do. A stray rat cannot be bought — it chooses you, and the choosing is irrevocable. Keep one, and the city's vermin will carry your name through the gutters like a rumor. Keep many, and the rumor becomes a tide. They are not loyal. They are attentive. There is a difference.`,
 
   ghoul: `Ghouls were mortals once, before hunger rewrote them. They no longer remember their names, which is a mercy. A ghoul answers to the scent of fresh kill the way a child answers to a lullaby — without thought, without resistance. They are crude but tireless. In the court of a young vampire, ghouls serve as foot soldiers and test subjects; in the court of an Elder, they are decoration. Feed them once and they will follow you until their bones unthread. Few ever do.`,
 
   fledgling: `A Fledgling is not yet a vampire. They have been bitten, their heart stilled, their pulse replaced with a borrowed rhythm that follows yours — but their eyes still hold the grief of the living. Some forget. Most do not. A Fledgling you take must be fed, guided, named. They will try, at first, to please you. Later they will try to kill you. Every Progenitor in recorded bloodlore began as a Fledgling who chose, one night, to stop being afraid.`,
 
-  thrall: `A proper Thrall has completed the small rites: the first kill, the first silence, the first century. They obey not from fear but from habit, which is a deeper thing. Thralls are the spine of any vampire household — they manage the others, they keep the accounts, they remember which mortals have seen too much. A Thrall will never ask why. A Thrall will never refuse. When a Thrall does refuse, it is already too late, and the vampire is no longer in charge.`,
+  thrall: `A proper Servant has completed the small rites: the first kill, the first silence, the first century. They obey not from fear but from habit, which is a deeper thing. Thralls are the spine of any vampire household — they manage the others, they keep the accounts, they remember which mortals have seen too much. A Servant will never ask why. A Servant will never refuse. When a Servant does refuse, it is already too late, and the vampire is no longer in charge.`,
 
-  blade: `A Nightblade is a Thrall who has killed on command, cleanly, more times than can be counted by the fingers of the dead. They wear no armor. They speak rarely. They do not serve out of love, though they may have felt something resembling it once. A Nightblade is given a weapon at her binding — a weapon she will never lay down, not even to feed. She is the sharpest tool in the house. She is also, on certain nights, the most frightening thing in it.`,
+  blade: `A Nightblade is a Servant who has killed on command, cleanly, more times than can be counted by the fingers of the dead. They wear no armor. They speak rarely. They do not serve out of love, though they may have felt something resembling it once. A Nightblade is given a weapon at her binding — a weapon she will never lay down, not even to feed. She is the sharpest tool in the house. She is also, on certain nights, the most frightening thing in it.`,
 
   courtesan: `The Courtesans keep the house beautiful. They are Thralls chosen for their faces, their voices, the way they fold silk. A Blood Courtesan does not fight; a Blood Courtesan arranges rooms. She knows which duke drinks too much at supper, which bishop will not be missed. The work of the courtesans is the work of tapestry: nothing visible, but every thread placed. A vampire without courtesans is a vampire without a court, and a court is what distinguishes a Lord from a beast.`,
 

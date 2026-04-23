@@ -444,7 +444,7 @@ body.is-ascending {
   cursor: default;
 }
 body.is-ascending .action-btn,
-body.is-ascending .thrall-card,
+body.is-ascending .servant-card,
 body.is-ascending .portrait__body {
   pointer-events: none;
 }

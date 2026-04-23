@@ -3,69 +3,69 @@ import {
   clickPower,
   dreadGain,
   globalMult,
-  isThrallUnlocked,
+  isServantUnlocked,
   offlineGain,
-  thrallCost,
-  thrallMilestoneMult,
-  thrallRate,
+  servantCost,
+  servantMilestoneMult,
+  servantRate,
 } from '../src/game/math';
-import { THRALLS_BY_ID } from '../src/game/config/thralls';
+import { SERVANTS_BY_ID } from '../src/game/config/servants';
 import { BALANCE } from '../src/game/config/balance';
 
-describe('thrallCost', () => {
+describe('servantCost', () => {
   it('returns baseCost when owned = 0', () => {
-    expect(thrallCost(10, 0)).toBe(10);
+    expect(servantCost(10, 0)).toBe(10);
   });
 
   it('follows 1.15^owned growth, floored', () => {
-    expect(thrallCost(10, 1)).toBe(Math.floor(10 * 1.15));
-    expect(thrallCost(10, 5)).toBe(Math.floor(10 * 1.15 ** 5));
-    expect(thrallCost(100, 10)).toBe(Math.floor(100 * 1.15 ** 10));
+    expect(servantCost(10, 1)).toBe(Math.floor(10 * 1.15));
+    expect(servantCost(10, 5)).toBe(Math.floor(10 * 1.15 ** 5));
+    expect(servantCost(100, 10)).toBe(Math.floor(100 * 1.15 ** 10));
   });
 
   it('first Stray Rat costs exactly 10', () => {
-    expect(thrallCost(THRALLS_BY_ID.rat.baseCost, 0)).toBe(10);
+    expect(servantCost(SERVANTS_BY_ID.rat.baseCost, 0)).toBe(10);
   });
 });
 
-describe('thrallMilestoneMult', () => {
+describe('servantMilestoneMult', () => {
   it('is 1 below 10 owned', () => {
-    expect(thrallMilestoneMult(0)).toBe(1);
-    expect(thrallMilestoneMult(9)).toBe(1);
+    expect(servantMilestoneMult(0)).toBe(1);
+    expect(servantMilestoneMult(9)).toBe(1);
   });
 
   it('hits the documented multipliers', () => {
-    expect(thrallMilestoneMult(10)).toBe(2);
-    expect(thrallMilestoneMult(25)).toBe(4);
-    expect(thrallMilestoneMult(50)).toBe(8);
-    expect(thrallMilestoneMult(100)).toBe(24);
-    expect(thrallMilestoneMult(200)).toBe(72);
-    expect(thrallMilestoneMult(300)).toBe(216);
-    expect(thrallMilestoneMult(400)).toBe(1080);
+    expect(servantMilestoneMult(10)).toBe(2);
+    expect(servantMilestoneMult(25)).toBe(4);
+    expect(servantMilestoneMult(50)).toBe(8);
+    expect(servantMilestoneMult(100)).toBe(24);
+    expect(servantMilestoneMult(200)).toBe(72);
+    expect(servantMilestoneMult(300)).toBe(216);
+    expect(servantMilestoneMult(400)).toBe(1080);
   });
 
   it('stays on the last tier above 400', () => {
-    expect(thrallMilestoneMult(500)).toBe(1080);
-    expect(thrallMilestoneMult(10_000)).toBe(1080);
+    expect(servantMilestoneMult(500)).toBe(1080);
+    expect(servantMilestoneMult(10_000)).toBe(1080);
   });
 });
 
-describe('thrallRate', () => {
+describe('servantRate', () => {
   it('is 0 when owned = 0', () => {
-    expect(thrallRate({ baseRate: 0.5 }, 0, 1, 1)).toBe(0);
+    expect(servantRate({ baseRate: 0.5 }, 0, 1, 1)).toBe(0);
   });
 
   it('scales linearly with owned below milestone', () => {
-    expect(thrallRate({ baseRate: 0.5 }, 5, 1, 1)).toBeCloseTo(2.5);
+    expect(servantRate({ baseRate: 0.5 }, 5, 1, 1)).toBeCloseTo(2.5);
   });
 
   it('applies milestone and mult correctly', () => {
     // owned=10 → x2, globalMult=2 → total = 10 * 0.5 * 2 * 2 * 1 = 20
-    expect(thrallRate({ baseRate: 0.5 }, 10, 2, 1)).toBeCloseTo(20);
+    expect(servantRate({ baseRate: 0.5 }, 10, 2, 1)).toBeCloseTo(20);
   });
 
   it('applies boost multiplicatively', () => {
-    expect(thrallRate({ baseRate: 1 }, 1, 1, 2)).toBeCloseTo(2);
+    expect(servantRate({ baseRate: 1 }, 1, 1, 2)).toBeCloseTo(2);
   });
 });
 
@@ -137,13 +137,13 @@ describe('offlineGain', () => {
   });
 });
 
-describe('isThrallUnlocked', () => {
+describe('isServantUnlocked', () => {
   it('false when lifetime below unlockTotal', () => {
-    expect(isThrallUnlocked(30, 29)).toBe(false);
+    expect(isServantUnlocked(30, 29)).toBe(false);
   });
 
   it('true at or above unlockTotal', () => {
-    expect(isThrallUnlocked(30, 30)).toBe(true);
-    expect(isThrallUnlocked(30, 1_000_000)).toBe(true);
+    expect(isServantUnlocked(30, 30)).toBe(true);
+    expect(isServantUnlocked(30, 1_000_000)).toBe(true);
   });
 });

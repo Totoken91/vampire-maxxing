@@ -1,50 +1,50 @@
-// One row in the thralls list. Shows owned/rate/cost + handles purchase clicks.
-// Affordability and lock state are reflected via `data-state`.
+// One row in the servants list. Shows owned/rate/cost + handles purchase
+// clicks. Affordability and lock state are reflected via `data-state`.
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
 import { events } from '../../game/events';
 import { gameState } from '../../game/state';
 import { fmt, fmtShort } from '../../utils/format';
-import type { Thrall } from '../../game/config/thralls';
+import type { Servant } from '../../game/config/servants';
 
 type CardState = 'locked' | 'affordable' | 'default';
 
-export class ThrallCard extends Component<HTMLElement> {
-  private readonly thrall: Thrall;
+export class ServantCard extends Component<HTMLElement> {
+  private readonly servant: Servant;
   private readonly ownedEl: HTMLElement;
   private readonly rateEl: HTMLElement;
   private readonly costEl: HTMLElement;
   private readonly labelEl: HTMLElement;
 
-  constructor(thrall: Thrall) {
-    const root = el('button', 'thrall-card');
+  constructor(servant: Servant) {
+    const root = el('button', 'servant-card');
     root.setAttribute('type', 'button');
-    root.setAttribute('data-thrall', thrall.id);
+    root.setAttribute('data-servant', servant.id);
 
-    const icon = el('div', 'thrall-card__icon');
-    // The medallion frame comes from CSS (background-image); the thrall
+    const icon = el('div', 'servant-card__icon');
+    // The medallion frame comes from CSS (background-image); the servant
     // portrait sits inside it, circular-cropped so the ornate gold ring
     // stays visible around the illustration.
-    const iconImg = el('img', 'thrall-card__icon-img') as HTMLImageElement;
-    iconImg.src = `/assets/thralls/${thrall.id}.webp`;
+    const iconImg = el('img', 'servant-card__icon-img') as HTMLImageElement;
+    iconImg.src = `/assets/servants/${servant.id}.webp`;
     iconImg.alt = '';
     iconImg.decoding = 'async';
     icon.appendChild(iconImg);
 
-    const info = el('div', 'thrall-card__info');
-    const name = el('div', 'thrall-card__name', thrall.name);
-    const stats = el('div', 'thrall-card__stats');
-    const owned = el('span', 'thrall-card__stats-owned', '×0');
-    const rate = el('span', 'thrall-card__stats-rate', '0/s');
+    const info = el('div', 'servant-card__info');
+    const name = el('div', 'servant-card__name', servant.name);
+    const stats = el('div', 'servant-card__stats');
+    const owned = el('span', 'servant-card__stats-owned', '×0');
+    const rate = el('span', 'servant-card__stats-rate', '0/s');
     stats.appendChild(owned);
     stats.appendChild(rate);
     info.appendChild(name);
     info.appendChild(stats);
 
-    const action = el('div', 'thrall-card__action');
-    const cost = el('div', 'thrall-card__cost', '—');
-    const label = el('div', 'thrall-card__label', 'claim');
+    const action = el('div', 'servant-card__action');
+    const cost = el('div', 'servant-card__cost', '—');
+    const label = el('div', 'servant-card__label', 'claim');
     action.appendChild(cost);
     action.appendChild(label);
 
@@ -53,7 +53,7 @@ export class ThrallCard extends Component<HTMLElement> {
     root.appendChild(action);
 
     super(root);
-    this.thrall = thrall;
+    this.servant = servant;
     this.ownedEl = owned;
     this.rateEl = rate;
     this.costEl = cost;
@@ -67,20 +67,20 @@ export class ThrallCard extends Component<HTMLElement> {
 
     this.addTeardown(events.on('tick', () => this.renderAffordability()));
     this.addTeardown(events.on('blood-changed', () => this.renderAffordability()));
-    this.addTeardown(events.on('thrall-bought', (payload) => {
-      if (payload.id === this.thrall.id) this.render();
+    this.addTeardown(events.on('servant-bought', (payload) => {
+      if (payload.id === this.servant.id) this.render();
     }));
   }
 
   private handleClick = (): void => {
     if (this.currentState() === 'affordable') {
-      gameState.buyThrall(this.thrall.id);
+      gameState.buyServant(this.servant.id);
     }
   };
 
   private render(): void {
-    const owned = gameState.get().thralls[this.thrall.id].owned;
-    const rate = gameState.getThrallRate(this.thrall.id);
+    const owned = gameState.get().servants[this.servant.id].owned;
+    const rate = gameState.getServantRate(this.servant.id);
     this.ownedEl.textContent = `×${owned}`;
     this.rateEl.textContent = owned > 0 ? `${fmtShort(rate)}/s` : '—';
     this.renderAffordability();
@@ -93,7 +93,7 @@ export class ThrallCard extends Component<HTMLElement> {
       this.costEl.textContent = '— —';
       this.labelEl.textContent = 'sealed';
     } else {
-      this.costEl.textContent = fmt(gameState.getThrallCost(this.thrall.id));
+      this.costEl.textContent = fmt(gameState.getServantCost(this.servant.id));
       this.labelEl.textContent = 'claim';
     }
     (this.root as HTMLButtonElement).disabled = state !== 'affordable';
@@ -101,8 +101,8 @@ export class ThrallCard extends Component<HTMLElement> {
 
   private currentState(): CardState {
     const snap = gameState.get();
-    const locked = snap.totalLifetimeBlood < this.thrall.unlockTotal;
+    const locked = snap.totalLifetimeBlood < this.servant.unlockTotal;
     if (locked) return 'locked';
-    return gameState.isThrallAffordable(this.thrall.id) ? 'affordable' : 'default';
+    return gameState.isServantAffordable(this.servant.id) ? 'affordable' : 'default';
   }
 }

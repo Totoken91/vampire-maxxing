@@ -41,7 +41,7 @@ export class BloodDisplay extends Component<HTMLElement> {
         }
       }),
     );
-    this.addTeardown(events.on('thrall-bought', () => this.render()));
+    this.addTeardown(events.on('servant-bought', () => this.render()));
   }
 
   private render(): void {

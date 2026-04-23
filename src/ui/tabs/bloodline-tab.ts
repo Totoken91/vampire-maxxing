@@ -6,7 +6,7 @@ import { Header } from '../components/header';
 import { Divider } from '../components/divider';
 import { Portrait } from '../components/portrait';
 import { BloodDisplay } from '../components/blood-display';
-import { ThrallList } from '../components/thrall-list';
+import { ServantList } from '../components/servant-list';
 import { ActionButtons } from '../components/action-buttons';
 import { el } from '../../utils/dom';
 
@@ -23,7 +23,7 @@ export class BloodlineTab {
     const divider = new Divider();
     const portrait = new Portrait();
     const blood = new BloodDisplay();
-    const thralls = new ThrallList();
+    const thralls = new ServantList();
     const actions = new ActionButtons();
 
     header.mountTo(this.root);

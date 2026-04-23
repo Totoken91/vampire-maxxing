@@ -50,8 +50,8 @@ export function installFtue(): void {
   events.on('blood-changed', ({ blood }) => {
     if (strayRatGlowActive) return;
     if (blood < STRAY_RAT_UNLOCK_BLOOD) return;
-    if (gameState.get().thralls.rat.owned > 0) return;
-    const card = document.querySelector<HTMLElement>('[data-thrall="rat"]');
+    if (gameState.get().servants.rat.owned > 0) return;
+    const card = document.querySelector<HTMLElement>('[data-servant="rat"]');
     if (!card) return;
     card.classList.add('ftue-glow');
     strayRatGlowActive = true;
@@ -59,11 +59,11 @@ export function installFtue(): void {
 
   // 4. First Stray Rat purchased → FIRST SPARK toast (overrides the default
   // CLAIMED), and remove the highlight.
-  events.on('thrall-bought', ({ id, owned }) => {
+  events.on('servant-bought', ({ id, owned }) => {
     if (id !== 'rat' || owned !== 1) return;
     if (strayRatGlowActive) {
       document
-        .querySelector<HTMLElement>('[data-thrall="rat"]')
+        .querySelector<HTMLElement>('[data-servant="rat"]')
         ?.classList.remove('ftue-glow');
       strayRatGlowActive = false;
     }

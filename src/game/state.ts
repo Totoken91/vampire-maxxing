@@ -2,7 +2,7 @@
 // No UI references. Emits events for listeners (UI + analytics later).
 
 import { BALANCE } from './config/balance';
-import { THRALLS, THRALLS_BY_ID, type ThrallId } from './config/thralls';
+import { SERVANTS, SERVANTS_BY_ID, type ServantId } from './config/servants';
 import type { VampireForm } from './config/forms';
 import { events } from './events';
 import {
@@ -10,7 +10,7 @@ import {
   dreadGain,
   globalMult,
   offlineGain,
-  thrallRate,
+  servantRate,
 } from './math';
 import { getCurrentForm, getCenturyInForm } from './forms';
 import { hasUnlock } from './config/prestige-unlocks';
@@ -21,9 +21,9 @@ import {
   rewardFor,
   type DailyReward,
 } from './config/daily';
-import { defaultV1, loadSave, writeSave, type SaveV2 } from './save';
+import { defaultV1, loadSave, writeSave, type SaveV3 } from './save';
 
-interface ThrallOwnership {
+interface ServantOwnership {
   owned: number;
   totalPurchased: number;
 }
@@ -49,7 +49,7 @@ export interface GameSnapshot {
   totalRunBlood: number;
   totalLifetimeBlood: number;
   dread: number;
-  thralls: Record<ThrallId, ThrallOwnership>;
+  servants: Record<ServantId, ServantOwnership>;
   boost: BoostState;
   stats: StatsState;
   unlockedAchievements: Set<string>;
@@ -65,7 +65,7 @@ export interface GameSnapshot {
   /** Level of each permanent upgrade. Keyed by UpgradeId, defaults to 0. */
   upgrades: Record<string, number>;
   /** Thrall ids whose Bestiary lore has been revealed (1st purchase). */
-  unlockedThrallLore: Set<string>;
+  unlockedServantLore: Set<string>;
   /** Form ids whose Histories lore has been revealed (reached that form). */
   unlockedFormLore: Set<string>;
   /** Last 10 runs, pushed on ascend. Rolling window. */
@@ -97,9 +97,9 @@ export interface RunEntry {
   formChanged: boolean;
 }
 
-function emptyThralls(): Record<ThrallId, ThrallOwnership> {
-  const acc = {} as Record<ThrallId, ThrallOwnership>;
-  for (const t of THRALLS) {
+function emptyServants(): Record<ServantId, ServantOwnership> {
+  const acc = {} as Record<ServantId, ServantOwnership>;
+  for (const t of SERVANTS) {
     acc[t.id] = { owned: 0, totalPurchased: 0 };
   }
   return acc;
@@ -111,7 +111,7 @@ function emptySnapshot(): GameSnapshot {
     totalRunBlood: 0,
     totalLifetimeBlood: 0,
     dread: 0,
-    thralls: emptyThralls(),
+    servants: emptyServants(),
     boost: { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false },
     stats: {
       totalTaps: 0,
@@ -126,7 +126,7 @@ function emptySnapshot(): GameSnapshot {
     ritesLastUsed: {},
     unseenAchievements: new Set<string>(),
     upgrades: {},
-    unlockedThrallLore: new Set<string>(),
+    unlockedServantLore: new Set<string>(),
     unlockedFormLore: new Set<string>(),
     runHistory: [],
     lastMilestoneExp: -1,
@@ -210,38 +210,38 @@ export class GameState {
   getTotalRate(): number {
     const gMult = this.getGlobalMult();
     const boost = this.getBoostMult();
-    const rateMult = modifierRegistry.getMultiplier('thrallRate');
+    const rateMult = modifierRegistry.getMultiplier('servantRate');
     let sum = 0;
-    for (const t of THRALLS) {
-      const owned = this.snapshot.thralls[t.id].owned;
+    for (const t of SERVANTS) {
+      const owned = this.snapshot.servants[t.id].owned;
       if (owned > 0) {
-        sum += thrallRate(t, owned, gMult, boost);
+        sum += servantRate(t, owned, gMult, boost);
       }
     }
     return sum * rateMult;
   }
 
-  getThrallRate(id: ThrallId): number {
-    const owned = this.snapshot.thralls[id].owned;
+  getServantRate(id: ServantId): number {
+    const owned = this.snapshot.servants[id].owned;
     if (owned <= 0) return 0;
-    const rateMult = modifierRegistry.getMultiplier('thrallRate');
+    const rateMult = modifierRegistry.getMultiplier('servantRate');
     return (
-      thrallRate(THRALLS_BY_ID[id], owned, this.getGlobalMult(), this.getBoostMult()) *
+      servantRate(SERVANTS_BY_ID[id], owned, this.getGlobalMult(), this.getBoostMult()) *
       rateMult
     );
   }
 
-  getThrallCost(id: ThrallId): number {
-    const owned = this.snapshot.thralls[id].owned;
+  getServantCost(id: ServantId): number {
+    const owned = this.snapshot.servants[id].owned;
     // Scholar-type upgrades tweak the cost multiplier via an additive
-    // delta on 'thrallCost' (e.g. -0.01 per level → 1.15 → 1.10 max).
+    // delta on 'servantCost' (e.g. -0.01 per level → 1.15 → 1.10 max).
     const baseMult = BALANCE.COST_MULTIPLIER;
-    const adjustedMult = Math.max(1.01, baseMult + modifierRegistry.getAdditive('thrallCost'));
-    return Math.floor(THRALLS_BY_ID[id].baseCost * adjustedMult ** owned);
+    const adjustedMult = Math.max(1.01, baseMult + modifierRegistry.getAdditive('servantCost'));
+    return Math.floor(SERVANTS_BY_ID[id].baseCost * adjustedMult ** owned);
   }
 
-  isThrallAffordable(id: ThrallId): boolean {
-    return this.snapshot.blood >= this.getThrallCost(id);
+  isServantAffordable(id: ServantId): boolean {
+    return this.snapshot.blood >= this.getServantCost(id);
   }
 
   canAscend(): boolean {
@@ -272,22 +272,22 @@ export class GameState {
   }
 
   /** Attempt to buy one of a thrall. Returns true on success. */
-  buyThrall(id: ThrallId): boolean {
-    const cost = this.getThrallCost(id);
+  buyServant(id: ServantId): boolean {
+    const cost = this.getServantCost(id);
     if (this.snapshot.blood < cost) return false;
 
     this.snapshot.blood -= cost;
-    const t = this.snapshot.thralls[id];
+    const t = this.snapshot.servants[id];
     t.owned += 1;
     t.totalPurchased += 1;
 
     // First-ever purchase of this thrall reveals its Bestiary lore.
-    if (!this.snapshot.unlockedThrallLore.has(id)) {
-      this.snapshot.unlockedThrallLore.add(id);
-      events.emit('lore-unlocked', { kind: 'thrall', id });
+    if (!this.snapshot.unlockedServantLore.has(id)) {
+      this.snapshot.unlockedServantLore.add(id);
+      events.emit('lore-unlocked', { kind: 'servant', id });
     }
 
-    events.emit('thrall-bought', { id, owned: t.owned });
+    events.emit('servant-bought', { id, owned: t.owned });
     events.emit('blood-changed', { blood: this.snapshot.blood, delta: -cost });
     events.emit('rate-changed', { totalRate: this.getTotalRate() });
     return true;
@@ -333,8 +333,8 @@ export class GameState {
     this.snapshot.totalRunBlood = 0;
     this.snapshot.pendingCurseMult = 1;
     this.snapshot.lastMilestoneExp = -1;
-    for (const t of THRALLS) {
-      this.snapshot.thralls[t.id].owned = 0;
+    for (const t of SERVANTS) {
+      this.snapshot.servants[t.id].owned = 0;
     }
     this.snapshot.boost = { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false };
 
@@ -407,7 +407,7 @@ export class GameState {
       case 'bloodline':
         return true;
       case 'servants':
-        return Object.values(this.snapshot.thralls).some((t) => t.owned > 0);
+        return Object.values(this.snapshot.servants).some((t) => t.owned > 0);
       case 'rites':
         return this.snapshot.stats.totalAscends >= 1;
       case 'tome':
@@ -546,7 +546,7 @@ export class GameState {
 
   // ─────────── Persistence helpers ───────────
 
-  private toSave(): SaveV2 {
+  private toSave(): SaveV3 {
     const base = defaultV1();
     return {
       ...base,
@@ -555,7 +555,7 @@ export class GameState {
       totalRunBlood: this.snapshot.totalRunBlood,
       totalLifetimeBlood: this.snapshot.totalLifetimeBlood,
       dread: this.snapshot.dread,
-      thralls: this.snapshot.thralls,
+      servants: this.snapshot.servants,
       boost: this.snapshot.boost,
       stats: this.snapshot.stats,
       unlockedAchievements: Array.from(this.snapshot.unlockedAchievements),
@@ -563,22 +563,22 @@ export class GameState {
       ritesLastUsed: { ...this.snapshot.ritesLastUsed },
       unseenAchievements: Array.from(this.snapshot.unseenAchievements),
       upgrades: { ...this.snapshot.upgrades },
-      unlockedThrallLore: Array.from(this.snapshot.unlockedThrallLore),
+      unlockedServantLore: Array.from(this.snapshot.unlockedServantLore),
       unlockedFormLore: Array.from(this.snapshot.unlockedFormLore),
       runHistory: [...this.snapshot.runHistory],
       daily: { ...this.snapshot.daily },
     };
   }
 
-  private applySave(save: SaveV2): void {
+  private applySave(save: SaveV3): void {
     this.snapshot.blood = save.blood;
     this.snapshot.totalRunBlood = save.totalRunBlood;
     this.snapshot.totalLifetimeBlood = save.totalLifetimeBlood;
     this.snapshot.dread = save.dread;
     // Rebuild thralls to guarantee every id exists (new tier added later).
-    for (const t of THRALLS) {
-      const saved = save.thralls[t.id];
-      this.snapshot.thralls[t.id] = saved
+    for (const t of SERVANTS) {
+      const saved = save.servants[t.id];
+      this.snapshot.servants[t.id] = saved
         ? { owned: saved.owned, totalPurchased: saved.totalPurchased }
         : { owned: 0, totalPurchased: 0 };
     }
@@ -589,7 +589,7 @@ export class GameState {
     this.snapshot.ritesLastUsed = { ...(save.ritesLastUsed ?? {}) };
     this.snapshot.unseenAchievements = new Set(save.unseenAchievements ?? []);
     this.snapshot.upgrades = { ...(save.upgrades ?? {}) };
-    this.snapshot.unlockedThrallLore = new Set(save.unlockedThrallLore ?? []);
+    this.snapshot.unlockedServantLore = new Set(save.unlockedServantLore ?? []);
     this.snapshot.unlockedFormLore = new Set(save.unlockedFormLore ?? []);
     // Save stores `form` as a loose string; narrow it back into RunEntry.
     this.snapshot.runHistory = Array.isArray(save.runHistory)

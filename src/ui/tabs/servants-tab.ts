@@ -1,9 +1,9 @@
 // SERVANTS — dedicated thrall management screen.
-// Same ThrallList component but now with its own breathing room and a
+// Same ServantList component but now with its own breathing room and a
 // title banner. Will grow to show per-thrall stats + mass-buy in a later pass.
 
 import { el } from '../../utils/dom';
-import { ThrallList } from '../components/thrall-list';
+import { ServantList } from '../components/servant-list';
 import { gameState } from '../../game/state';
 import { events } from '../../game/events';
 import { fmt } from '../../utils/format';
@@ -28,7 +28,7 @@ export class ServantsTab {
   }
 
   mountTo(parent: HTMLElement): void {
-    const list = new ThrallList();
+    const list = new ServantList();
     list.mountTo(this.root);
     this.children.push(list);
     parent.appendChild(this.root);

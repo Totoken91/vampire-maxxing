@@ -1,13 +1,13 @@
 // Typed pub/sub event bus.
 // Listeners subscribe with a key and receive the matching payload.
 
-import type { ThrallId } from './config/thralls';
+import type { ServantId } from './config/servants';
 import type { VampireForm } from './config/forms';
 
 export interface GameEvents {
   'blood-changed': { blood: number; delta: number };
   'rate-changed': { totalRate: number };
-  'thrall-bought': { id: ThrallId; owned: number };
+  'servant-bought': { id: ServantId; owned: number };
   'form-changed': { form: VampireForm };
   /** Fires on every successful ascend, regardless of form change. Century
    * updates within the same form rely on this to re-render the title. */
@@ -15,10 +15,10 @@ export interface GameEvents {
   'tick': { dt: number };
   'tapped': { x: number; y: number; crit: boolean; gain: number };
   'achievement-unlocked': { id: string };
-  'tab-unlocked': { tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop' };
+  'tab-unlocked': { tab: 'bloodline' | 'servants' | 'rites' | 'tome' | 'shop' | 'sanctum' };
   'upgrade-bought': { id: string; level: number };
   'altar-claimed': { amount: number };
-  'lore-unlocked': { kind: 'thrall' | 'form'; id: string };
+  'lore-unlocked': { kind: 'servant' | 'form'; id: string };
   /** K4 — totalRunBlood crossed a 10^N threshold (N >= 4, so 10K upward).
    * Fires once per crossing per run; reset on ascend. */
   'milestone-reached': { threshold: number; exponent: number };

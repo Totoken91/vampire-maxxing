@@ -11,9 +11,9 @@ import { ACHIEVEMENTS } from '../../game/config/achievements';
 import { gameState } from '../../game/state';
 import { events } from '../../game/events';
 import { fmt } from '../../utils/format';
-import { THRALLS, type ThrallId } from '../../game/config/thralls';
+import { SERVANTS, type ServantId } from '../../game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from '../../game/config/forms';
-import { THRALL_LORE, FORM_LORE } from '../../game/config/lore';
+import { SERVANT_LORE, FORM_LORE } from '../../game/config/lore';
 
 export class TomeTab {
   private readonly root: HTMLElement;
@@ -104,13 +104,13 @@ export class TomeTab {
         this.renderStats();
         this.renderHistories();
       }),
-      events.on('thrall-bought', () => {
+      events.on('servant-bought', () => {
         this.renderStats();
         this.renderBestiary();
       }),
       events.on('achievement-unlocked', () => this.renderAchievements()),
       events.on('lore-unlocked', ({ kind }) => {
-        if (kind === 'thrall') this.renderBestiary();
+        if (kind === 'servant') this.renderBestiary();
         else this.renderHistories();
       }),
       events.on('ascended', () => this.renderRunLog()),
@@ -199,19 +199,19 @@ export class TomeTab {
   }
 
   private renderBestiary(): void {
-    const unlocked = gameState.get().unlockedThrallLore;
-    this.bestiarySummary.textContent = `${unlocked.size} / ${THRALLS.length}`;
+    const unlocked = gameState.get().unlockedServantLore;
+    this.bestiarySummary.textContent = `${unlocked.size} / ${SERVANTS.length}`;
     this.bestiaryGrid.innerHTML = '';
-    for (const thrall of THRALLS) {
+    for (const thrall of SERVANTS) {
       const isUnlocked = unlocked.has(thrall.id);
       this.bestiaryGrid.appendChild(
         this.buildLoreCard({
           isUnlocked,
           title: thrall.name,
           subtitle: `Tier ${thrall.tier}`,
-          preview: isUnlocked ? firstSentence(THRALL_LORE[thrall.id]) : 'Hidden until sired.',
+          preview: isUnlocked ? firstSentence(SERVANT_LORE[thrall.id]) : 'Hidden until sired.',
           onOpen: () =>
-            showLoreModal(thrall.name, `Tier ${thrall.tier}`, THRALL_LORE[thrall.id]),
+            showLoreModal(thrall.name, `Tier ${thrall.tier}`, SERVANT_LORE[thrall.id]),
         }),
       );
     }
@@ -375,4 +375,4 @@ function showLoreModal(title: string, subtitle: string, body: string): void {
 }
 
 // Keep unused-imports happy.
-export type { ThrallId, VampireForm };
+export type { ServantId, VampireForm };

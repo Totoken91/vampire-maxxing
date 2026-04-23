@@ -79,7 +79,7 @@ export class TabBar extends Component<HTMLElement> {
     // Any of these events can flip a tab from locked → unlocked, or toggle
     // its notification dot.
     this.addTeardown(
-      events.on('thrall-bought', () => {
+      events.on('servant-bought', () => {
         this.refreshLocks();
         this.refreshDots();
       }),

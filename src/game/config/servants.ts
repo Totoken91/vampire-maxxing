@@ -1,6 +1,13 @@
-// The 8 thralls (generators). Values from docs/04-BALANCE.md.
+// The 8 servants (generators). Values from docs/04-BALANCE.md.
+//
+// NOTE — naming history: these were originally called "thralls" in
+// code. In Phase L we renamed them to "servants" to free the "Thrall"
+// terminology for the new collectible roster system. The string IDs
+// are SAVE-STABLE and remain unchanged; only the TypeScript symbols
+// were renamed. One entry keeps name "Thrall" (tier 4) because that's
+// its in-lore character name, not the category.
 
-export type ThrallId =
+export type ServantId =
   | 'rat'
   | 'ghoul'
   | 'fledgling'
@@ -10,8 +17,8 @@ export type ThrallId =
   | 'elder'
   | 'cardinal';
 
-export interface Thrall {
-  readonly id: ThrallId;
+export interface Servant {
+  readonly id: ServantId;
   readonly tier: number;
   readonly name: string;
   readonly baseCost: number;
@@ -19,7 +26,7 @@ export interface Thrall {
   readonly unlockTotal: number;
 }
 
-export const THRALLS: readonly Thrall[] = [
+export const SERVANTS: readonly Servant[] = [
   { id: 'rat',       tier: 1, name: 'Stray Rat',             baseCost: 10,          baseRate: 0.5,     unlockTotal: 0 },
   { id: 'ghoul',     tier: 2, name: 'Feral Ghoul',           baseCost: 100,         baseRate: 4,       unlockTotal: 30 },
   { id: 'fledgling', tier: 3, name: 'Fledgling',             baseCost: 1_200,       baseRate: 32,      unlockTotal: 360 },
@@ -30,12 +37,12 @@ export const THRALLS: readonly Thrall[] = [
   { id: 'cardinal',  tier: 8, name: 'Cardinal of the Night', baseCost: 700_000_000, baseRate: 900_000, unlockTotal: 210_000_000 },
 ] as const;
 
-export const THRALLS_BY_ID: Readonly<Record<ThrallId, Thrall>> = Object.freeze(
-  THRALLS.reduce(
-    (acc, t) => {
-      acc[t.id] = t;
+export const SERVANTS_BY_ID: Readonly<Record<ServantId, Servant>> = Object.freeze(
+  SERVANTS.reduce(
+    (acc, s) => {
+      acc[s.id] = s;
       return acc;
     },
-    {} as Record<ThrallId, Thrall>,
+    {} as Record<ServantId, Servant>,
   ),
 );

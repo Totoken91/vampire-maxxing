@@ -4,11 +4,11 @@ import {
   defaultV1,
   parseSave,
   serializeSave,
-  type SaveV2,
+  type SaveV3,
 } from '../src/game/save';
 
 describe('save round-trip', () => {
-  let base: SaveV2;
+  let base: SaveV3;
 
   beforeEach(() => {
     base = defaultV1();
@@ -17,8 +17,8 @@ describe('save round-trip', () => {
   it('serializes + re-parses without drift', () => {
     base.blood = 12345;
     base.dread = 4;
-    base.thralls.rat.owned = 17;
-    base.thralls.rat.totalPurchased = 17;
+    base.servants.rat.owned = 17;
+    base.servants.rat.totalPurchased = 17;
     base.stats.totalAscends = 2;
     base.stats.highestFormReached = 'ELDER';
     const raw = serializeSave(base);
@@ -26,7 +26,7 @@ describe('save round-trip', () => {
     expect(parsed).not.toBeNull();
     expect(parsed!.blood).toBe(12345);
     expect(parsed!.dread).toBe(4);
-    expect(parsed!.thralls.rat.owned).toBe(17);
+    expect(parsed!.servants.rat.owned).toBe(17);
     expect(parsed!.stats.highestFormReached).toBe('ELDER');
   });
 
@@ -56,20 +56,20 @@ describe('save migration', () => {
     const legacy = {
       blood: 42,
       dread: 1,
-      thralls: { rat: { owned: 3, totalPurchased: 3 } },
+      servants: { rat: { owned: 3, totalPurchased: 3 } },
     };
     const migrated = parseSave(JSON.stringify(legacy));
     expect(migrated).not.toBeNull();
     expect(migrated!.v).toBe(SAVE_VERSION);
     expect(migrated!.blood).toBe(42);
-    expect(migrated!.thralls.rat.owned).toBe(3);
+    expect(migrated!.servants.rat.owned).toBe(3);
     // Other thrall ids filled with defaults
-    expect(migrated!.thralls.ghoul.owned).toBe(0);
+    expect(migrated!.servants.ghoul.owned).toBe(0);
     // v2 adds upgrades — must default to empty map for legacy saves.
     expect(migrated!.upgrades).toEqual({});
   });
 
-  it('upgrades a v1 save in-place to v2 with empty upgrades map', () => {
+  it('upgrades a v1 save in-place to the current version with empty upgrades map', () => {
     // Minimal hand-crafted v1 payload (no `upgrades` key, v:1).
     const v1Payload = {
       ...defaultV1(),
@@ -80,7 +80,28 @@ describe('save migration', () => {
 
     const migrated = parseSave(JSON.stringify(v1Payload));
     expect(migrated).not.toBeNull();
-    expect(migrated!.v).toBe(2);
+    expect(migrated!.v).toBe(SAVE_VERSION);
     expect(migrated!.upgrades).toEqual({});
+  });
+
+  it('renames v2 thralls field to servants in v3', () => {
+    // Build a realistic v2 payload: start from the current default, bump
+    // rat's count, then rename the field back to the legacy name so we
+    // exercise the v2→v3 path.
+    const base = defaultV1();
+    base.servants.rat.owned = 5;
+    base.servants.rat.totalPurchased = 5;
+    const v2Payload = {
+      ...base,
+      v: 2,
+      thralls: base.servants,
+    };
+    delete (v2Payload as { servants?: unknown }).servants;
+
+    const migrated = parseSave(JSON.stringify(v2Payload));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.v).toBe(SAVE_VERSION);
+    expect(migrated!.servants.rat.owned).toBe(5);
+    expect((migrated as unknown as { thralls?: unknown }).thralls).toBeUndefined();
   });
 });

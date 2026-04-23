@@ -7,8 +7,8 @@ describe('ModifierRegistry', () => {
   });
 
   it('returns neutral values on empty', () => {
-    expect(modifierRegistry.getMultiplier('thrallCost')).toBe(1);
-    expect(modifierRegistry.getAdditive('thrallCost')).toBe(0);
+    expect(modifierRegistry.getMultiplier('servantCost')).toBe(1);
+    expect(modifierRegistry.getAdditive('servantCost')).toBe(0);
   });
 
   it('composes multiple mult modifiers on the same target as a product', () => {
@@ -19,9 +19,9 @@ describe('ModifierRegistry', () => {
   });
 
   it('composes additive modifiers as a sum', () => {
-    modifierRegistry.register('a', 'thrallCost', 'add', -0.02);
-    modifierRegistry.register('b', 'thrallCost', 'add', -0.03);
-    expect(modifierRegistry.getAdditive('thrallCost')).toBeCloseTo(-0.05, 5);
+    modifierRegistry.register('a', 'servantCost', 'add', -0.02);
+    modifierRegistry.register('b', 'servantCost', 'add', -0.03);
+    expect(modifierRegistry.getAdditive('servantCost')).toBeCloseTo(-0.05, 5);
   });
 
   it('register overrides same source+target+op', () => {
@@ -32,16 +32,16 @@ describe('ModifierRegistry', () => {
   });
 
   it('unregister removes all entries from a source', () => {
-    modifierRegistry.register('upgrade:x', 'thrallRate', 'mult', 1.5);
+    modifierRegistry.register('upgrade:x', 'servantRate', 'mult', 1.5);
     modifierRegistry.register('upgrade:x', 'dreadGain', 'mult', 1.2);
-    modifierRegistry.register('upgrade:y', 'thrallRate', 'mult', 1.3);
+    modifierRegistry.register('upgrade:y', 'servantRate', 'mult', 1.3);
 
     modifierRegistry.unregister('upgrade:x');
 
     expect(modifierRegistry.getMultiplier('dreadGain')).toBe(1);
-    // thrallRate has 1.3 raw → log-capped to 1 + log10(1.3)*4 ≈ 1.456
+    // servantRate has 1.3 raw → log-capped to 1 + log10(1.3)*4 ≈ 1.456
     const expected = 1 + Math.log10(1.3) * 4;
-    expect(modifierRegistry.getMultiplier('thrallRate')).toBeCloseTo(expected, 5);
+    expect(modifierRegistry.getMultiplier('servantRate')).toBeCloseTo(expected, 5);
   });
 
   it('applies the log cap on globalMult to prevent power creep', () => {
@@ -52,15 +52,15 @@ describe('ModifierRegistry', () => {
     expect(capped).toBeLessThan(6);
   });
 
-  it('applies the log cap on thrallRate', () => {
+  it('applies the log cap on servantRate', () => {
     // 100× raw should collapse to ~9×
-    modifierRegistry.register('a', 'thrallRate', 'mult', 100);
-    const capped = modifierRegistry.getMultiplier('thrallRate');
+    modifierRegistry.register('a', 'servantRate', 'mult', 100);
+    const capped = modifierRegistry.getMultiplier('servantRate');
     expect(capped).toBeGreaterThan(8);
     expect(capped).toBeLessThan(10);
   });
 
-  it('does not cap uncapped targets (dreadGain, thrallCost, etc)', () => {
+  it('does not cap uncapped targets (dreadGain, servantCost, etc)', () => {
     modifierRegistry.register('a', 'dreadGain', 'mult', 10);
     expect(modifierRegistry.getMultiplier('dreadGain')).toBe(10);
   });

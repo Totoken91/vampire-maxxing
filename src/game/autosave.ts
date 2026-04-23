@@ -50,6 +50,6 @@ export function startAutosave(): void {
   window.addEventListener('beforeunload', () => scheduleSave(true));
 
   // Immediate save on key actions
-  events.on('thrall-bought', () => scheduleSave());
+  events.on('servant-bought', () => scheduleSave());
   events.on('form-changed', () => scheduleSave(true));
 }

@@ -1761,7 +1761,7 @@ img.shop-card__price-icon {
 
 /* ───────── Thrall list ───────── */
 
-.thrall-list {
+.servant-list {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -1772,15 +1772,15 @@ img.shop-card__price-icon {
   scrollbar-color: var(--gold-dim) transparent;
 }
 
-.thrall-list::-webkit-scrollbar {
+.servant-list::-webkit-scrollbar {
   width: 2px;
 }
 
-.thrall-list::-webkit-scrollbar-thumb {
+.servant-list::-webkit-scrollbar-thumb {
   background: var(--gold-dim);
 }
 
-.thrall-list__header {
+.servant-list__header {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 12px;
@@ -1792,13 +1792,13 @@ img.shop-card__price-icon {
 
 /* ───────── Thrall card ───────── */
 
-.thrall-card {
+.servant-card {
   display: grid;
   grid-template-columns: 42px 1fr auto;
   gap: var(--sp-3);
   align-items: center;
   padding: 4px var(--sp-4) 4px 8px;
-  background: url('/assets/ornaments/thrall-card-bg.png') center / 100% 100% no-repeat;
+  background: url('/assets/ornaments/servant-card-bg.png') center / 100% 100% no-repeat;
   border: none;
   min-height: 46px;
   cursor: pointer;
@@ -1806,7 +1806,7 @@ img.shop-card__price-icon {
   transition: opacity 0.2s, filter 0.2s;
 }
 
-.thrall-card::before {
+.servant-card::before {
   /* Tiny dark veil for text contrast, doesn't hide the red starfield. */
   content: '';
   position: absolute;
@@ -1819,26 +1819,26 @@ img.shop-card__price-icon {
   pointer-events: none;
 }
 
-.thrall-card > * {
+.servant-card > * {
   position: relative;
   z-index: 1;
 }
 
-.thrall-card:disabled {
+.servant-card:disabled {
   cursor: not-allowed;
 }
 
-.thrall-card[data-state='affordable'] {
+.servant-card[data-state='affordable'] {
   border-color: rgba(165, 20, 35, 0.5);
 }
 
-.thrall-card[data-state='locked'] {
+.servant-card[data-state='locked'] {
   opacity: 0.3;
   filter: saturate(0.25);
   cursor: not-allowed;
 }
 
-.thrall-card__icon {
+.servant-card__icon {
   width: 42px;
   height: 42px;
   position: relative;
@@ -1852,7 +1852,7 @@ img.shop-card__price-icon {
 
 /* The thrall portrait sits inside the medallion ring, circular-cropped
    so the ornate gold edge remains visible. */
-.thrall-card__icon-img {
+.servant-card__icon-img {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1864,33 +1864,33 @@ img.shop-card__price-icon {
   pointer-events: none;
 }
 
-.thrall-card[data-state='locked'] .thrall-card__icon-img {
+.servant-card[data-state='locked'] .servant-card__icon-img {
   filter: grayscale(1) brightness(0.35);
 }
 
-.thrall-card[data-state='affordable'] .thrall-card__icon {
+.servant-card[data-state='affordable'] .servant-card__icon {
   color: var(--gold);
   filter:
     drop-shadow(0 0 6px rgba(0, 0, 0, 0.5))
     drop-shadow(0 0 8px rgba(201, 169, 98, 0.25));
 }
 
-.thrall-card[data-state='affordable'] .thrall-card__icon {
+.servant-card[data-state='affordable'] .servant-card__icon {
   color: var(--gold);
   border-color: var(--gold);
 }
 
-.thrall-card__info {
+.servant-card__info {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
 
-.thrall-card__name {
+.servant-card__name {
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: var(--fs-thrall-name);
+  font-size: var(--fs-servant-name);
   color: var(--ink);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1899,25 +1899,25 @@ img.shop-card__price-icon {
   text-overflow: ellipsis;
 }
 
-.thrall-card__stats {
+.servant-card__stats {
   font-family: var(--font-mono);
-  font-size: var(--fs-thrall-stats);
+  font-size: var(--fs-servant-stats);
   color: var(--ink-dim);
   letter-spacing: 0.08em;
   display: flex;
   gap: var(--sp-2);
 }
 
-.thrall-card__stats-owned {
+.servant-card__stats-owned {
   color: var(--gold-dim);
 }
 
-.thrall-card__action {
+.servant-card__action {
   text-align: right;
   min-width: 58px;
 }
 
-.thrall-card__cost {
+.servant-card__cost {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--blood);
@@ -1925,11 +1925,11 @@ img.shop-card__price-icon {
   font-weight: 500;
 }
 
-.thrall-card[data-state='affordable'] .thrall-card__cost {
+.servant-card[data-state='affordable'] .servant-card__cost {
   color: var(--blood-glow);
 }
 
-.thrall-card__label {
+.servant-card__label {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 8px;
@@ -1939,7 +1939,7 @@ img.shop-card__price-icon {
   text-transform: uppercase;
 }
 
-.thrall-card[data-state='affordable'] .thrall-card__label {
+.servant-card[data-state='affordable'] .servant-card__label {
   color: var(--gold);
 }
 

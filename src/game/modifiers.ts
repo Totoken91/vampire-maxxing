@@ -1,6 +1,6 @@
 // Central bus of gameplay modifiers. Multiple systems (upgrades,
-// regions, awakenings, aspects, generations, unique thralls) all want
-// to tweak the same grandeurs (thrall rate, thrall cost, dread gain,
+// regions, awakenings, aspects, generations, thralls) all want
+// to tweak the same grandeurs (servant rate, servant cost, dread gain,
 // offline cap, click power, global multiplier). Putting the logic in
 // each caller = exponential branching; the registry holds every active
 // delta in one place, sources publish/unregister on state changes, and
@@ -10,8 +10,8 @@
 // at load time from their own state. Double source-of-truth = bugs.
 
 export type ModifierTarget =
-  | 'thrallRate'
-  | 'thrallCost'
+  | 'servantRate'
+  | 'servantCost'
   | 'clickPower'
   | 'dreadGain'
   | 'offlineCap'
@@ -28,7 +28,7 @@ interface Modifier {
 
 /**
  * Cap logarithmique appliqué à la multiplication finale des `mult` sur
- * `globalMult` et `thrallRate`. Sans ça, empiler 5 sources de +20% donne
+ * `globalMult` et `servantRate`. Sans ça, empiler 5 sources de +20% donne
  * un produit qui explose en post-launch. La courbe log garde les gros
  * bonus ressentis sans jamais passer en scientifique.
  *
@@ -46,7 +46,7 @@ function capLog(raw: number): number {
 
 const CAPPED_TARGETS: ReadonlySet<ModifierTarget> = new Set([
   'globalMult',
-  'thrallRate',
+  'servantRate',
 ]);
 
 class ModifierRegistry {

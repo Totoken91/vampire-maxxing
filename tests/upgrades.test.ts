@@ -66,7 +66,7 @@ describe('buyUpgrade', () => {
     expect(getUpgradeLevel('servant_loyalty')).toBe(1);
     expect(gameState.getDread()).toBe(95); // 100 - 5
     // +5% raw, then log-capped (raw ≤ 1.05 → passes through)
-    const mult = modifierRegistry.getMultiplier('thrallRate');
+    const mult = modifierRegistry.getMultiplier('servantRate');
     // capLog kicks in above 1; 1.05 raw becomes 1 + log10(1.05)*4 ≈ 1.0847
     expect(mult).toBeGreaterThan(1.05);
   });
@@ -100,10 +100,10 @@ describe('publishUpgradeModifier', () => {
     giveDread(10_000);
     buyUpgrade('servant_loyalty');
     buyUpgrade('servant_loyalty');
-    // Level 2 → +10% raw thrallRate
+    // Level 2 → +10% raw servantRate
     const entries = modifierRegistry.list().filter((m) => m.source === 'upgrade:servant_loyalty');
     expect(entries.length).toBe(1);
-    expect(entries[0]!.target).toBe('thrallRate');
+    expect(entries[0]!.target).toBe('servantRate');
     expect(entries[0]!.value).toBeCloseTo(1.1, 5);
   });
 
@@ -150,7 +150,7 @@ describe('bloodline_scholar additive cost modifier', () => {
     giveDread(10_000);
     buyUpgrade('bloodline_scholar');
     buyUpgrade('bloodline_scholar');
-    // Level 2 → -0.02 additive on thrallCost
-    expect(modifierRegistry.getAdditive('thrallCost')).toBeCloseTo(-0.02, 5);
+    // Level 2 → -0.02 additive on servantCost
+    expect(modifierRegistry.getAdditive('servantCost')).toBeCloseTo(-0.02, 5);
   });
 });

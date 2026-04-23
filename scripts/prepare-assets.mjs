@@ -49,13 +49,16 @@ const JOBS = [
   },
   {
     source: 'minion-banner.png',
+    // Legacy filename — stays "thrall-card-bg" on disk for backward
+    // compatibility with existing CSS refs. The card ITSELF was
+    // renamed to ServantCard in code.
     dest: 'public/assets/ornaments/thrall-card-bg.png',
     maxWidth: 900,
     trim: true,
     vCropTop: 0.1,
     vCropBottom: 0.06,
     preserveAspect: true,
-    description: 'Thrall card banner (natural aspect, top stripped)',
+    description: 'Servant card banner (natural aspect, top stripped)',
   },
   {
     source: 'minion-portrait.png',
@@ -196,7 +199,7 @@ const JOBS = [
   // nightblade.png / blood-courtesan.png / eelder.png (doubled "e" to
   // avoid collision with the Elder vampire-form portrait) / cardinal of
   // the night.png (with spaces). Output as compact WebP q90 centered
-  // square — used as the left medallion of each thrall-card.
+  // square — used as the left medallion of each servant-card.
   ...[
     { id: 'rat', source: 'stray-rat.png' },
     { id: 'ghoul', source: 'feral-ghoul.png' },
@@ -208,7 +211,7 @@ const JOBS = [
     { id: 'cardinal', source: 'cardinal of the night.png' },
   ].map(({ id, source }) => ({
     source,
-    dest: `public/assets/thralls/${id}.webp`,
+    dest: `public/assets/servants/${id}.webp`,
     maxWidth: 256,
     trim: true,
     preserveAspect: true,
