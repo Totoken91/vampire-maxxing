@@ -96,23 +96,20 @@
   z-index: 1;
 }
 
-/* The frame PNG is a grey/white ornament on transparent. We keep the
-   grey luminance detail intact by drawing the PNG as a background
-   image AND multiplying it against a solid rarity colour via
-   background-blend-mode:multiply — the bright grey lines become
-   rarity-coloured lines, the darker greys become darker tints. */
+/* The frame PNG (grey/white ornament on transparent) is drawn as-is
+   first — transparent zones stay transparent, white ornament lines
+   keep their luminance. Then a per-rarity CSS filter chain tints the
+   grey to the target hue WITHOUT flattening the detail. The filter
+   chain is: sepia(1) to convert greys to a warm base, hue-rotate to
+   shift that base toward the target colour, saturate to intensify.
+   Brightness keeps the overall value balanced. */
 .thrall-card__frame {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background-image:
-    linear-gradient(var(--rarity-color), var(--rarity-color)),
-    url('/assets/ornaments/thrall-frame.png');
-  background-size: 100% 100%, 100% 100%;
-  background-repeat: no-repeat, no-repeat;
-  background-position: center, center;
-  background-blend-mode: multiply;
+  background: url('/assets/ornaments/thrall-frame.png') center / 100% 100%
+    no-repeat;
 }
 
 .thrall-card__info {
@@ -150,25 +147,42 @@
   filter: brightness(1.4);
 }
 
-/* ── Per-rarity colours ─────────────────────────────────────────── */
+/* ── Per-rarity tints ────────────────────────────────────────────
+   Filter chain: sepia(1) turns the grey PNG into a warm base,
+   hue-rotate shifts that base toward the target colour family,
+   saturate intensifies. The --rarity-color variable still drives
+   the card border, inner shadow, name meta text, etc. */
+
 .thrall-card[data-rarity='common'] {
-  --rarity-color: #8a6a3a;
-  --rarity-glow: rgba(138, 106, 58, 0.35);
+  --rarity-color: #a88450;
+  --rarity-glow: rgba(168, 132, 80, 0.3);
+}
+.thrall-card[data-rarity='common'] .thrall-card__frame {
+  filter: brightness(0.7) sepia(1) saturate(1.4);
 }
 
 .thrall-card[data-rarity='rare'] {
-  --rarity-color: #6a2a8a;
-  --rarity-glow: rgba(106, 42, 138, 0.45);
+  --rarity-color: #8a3fb5;
+  --rarity-glow: rgba(138, 63, 181, 0.4);
+}
+.thrall-card[data-rarity='rare'] .thrall-card__frame {
+  filter: brightness(0.85) sepia(1) hue-rotate(225deg) saturate(3.5);
 }
 
 .thrall-card[data-rarity='epic'] {
-  --rarity-color: #a82020;
-  --rarity-glow: rgba(168, 32, 32, 0.45);
+  --rarity-color: #c02838;
+  --rarity-glow: rgba(192, 40, 56, 0.4);
+}
+.thrall-card[data-rarity='epic'] .thrall-card__frame {
+  filter: brightness(0.85) sepia(1) hue-rotate(325deg) saturate(5);
 }
 
 .thrall-card[data-rarity='legendary'] {
-  --rarity-color: #c91818;
-  --rarity-glow: rgba(201, 24, 24, 0.6);
+  --rarity-color: #d81818;
+  --rarity-glow: rgba(216, 24, 24, 0.55);
+}
+.thrall-card[data-rarity='legendary'] .thrall-card__frame {
+  filter: brightness(0.9) sepia(1) hue-rotate(345deg) saturate(8);
 }
 
 /* Legendary gets a subtle inner glow — contained within the card's
