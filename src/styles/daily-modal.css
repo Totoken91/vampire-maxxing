@@ -242,6 +242,17 @@
   font-size: 14px;
   color: #a98bde;
   font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+/* L3 — Ichor reward line (violet iridescent, matches the header
+   Dread pill tone so players link Ichor to the pull-currency color). */
+.daily-modal__reward-ichor {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: #d4a6ff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 6px rgba(192, 132, 252, 0.35);
   margin-bottom: var(--sp-3);
 }
 

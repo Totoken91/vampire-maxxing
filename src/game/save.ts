@@ -106,11 +106,21 @@ export interface SaveV4 extends Omit<SaveV3, 'v'> {
    */
   totalRunBloodOnline?: number;
   /**
-   * Phase L3 (preview) — Ichor pull currency. Optional for back-compat
-   * with pre-L3 saves; the state layer defaults to 0 when absent. Full
-   * ledger / cap / source tracking lands with the banner system.
+   * Phase L3 — Ichor pull currency. Optional for back-compat with
+   * pre-L3 saves; the state layer defaults to 0 when absent.
    */
   ichor?: number;
+  /** L3 — rolling ledger of Ichor earn/spend transactions. Optional;
+   * empty array on pre-L3 saves. Window capped at 100 by grantIchor. */
+  ichorLedger?: Array<{
+    amount: number;
+    source: string;
+    earnedNotPaid: boolean;
+    ts: number;
+  }>;
+  /** L3 — one-shot reward flags (prestige milestones, first Rare,
+   * collection complete) to prevent re-granting the same Ichor drop. */
+  ichorFlags?: Record<string, boolean>;
 }
 
 export type AnySave = Partial<SaveV4> &
@@ -285,6 +295,8 @@ export function defaultV4(): SaveV4 {
     totalLifetimeBlood: 0,
     dread: 0,
     ichor: 0,
+    ichorLedger: [],
+    ichorFlags: {},
     servants,
     baseClickPower: 1,
     boost: { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false },

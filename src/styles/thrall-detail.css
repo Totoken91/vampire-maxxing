@@ -42,18 +42,49 @@
   max-width: 360px;
   max-height: 92vh;
   overflow-y: auto;
-  padding: var(--sp-4) var(--sp-3) var(--sp-3);
-  background: linear-gradient(
-    180deg,
-    rgba(22, 12, 18, 0.97),
-    rgba(8, 4, 10, 1)
-  );
-  border: 1px solid var(--rarity-color);
+  /* Padding bumped so content stays well clear of the panel PNG's
+     baroque corner ornaments (~8-10% inset each side on the asset). */
+  padding: 28px 22px 22px;
+  /* Baroque panel PNG — same asset used by the Ascension modal so the
+     two share a visual language. Stretched to fit with 100% 100% so
+     the panel grows with content height (lore-heavy thralls get more
+     panel, not a repeated texture). */
+  background:
+    url('/assets/ornaments/menu-panel.webp') center / 100% 100% no-repeat,
+    linear-gradient(180deg, rgba(22, 12, 18, 0.6), rgba(8, 4, 10, 0.8));
+  border: none;
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.8),
-    0 0 24px var(--rarity-color);
-  animation: thrall-detail-card-in 320ms var(--ease-out-pop);
+    0 0 28px var(--rarity-color);
+  animation:
+    thrall-detail-card-in 320ms var(--ease-out-pop),
+    thrall-detail-tilt 9s 320ms ease-in-out infinite;
+  transform-style: preserve-3d;
   text-align: center;
+}
+
+/* Continuous slow 3D tilt — same cadence as the Bloodline portrait
+   (9s ease-in-out, ±3.5° Y / ±1.4° X) so the modal feels alive without
+   drawing attention. Stops briefly on hover so users can read the
+   lore without motion. */
+@keyframes thrall-detail-tilt {
+  0%,
+  100% {
+    transform: perspective(900px) rotateY(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: perspective(900px) rotateY(2.5deg) rotateX(-1deg);
+  }
+  50% {
+    transform: perspective(900px) rotateY(0deg) rotateX(1deg);
+  }
+  75% {
+    transform: perspective(900px) rotateY(-2.5deg) rotateX(-1deg);
+  }
+}
+
+.thrall-detail:hover {
+  animation-play-state: paused;
 }
 
 @keyframes thrall-detail-card-in {
@@ -97,17 +128,34 @@
   color: var(--gold);
 }
 
+/* Portrait wrap — kept for structural parity with future overlays,
+   but no pseudo-element fog. A clean linear alpha-fade on the image
+   itself is what felt best. */
+.thrall-detail__portrait-wrap {
+  position: relative;
+  width: 100%;
+  margin-bottom: var(--sp-3);
+}
+
 .thrall-detail__portrait {
   display: block;
   width: 100%;
-  max-height: 50vh;
+  max-height: 44vh;
   object-fit: contain;
   object-position: center center;
-  margin-bottom: var(--sp-3);
-  /* A faint vignette below via mask so the bottom edge fades into the
-     card background rather than cutting hard. */
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 88%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 88%, transparent 100%);
+  /* Four-sided alpha fade — bottom is the dominant dissolve into the
+     text panel; top + left + right get a softer 4-6% fade so the
+     portrait never ends with a hard rectangle against the baroque
+     background. Two gradients composited with `intersect`: a pixel
+     is visible only where BOTH masks are opaque. */
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, #000 6%, #000 75%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+  mask-image:
+    linear-gradient(180deg, transparent 0%, #000 6%, #000 75%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
 }
 
 .thrall-detail__rarity {
@@ -116,8 +164,11 @@
   color: var(--rarity-color);
   letter-spacing: 0.35em;
   text-transform: uppercase;
-  margin-bottom: 4px;
-  filter: brightness(1.3);
+  margin-bottom: 6px;
+  filter: brightness(1.35);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px rgba(0, 0, 0, 0.9);
 }
 
 .thrall-detail__name {
@@ -129,41 +180,53 @@
   letter-spacing: 0.03em;
   line-height: 1.1;
   margin: 0 0 var(--sp-3);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 12px rgba(0, 0, 0, 0.95);
 }
 
 .thrall-detail__lore {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--ink-dim);
   margin: 0 0 var(--sp-4);
-  padding: 0 var(--sp-2);
+  padding: 0 var(--sp-3);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 0.8);
 }
 
 .thrall-detail__effect {
   padding: var(--sp-3) var(--sp-2);
   margin: 0 auto var(--sp-3);
-  max-width: 80%;
-  border-top: 1px solid rgba(139, 116, 68, 0.25);
-  border-bottom: 1px solid rgba(139, 116, 68, 0.25);
+  max-width: 82%;
+  border-top: 1px solid rgba(139, 116, 68, 0.3);
+  border-bottom: 1px solid rgba(139, 116, 68, 0.3);
 }
 
 .thrall-detail__effect-label {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--ink-faint);
+  color: var(--ink-dim);
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
 }
 
 .thrall-detail__effect-value {
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 16px;
+  font-weight: 500;
+  font-size: 17px;
   color: var(--rarity-color);
-  filter: brightness(1.25);
+  filter: brightness(1.35);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 10px rgba(0, 0, 0, 0.9),
+    0 0 16px var(--rarity-color);
 }
 
 .thrall-detail__hint {
@@ -172,6 +235,7 @@
   font-size: 11px;
   color: var(--ink-faint);
   margin-top: var(--sp-2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 @media (prefers-reduced-motion: reduce) {

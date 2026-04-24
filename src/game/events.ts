@@ -30,6 +30,12 @@ export interface GameEvents {
   /** M1 — Dread Level changed (ascend or daily gift). Drives the
    * milestone-modifiers refresh (Bloodline Scholar auto-tier). */
   'dread-changed': { level: number };
+  /** L3 — Ichor granted (any source). Carries the amount credited
+   * and the source tag so toasts can show the flavor line. */
+  'ichor-earned': { amount: number; source: string; balance: number };
+  /** L3 — Ichor balance moved (grant OR spend). Header counter
+   * re-renders on this. */
+  'ichor-changed': { balance: number };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

@@ -13,6 +13,7 @@ import { playAscensionFx } from '../fx/ascension';
 import { portraitOverlays } from '../ui/components/portrait';
 import { modifierRegistry } from '../game/modifiers';
 import { THRALLS, type ThrallId } from '../game/config/thralls';
+import { grantIchor, spendIchor, type IchorSource } from '../game/ichor';
 
 type Cheats = {
   gameState: typeof gameState;
@@ -21,6 +22,8 @@ type Cheats = {
   addBlood: (n: number) => void;
   addDread: (n: number) => void;
   setDread: (level: number) => void;
+  addIchor: (n: number, source?: IchorSource) => number;
+  spendIchor: (n: number) => boolean;
   reset: () => void;
   wipe: () => Promise<void>;
   playAscension: (target?: VampireForm) => Promise<void>;
@@ -75,6 +78,12 @@ export function installCheats(): void {
       s.dread = Math.max(0, Math.floor(level));
       events.emit('dread-changed', { level: s.dread });
       events.emit('blood-changed', { blood: gameState.getBlood(), delta: 0 });
+    },
+    addIchor(n, source = 'debug') {
+      return grantIchor(n, source);
+    },
+    spendIchor(n) {
+      return spendIchor(n);
     },
     grantThrall(id) {
       return gameState.obtainThrall(id);

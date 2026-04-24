@@ -156,6 +156,7 @@ export class SanctumTab {
   private buildCard(t: Thrall): HTMLElement {
     const card = el('button', 'thrall-card') as HTMLButtonElement;
     card.type = 'button';
+    card.dataset.thrallId = t.id;
     card.dataset.rarity = t.rarity;
     card.dataset.archetype = t.archetype;
 
@@ -213,6 +214,7 @@ export class SanctumTab {
       'thrall-card thrall-card--locked',
     ) as HTMLButtonElement;
     card.type = 'button';
+    card.dataset.thrallId = t.id;
     card.dataset.rarity = t.rarity;
     card.dataset.archetype = t.archetype;
 

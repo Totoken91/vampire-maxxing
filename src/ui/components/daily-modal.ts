@@ -81,6 +81,14 @@ export function showDailyModal(): void {
           `+${pending.reward.dread} dread`,
         )
       : null;
+  const rewardIchor =
+    pending.reward.ichor > 0
+      ? el(
+          'div',
+          'daily-modal__reward-ichor',
+          `+${pending.reward.ichor} ichor`,
+        )
+      : null;
 
   const claimBtn = el(
     'button',
@@ -97,6 +105,7 @@ export function showDailyModal(): void {
   modal.appendChild(rewardLabel);
   modal.appendChild(rewardBlood);
   if (rewardDread) modal.appendChild(rewardDread);
+  if (rewardIchor) modal.appendChild(rewardIchor);
   modal.appendChild(claimBtn);
 
   backdrop.appendChild(modal);

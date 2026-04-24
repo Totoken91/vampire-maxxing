@@ -94,6 +94,7 @@ export class Header extends Component<HTMLElement> {
     this.render();
     this.addTeardown(events.on('ascended', () => this.render()));
     this.addTeardown(events.on('dread-changed', () => this.renderDread()));
+    this.addTeardown(events.on('ichor-changed', () => this.renderIchor()));
   }
 
   private render(): void {

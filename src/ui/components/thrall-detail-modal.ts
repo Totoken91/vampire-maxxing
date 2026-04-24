@@ -44,11 +44,15 @@ export function showThrallDetail(thrall: Thrall): void {
   const close = el('button', 'thrall-detail__close', '×');
   close.setAttribute('aria-label', 'Close');
 
-  // Full-illustration portrait — displayed at natural aspect, no crop.
+  // Full-illustration portrait — displayed at natural aspect, no
+  // crop. Wrapped so the grunge fade overlay (::after) can paint
+  // over the bottom edge without touching the image itself.
+  const portraitWrap = el('div', 'thrall-detail__portrait-wrap');
   const img = el('img', 'thrall-detail__portrait') as HTMLImageElement;
   img.src = thrall.portraitPath;
   img.alt = thrall.name;
   img.decoding = 'async';
+  portraitWrap.appendChild(img);
 
   const rarityBar = el('div', 'thrall-detail__rarity');
   rarityBar.textContent = `— ${RARITY_LABEL[thrall.rarity]} ${archetypeLabel(thrall.archetype).toUpperCase()} —`;
@@ -68,7 +72,7 @@ export function showThrallDetail(thrall: Thrall): void {
   );
 
   modal.appendChild(close);
-  modal.appendChild(img);
+  modal.appendChild(portraitWrap);
   modal.appendChild(rarityBar);
   modal.appendChild(name);
   modal.appendChild(lore);

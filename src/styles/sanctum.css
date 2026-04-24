@@ -101,6 +101,30 @@
   transform-origin: center top;
 }
 
+/* Per-thrall crop tweaks — each thrall's source PNG has a slightly
+   different composition (head higher/lower, subject left/right). The
+   default crop works for most, but these four need small adjustments
+   so the face lands in the upper-third of the card frame, balanced
+   horizontally. Values dialed in against the live Sanctum at mobile
+   viewport — re-check if the thrall-frame aspect ever changes. */
+
+/* Velmor — head sits low in the source, empty sky above. Pan the
+   view DOWN (higher Y%) so the face climbs into the frame. */
+.thrall-card[data-thrall-id='velmor-the-dread'] .thrall-portrait {
+  object-position: center 22%;
+}
+
+/* Mirella — subject offset to the right, reads as glued to the
+   right edge of the card. Shift the scaled image LEFT to rebalance. */
+.thrall-card[data-thrall-id='mirella'] .thrall-portrait {
+  transform: scale(1.8) translateX(-3%);
+}
+
+/* Roderick — same right-bias as Mirella. */
+.thrall-card[data-thrall-id='roderick-the-tracker'] .thrall-portrait {
+  transform: scale(1.8) translateX(-3%);
+}
+
 .thrall-frame {
   position: absolute;
   inset: 0;
@@ -149,6 +173,16 @@
   text-transform: uppercase;
   filter: brightness(1.4);
   pointer-events: none;
+  /* Triple shadow for legibility on any portrait/frame combo:
+     1) hard black silhouette tight to the letterforms,
+     2) mid black blur bleeds into the busy artwork underneath,
+     3) rarity-tinted halo echoes the frame color — reads as a glow
+     without losing the mono/gothic tone. */
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 1),
+    0 0 3px rgba(0, 0, 0, 0.95),
+    0 0 8px var(--rarity-color),
+    0 0 12px var(--rarity-color);
 }
 
 /* ── Per-rarity tint on the frame img (CSS filter chain) ─────────

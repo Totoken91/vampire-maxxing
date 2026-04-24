@@ -78,9 +78,15 @@ export interface GameSnapshot {
   totalRunBloodOnline: number;
   totalLifetimeBlood: number;
   dread: number;
-  /** Phase L preview — Ichor pull currency. Minimal stub; full ledger
-   * (sources, cap, earned/paid flag) lands with L3 proper. */
+  /** Phase L3 — Ichor pull currency. Plate, soft-capped at 1000. */
   ichor: number;
+  /** Phase L3 — rolling ledger of Ichor transactions (earn + spend)
+   * with source + earned/paid flag. Rolling window of 100 entries. */
+  ichorLedger: import('./ichor').IchorTransaction[];
+  /** Phase L3 — flags for one-shot Ichor rewards so re-ascends /
+   * re-pulls don't re-grant the same milestone. Indexed by a stable
+   * string tag (e.g. "prestige:5", "first:rare", "collection"). */
+  ichorFlags: Record<string, boolean>;
   servants: Record<ServantId, ServantOwnership>;
   boost: BoostState;
   stats: StatsState;
@@ -164,6 +170,8 @@ function emptySnapshot(): GameSnapshot {
     totalLifetimeBlood: 0,
     dread: 0,
     ichor: 0,
+    ichorLedger: [],
+    ichorFlags: {},
     servants: emptyServants(),
     boost: { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false },
     stats: {
@@ -690,6 +698,15 @@ export class GameState {
       this.snapshot.dread += pending.reward.dread;
       events.emit('dread-changed', { level: this.snapshot.dread });
     }
+    if (pending.reward.ichor > 0) {
+      // Funnel through grantIchor so the ledger + toast fire. The
+      // daily modal still shows the reward inline, which is fine —
+      // players will see both the modal line and the Ichor toast.
+      // Lazy import to avoid a circular dep at module init.
+      void import('./ichor').then(({ grantIchor }) => {
+        grantIchor(pending.reward.ichor, 'daily_login');
+      });
+    }
     return { day: pending.day, reward: pending.reward };
   }
 
@@ -704,6 +721,8 @@ export class GameState {
       totalRunBlood: this.snapshot.totalRunBlood,
       totalRunBloodOnline: this.snapshot.totalRunBloodOnline,
       ichor: this.snapshot.ichor,
+      ichorLedger: [...this.snapshot.ichorLedger],
+      ichorFlags: { ...this.snapshot.ichorFlags },
       totalLifetimeBlood: this.snapshot.totalLifetimeBlood,
       dread: this.snapshot.dread,
       servants: this.snapshot.servants,
@@ -735,8 +754,20 @@ export class GameState {
       save.totalRunBloodOnline ?? save.totalRunBlood;
     this.snapshot.totalLifetimeBlood = save.totalLifetimeBlood;
     this.snapshot.dread = save.dread;
-    // L preview — Ichor absent on pre-L3 saves → 0.
+    // L3 — Ichor. All three fields optional on pre-L3 saves. Source
+    // is stored as a loose string in the save (no coupling to the
+    // IchorSource enum) and narrowed back here; unknown sources pass
+    // through — they just won't match any runtime filter.
     this.snapshot.ichor = save.ichor ?? 0;
+    this.snapshot.ichorLedger = Array.isArray(save.ichorLedger)
+      ? save.ichorLedger.map((tx) => ({
+          amount: tx.amount,
+          source: tx.source as import('./ichor').IchorSource,
+          earnedNotPaid: tx.earnedNotPaid,
+          ts: tx.ts,
+        }))
+      : [];
+    this.snapshot.ichorFlags = { ...(save.ichorFlags ?? {}) };
     // Rebuild thralls to guarantee every id exists (new tier added later).
     for (const t of SERVANTS) {
       const saved = save.servants[t.id];

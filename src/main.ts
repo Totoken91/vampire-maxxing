@@ -9,7 +9,7 @@ import { showDailyModal } from './ui/components/daily-modal';
 import { installFtue } from './ftue';
 import { startAutosave } from './game/autosave';
 import { maybeShowOfflineModal } from './ui/components/offline-modal';
-import { showToast } from './ui/components/toast';
+import { showToast, showIchorToast } from './ui/components/toast';
 import { events } from './game/events';
 import { gameState } from './game/state';
 import { installMusic } from './audio/music';
@@ -19,6 +19,7 @@ import { checkAchievements, installAchievementChecks } from './game/achievements
 import { ACHIEVEMENTS_BY_ID } from './game/config/achievements';
 import { showAchievementToast } from './ui/components/achievement-toast';
 import { installMilestones } from './game/milestones';
+import { installIchorRewards } from './game/ichor-rewards';
 import { SERVANTS, SERVANTS_BY_ID } from './game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
 
@@ -36,6 +37,11 @@ async function boot(): Promise<void> {
   // from Dread Level). Must run after state load and before any
   // rate/cost calc fires. Subscribes to dread-changed internally.
   installMilestones();
+
+  // L3 — Ichor reward hooks (prestige milestones, first Rare/Epic,
+  // collection complete). Also retroactively grants any milestone
+  // a returning save has already passed.
+  installIchorRewards();
 
   installFx(document.body);
   installMilestone();
@@ -92,6 +98,11 @@ async function boot(): Promise<void> {
   // SFX on SUCCESSFUL thrall purchase only (the event only fires when the
   // buy went through — blood < cost silently returns false upstream).
   events.on('servant-bought', () => playButton());
+
+  // L3 — violet toast on every Ichor earn, with source-specific flavor.
+  events.on('ichor-earned', ({ amount, source }) => {
+    showIchorToast(amount, source);
+  });
 
   if (offlineReport) {
     maybeShowOfflineModal(offlineReport, (amount) => {

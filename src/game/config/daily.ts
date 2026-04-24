@@ -12,18 +12,21 @@ export interface DailyDay {
   minutes: number;
   /** Flat dread reward, added on top. */
   dread: number;
+  /** L3 — Ichor reward, ramping over the 7-day cycle so a steady
+   * daily login compounds toward a Rituel pull (~1-3/day). */
+  ichor: number;
   /** Short caps label shown under the chain for this day. */
   label: string;
 }
 
 export const DAILY_CYCLE: readonly DailyDay[] = [
-  { minutes: 1, dread: 0, label: 'A SMALL MERCY' },
-  { minutes: 3, dread: 0, label: 'THE HUNGER STIRS' },
-  { minutes: 10, dread: 1, label: 'A TASTE OF DREAD' },
-  { minutes: 20, dread: 1, label: 'THE COURT NOTICES' },
-  { minutes: 30, dread: 2, label: 'A FAMILIAR WEIGHT' },
-  { minutes: 60, dread: 3, label: 'THE MOON BOWS' },
-  { minutes: 120, dread: 5, label: 'THE SABBATH' },
+  { minutes: 1, dread: 0, ichor: 1, label: 'A SMALL MERCY' },
+  { minutes: 3, dread: 0, ichor: 1, label: 'THE HUNGER STIRS' },
+  { minutes: 10, dread: 1, ichor: 2, label: 'A TASTE OF DREAD' },
+  { minutes: 20, dread: 1, ichor: 2, label: 'THE COURT NOTICES' },
+  { minutes: 30, dread: 2, ichor: 2, label: 'A FAMILIAR WEIGHT' },
+  { minutes: 60, dread: 3, ichor: 3, label: 'THE MOON BOWS' },
+  { minutes: 120, dread: 5, ichor: 3, label: 'THE SABBATH' },
 ];
 
 export const DAILY_MIN_BLOOD = 1000;
@@ -31,6 +34,7 @@ export const DAILY_MIN_BLOOD = 1000;
 export interface DailyReward {
   blood: number;
   dread: number;
+  ichor: number;
 }
 
 /** Reward for `dayIndex` (0-based, so 0 = day 1) at a given rate. */
@@ -38,7 +42,7 @@ export function rewardFor(dayIndex: number, rate: number): DailyReward {
   const clamped = Math.max(0, Math.min(DAILY_CYCLE.length - 1, dayIndex));
   const spec = DAILY_CYCLE[clamped]!;
   const blood = Math.max(DAILY_MIN_BLOOD, Math.floor(rate * 60 * spec.minutes));
-  return { blood, dread: spec.dread };
+  return { blood, dread: spec.dread, ichor: spec.ichor };
 }
 
 /**
