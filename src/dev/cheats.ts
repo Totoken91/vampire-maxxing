@@ -12,11 +12,6 @@ import { wipeSave } from '../game/save';
 import { playAscensionFx } from '../fx/ascension';
 import { portraitOverlays } from '../ui/components/portrait';
 import { modifierRegistry } from '../game/modifiers';
-import {
-  buyUpgrade,
-  getUpgradeLevel,
-  type UpgradeId,
-} from '../game/upgrades';
 import { THRALLS, type ThrallId } from '../game/config/thralls';
 
 type Cheats = {
@@ -25,14 +20,13 @@ type Cheats = {
   setForm: (form: VampireForm) => void;
   addBlood: (n: number) => void;
   addDread: (n: number) => void;
+  setDread: (level: number) => void;
   reset: () => void;
   wipe: () => Promise<void>;
   playAscension: (target?: VampireForm) => Promise<void>;
   overlays: typeof portraitOverlays;
   modifiers: typeof modifierRegistry;
   testOverlay: (layer?: 'front' | 'back', color?: string) => void;
-  buyUpgrade: (id: UpgradeId) => boolean;
-  getUpgradeLevel: (id: UpgradeId) => number;
   grantThrall: (id: ThrallId) => boolean;
   grantAllThralls: () => void;
 };
@@ -61,20 +55,27 @@ export function installCheats(): void {
       const s = gameState.get() as unknown as {
         blood: number;
         totalRunBlood: number;
+        totalRunBloodOnline: number;
         totalLifetimeBlood: number;
       };
       s.blood += n;
       s.totalRunBlood += n;
+      s.totalRunBloodOnline += n;
       s.totalLifetimeBlood += n;
       events.emit('blood-changed', { blood: s.blood, delta: n });
     },
     addDread(n) {
       const s = gameState.get() as unknown as { dread: number };
       s.dread += n;
+      events.emit('dread-changed', { level: s.dread });
       events.emit('blood-changed', { blood: gameState.getBlood(), delta: 0 });
     },
-    buyUpgrade,
-    getUpgradeLevel,
+    setDread(level) {
+      const s = gameState.get() as unknown as { dread: number };
+      s.dread = Math.max(0, Math.floor(level));
+      events.emit('dread-changed', { level: s.dread });
+      events.emit('blood-changed', { blood: gameState.getBlood(), delta: 0 });
+    },
     grantThrall(id) {
       return gameState.obtainThrall(id);
     },
@@ -113,6 +114,7 @@ export function installCheats(): void {
       const s = gameState.get() as unknown as {
         blood: number;
         totalRunBlood: number;
+        totalRunBloodOnline: number;
         totalLifetimeBlood: number;
         stats: { totalAscends: number };
       };
@@ -125,6 +127,7 @@ export function installCheats(): void {
       if (need > 0) {
         s.blood += need;
         s.totalRunBlood += need;
+        s.totalRunBloodOnline += need;
         s.totalLifetimeBlood += need;
         events.emit('blood-changed', { blood: s.blood, delta: need });
       }

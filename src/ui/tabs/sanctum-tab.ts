@@ -1,13 +1,12 @@
 // SANCTUM — the Thrall roster screen.
 //
-// v1.0 preview: grid of 7 hero-tier thralls as Kenny provided them, with
-// silhouette placeholders for the 5 common-tier slots still pending. No
-// equip / pull / level mechanics yet — those land in L2-L10. The rarity
-// frame colour is driven by CSS mask-image on the grey ornament PNG +
-// per-rarity custom property.
+// v1.2 (2026-04-24): 12-slot MVP roster (6 Commons + 4 Rares + 2 Epics)
+// rendered with full portraits + rarity-tinted frames. Legendaries are
+// planned for v1.1+ and live outside of code for now.
 //
-// Filter tabs let the player slice the grid by archetype. "Active
-// Thralls" footer is a static teaser for the coming equip system.
+// Equip / pull / level mechanics land in L4–L10. Filter tabs slice
+// the grid by archetype. "Active Thralls" footer is a static teaser
+// for the coming equip system.
 
 import { el } from '../../utils/dom';
 import {
@@ -143,10 +142,10 @@ export class SanctumTab {
       );
     }
 
-    // Still show "unknown" placeholders for the 5 common-tier slots
-    // we haven't generated portraits for yet (keeps the X/12 read
-    // clean in the ALL view).
-    if (this.activeFilter === 'all') {
+    // Safety net: if the roster ever ships below target (e.g. an ID
+    // got removed mid-migration), fill with generic silhouettes so the
+    // ALL grid stays rectangular and the X/12 read stays honest.
+    if (this.activeFilter === 'all' && THRALLS.length < THRALL_ROSTER_TARGET) {
       const missing = THRALL_ROSTER_TARGET - THRALLS.length;
       for (let i = 0; i < missing; i += 1) {
         this.grid.appendChild(this.buildSilhouette());

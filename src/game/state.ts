@@ -22,7 +22,7 @@ import {
   rewardFor,
   type DailyReward,
 } from './config/daily';
-import { defaultV1, loadSave, writeSave, type SaveV3 } from './save';
+import { defaultV1, loadSave, writeSave, type SaveV4 } from './save';
 
 interface ServantOwnership {
   owned: number;
@@ -63,9 +63,24 @@ interface StatsState {
 
 export interface GameSnapshot {
   blood: number;
+  /**
+   * Total Blood earned this run (online + offline combined). Drives
+   * milestone toasts + UI display — it's the "how much this run felt
+   * productive" number. Reset on ascend.
+   */
   totalRunBlood: number;
+  /**
+   * M3 — Subset of totalRunBlood earned strictly online (taps + passive
+   * tick while the app was open). Offline gain is EXCLUDED so players
+   * can't weaponize an overnight sleep + pre-bought generators into a
+   * massive Dread payout on ascend. Reset on ascend.
+   */
+  totalRunBloodOnline: number;
   totalLifetimeBlood: number;
   dread: number;
+  /** Phase L preview — Ichor pull currency. Minimal stub; full ledger
+   * (sources, cap, earned/paid flag) lands with L3 proper. */
+  ichor: number;
   servants: Record<ServantId, ServantOwnership>;
   boost: BoostState;
   stats: StatsState;
@@ -145,8 +160,10 @@ function emptySnapshot(): GameSnapshot {
   return {
     blood: 0,
     totalRunBlood: 0,
+    totalRunBloodOnline: 0,
     totalLifetimeBlood: 0,
     dread: 0,
+    ichor: 0,
     servants: emptyServants(),
     boost: { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false },
     stats: {
@@ -210,8 +227,24 @@ export class GameState {
     return this.snapshot.blood;
   }
 
+  /**
+   * Current Dread Level — the permanent prestige rank that drives
+   * globalMult (log curve). Monotonically increasing as of M1: never
+   * decremented by upgrade purchases anymore. Name kept as `getDread`
+   * for back-compat; the value IS the rank.
+   */
   getDread(): number {
     return this.snapshot.dread;
+  }
+
+  /** Explicit alias for API clarity post-M1. */
+  getDreadLevel(): number {
+    return this.snapshot.dread;
+  }
+
+  /** Phase L preview — Ichor balance. Full ledger in L3. */
+  getIchor(): number {
+    return this.snapshot.ichor;
   }
 
   getForm(): VampireForm {
@@ -286,8 +319,23 @@ export class GameState {
   }
 
   projectedDreadGain(): number {
-    const base = dreadGain(this.snapshot.totalRunBlood);
+    // M3: only online-earned blood counts for Dread gain. Offline
+    // progress keeps the run alive but can't snowball prestige.
+    const base = dreadGain(this.snapshot.totalRunBloodOnline, this.getForm());
     return Math.floor(base * modifierRegistry.getMultiplier('dreadGain'));
+  }
+
+  /** Whether the projected Dread gain is already at the current form's
+   * cap. Drives the "ascend your form to claim more" hint in the Ascend
+   * modal. Uses online blood (M3). */
+  isDreadGainCapped(): boolean {
+    if (this.snapshot.totalRunBloodOnline < BALANCE.ASCEND_THRESHOLD) return false;
+    const raw = Math.floor(
+      Math.sqrt(this.snapshot.totalRunBloodOnline / BALANCE.DREAD_GAIN_DIVISOR) *
+        BALANCE.DREAD_GAIN_COEF,
+    );
+    const cap = BALANCE.DREAD_GAIN_CAP_PER_FORM[this.getForm()];
+    return raw >= cap && cap !== Infinity;
   }
 
   // ─────────── Actions ───────────
@@ -356,18 +404,24 @@ export class GameState {
     if (!this.canAscend()) return false;
 
     const curseMult = this.snapshot.pendingCurseMult;
-    const baseGain = dreadGain(this.snapshot.totalRunBlood);
+    const previousForm = this.getForm();
+    // M2: cap based on the form DURING the run (the one about to end).
+    // M3: only online-earned blood feeds the sqrt — offline can't
+    // snowball prestige. Apply cap BEFORE external multipliers so
+    // curse/rewarded stack on top of the capped base.
+    const baseGain = dreadGain(this.snapshot.totalRunBloodOnline, previousForm);
     const dreadMult = modifierRegistry.getMultiplier('dreadGain');
     const gain = Math.floor(baseGain * dreadMult * rewardedMultiplier * curseMult);
-    const previousForm = this.getForm();
     // Capture the run's peak blood BEFORE zeroing it — the Run log needs
     // the pre-reset value.
     const peakBlood = this.snapshot.totalRunBlood;
 
     this.snapshot.dread += gain;
+    events.emit('dread-changed', { level: this.snapshot.dread });
     this.snapshot.stats.totalAscends += 1;
     this.snapshot.blood = 0;
     this.snapshot.totalRunBlood = 0;
+    this.snapshot.totalRunBloodOnline = 0;
     this.snapshot.pendingCurseMult = 1;
     this.snapshot.lastMilestoneExp = -1;
     for (const t of SERVANTS) {
@@ -491,10 +545,12 @@ export class GameState {
     modifierRegistry.clear();
   }
 
-  /** Apply an offline blood gain. Called after the user claims the modal. */
+  /** Apply an offline blood gain. Called after the user claims the
+   * modal. M3: flagged as offline so it does NOT increment
+   * totalRunBloodOnline — keeps prestige gate honest. */
   applyOfflineGain(amount: number): void {
     if (amount <= 0) return;
-    this.addBlood(amount);
+    this.addBlood(amount, { offline: true });
   }
 
   // ─────────── Achievements ───────────
@@ -529,11 +585,9 @@ export class GameState {
   setUpgradeLevel(id: string, level: number): void {
     this.snapshot.upgrades[id] = level;
   }
-
-  /** Internal: subtract N dread. Upgrade purchase only. */
-  spendDread(amount: number): void {
-    this.snapshot.dread = Math.max(0, this.snapshot.dread - amount);
-  }
+  // spendDread removed in M1 — Dread is now a pure rank (monotonically
+  // increasing). Meta-upgrades migrated to auto-milestones (see
+  // milestones.ts) or absorbed by Phase L thralls.
 
   // ─────────── L2 Thralls roster ───────────
 
@@ -632,19 +686,24 @@ export class GameState {
     this.snapshot.daily.streakDay = pending.day;
     this.snapshot.daily.lastClaimedDate = localDateKey();
     this.addBlood(pending.reward.blood);
-    this.snapshot.dread += pending.reward.dread;
+    if (pending.reward.dread > 0) {
+      this.snapshot.dread += pending.reward.dread;
+      events.emit('dread-changed', { level: this.snapshot.dread });
+    }
     return { day: pending.day, reward: pending.reward };
   }
 
   // ─────────── Persistence helpers ───────────
 
-  private toSave(): SaveV3 {
+  private toSave(): SaveV4 {
     const base = defaultV1();
     return {
       ...base,
       ts: Date.now(),
       blood: this.snapshot.blood,
       totalRunBlood: this.snapshot.totalRunBlood,
+      totalRunBloodOnline: this.snapshot.totalRunBloodOnline,
+      ichor: this.snapshot.ichor,
       totalLifetimeBlood: this.snapshot.totalLifetimeBlood,
       dread: this.snapshot.dread,
       servants: this.snapshot.servants,
@@ -663,11 +722,21 @@ export class GameState {
     };
   }
 
-  private applySave(save: SaveV3): void {
+  private applySave(save: SaveV4): void {
     this.snapshot.blood = save.blood;
     this.snapshot.totalRunBlood = save.totalRunBlood;
+    // M3 — grandfather: saves from before the online/offline split
+    // don't have this field. Initialise online = current run total, so
+    // the first post-upgrade ascend is lenient (we don't know how much
+    // of the old total was offline vs online, so we give the benefit
+    // of the doubt). Going forward the two diverge as offline gains
+    // land without incrementing online.
+    this.snapshot.totalRunBloodOnline =
+      save.totalRunBloodOnline ?? save.totalRunBlood;
     this.snapshot.totalLifetimeBlood = save.totalLifetimeBlood;
     this.snapshot.dread = save.dread;
+    // L preview — Ichor absent on pre-L3 saves → 0.
+    this.snapshot.ichor = save.ichor ?? 0;
     // Rebuild thralls to guarantee every id exists (new tier added later).
     for (const t of SERVANTS) {
       const saved = save.servants[t.id];
@@ -753,9 +822,18 @@ export class GameState {
 
   // ─────────── Internals ───────────
 
-  private addBlood(delta: number): void {
+  /**
+   * Internal blood accrual. `opts.offline=true` skips incrementing
+   * `totalRunBloodOnline` so the offline report can't feed Dread
+   * gain (M3). Everything else (tap, tick, daily gift, rewarded
+   * boosts) counts as online.
+   */
+  private addBlood(delta: number, opts: { offline?: boolean } = {}): void {
     this.snapshot.blood += delta;
     this.snapshot.totalRunBlood += delta;
+    if (!opts.offline) {
+      this.snapshot.totalRunBloodOnline += delta;
+    }
     this.snapshot.totalLifetimeBlood += delta;
     events.emit('blood-changed', { blood: this.snapshot.blood, delta });
     this.checkMilestone();

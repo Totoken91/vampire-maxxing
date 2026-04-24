@@ -219,18 +219,27 @@ const JOBS = [
     webpQuality: 90,
     description: `Servant medallion — ${id}`,
   })),
-  // Phase L — the unique Thrall roster. 7 portraits + 1 grey ornament
-  // frame that gets tinted per-rarity via CSS mask. Sources live under
-  // `thralls system/` so we point src there directly. Portraits are
-  // large 1024×1536 source, compressed to 640px tall WebP for cards.
+  // Phase L — unique Thrall roster V1.2 (2026-04-24). 12 MVP portraits:
+  // 6 Commons + 4 Rares + 2 Epics. Legendaries (Lord of Night, Blood
+  // Countess, Crimson Reaper) are v1.1+ and NOT shipped in code yet.
+  // Sources live under `thralls system/thralls/` with Kenny's naming.
+  // Compressed to 480px wide WebP for Sanctum cards (480×721 output).
   ...[
-    { id: 'ashen-vale', source: 'thralls system/thrall-ashen-vale.png' },
-    { id: 'blood-countess', source: 'thralls system/thrall-blood-countess.png' },
-    { id: 'crimson-reaper', source: 'thralls system/thrall-crimson-reaper.png' },
-    { id: 'lord-of-night', source: 'thralls system/thrall-lord-of-night.png' },
-    { id: 'mirella', source: 'thralls system/thrall-mirella.png' },
-    { id: 'nox-the-hunger', source: 'thralls system/thrall-nox-the-hunger.png' },
-    { id: 'velmor-the-dread', source: 'thralls system/thrall-velmor-the-dread.png' },
+    // Commons (6)
+    { id: 'ash-the-wretched', source: 'thralls system/thralls/Ash.png' },
+    { id: 'mira-the-watcher', source: 'thralls system/thralls/Mira.png' },
+    { id: 'roderick-the-tracker', source: 'thralls system/thralls/Roderick.png' },
+    { id: 'iron-maw', source: 'thralls system/thralls/iron-maw.png' },
+    { id: 'crypt-warden', source: 'thralls system/thralls/crypt-warden.png' },
+    { id: 'gravebound', source: 'thralls system/thralls/gravebound.png' },
+    // Rares (4)
+    { id: 'nox-the-hunger', source: 'thralls system/thralls/nox.png' },
+    { id: 'lilith-whisper', source: 'thralls system/thralls/lillith.png' },
+    { id: 'duskward', source: 'thralls system/thralls/duskward.png' },
+    { id: 'ashen-vale', source: 'thralls system/thralls/ashen.png' },
+    // Epics (2)
+    { id: 'mirella', source: 'thralls system/thralls/mirella.png' },
+    { id: 'velmor-the-dread', source: 'thralls system/thralls/velmor.png' },
   ].map(({ id, source }) => ({
     source,
     dest: `public/assets/thralls/${id}.webp`,

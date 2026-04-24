@@ -6,7 +6,7 @@ import { FORMS_BY_ID, type VampireForm } from './config/forms';
 import { SERVANTS, type ServantId } from './config/servants';
 import { kvGet, kvRemove, kvSet } from '../platform/storage';
 
-export const SAVE_VERSION = 3 as const;
+export const SAVE_VERSION = 4 as const;
 
 export const SAVE_KEY = 'vampire_maxxing_save';
 export const SAVE_KEY_BACKUP = 'vampire_maxxing_save_bak';
@@ -70,9 +70,7 @@ export interface SaveV2 extends Omit<SaveV1, 'v'> {
   };
 }
 
-/** Current save shape (v3). Renames v2's `thralls` field to `servants` to
- * make room for the new collectible Thrall roster (Phase L). String IDs
- * of the 8 generators are SAVE-STABLE and unchanged. */
+/** v3 save. Kept around for migration reference only. */
 export interface SaveV3 extends Omit<SaveV2, 'v' | 'thralls'> {
   v: 3;
   /** The 8 generators (formerly "thralls"). Keyed by ServantId. */
@@ -94,11 +92,32 @@ export interface SaveV3 extends Omit<SaveV2, 'v' | 'thralls'> {
   >;
 }
 
-export type AnySave = Partial<SaveV3> &
+/** Current save shape (v4). Structurally identical to v3 — the
+ * migration's only job is to drop the 4 deprecated upgrade keys from
+ * `upgrades` and reclaim their spent Dread as rank (M1 refactor,
+ * 2026-04-24). Dread is now a pure monotonically-increasing rank. */
+export interface SaveV4 extends Omit<SaveV3, 'v'> {
+  v: 4;
+  /**
+   * M3 — Blood earned online during the current run (tap + tick only,
+   * no offline). Drives `dreadGain()` so offline progress can't
+   * snowball prestige. Optional for back-compat with pre-M3 saves
+   * which are grandfathered at load: online := totalRunBlood.
+   */
+  totalRunBloodOnline?: number;
+  /**
+   * Phase L3 (preview) — Ichor pull currency. Optional for back-compat
+   * with pre-L3 saves; the state layer defaults to 0 when absent. Full
+   * ledger / cap / source tracking lands with the banner system.
+   */
+  ichor?: number;
+}
+
+export type AnySave = Partial<SaveV4> &
   Partial<Pick<SaveV2, 'thralls'>> & { v?: number };
 
 /** Escape hatch for corrupted saves: returns null and the caller starts fresh. */
-export function parseSave(raw: string): SaveV3 | null {
+export function parseSave(raw: string): SaveV4 | null {
   try {
     const data = JSON.parse(raw) as AnySave;
     const migrated = migrate(data);
@@ -109,11 +128,11 @@ export function parseSave(raw: string): SaveV3 | null {
   }
 }
 
-export function serializeSave(save: SaveV3): string {
+export function serializeSave(save: SaveV4): string {
   return JSON.stringify(save);
 }
 
-export async function loadSave(): Promise<SaveV3 | null> {
+export async function loadSave(): Promise<SaveV4 | null> {
   const raw = await kvGet(SAVE_KEY);
   if (raw) {
     const parsed = parseSave(raw);
@@ -128,7 +147,7 @@ export async function loadSave(): Promise<SaveV3 | null> {
   return null;
 }
 
-export async function writeSave(save: SaveV3): Promise<void> {
+export async function writeSave(save: SaveV4): Promise<void> {
   const existing = await kvGet(SAVE_KEY);
   if (existing) await kvSet(SAVE_KEY_BACKUP, existing);
   await kvSet(SAVE_KEY, serializeSave(save));
@@ -141,15 +160,43 @@ export async function wipeSave(): Promise<void> {
 
 // ─────────── Migration ───────────
 
-function migrate(data: AnySave): SaveV3 {
+/**
+ * Cumulative cost lookup for the 5 meta-upgrades that lived in v1.0.0
+ * to v1.0.x and were removed in M1 (v4). Used to reclaim spent Dread
+ * as rank during migration, grandfathering existing players.
+ * Source of truth: archived config/upgrades.ts before removal.
+ */
+const DEPRECATED_UPGRADE_COSTS: Readonly<Record<string, readonly number[]>> = {
+  blood_altar: [10, 25, 60, 150, 400],
+  servant_loyalty: [5, 10, 20, 40, 80, 160, 320, 640, 1280, 2500],
+  bloodline_scholar: [15, 40, 100, 250, 600],
+  dread_amplifier: [25, 80, 250],
+  offline_keeper: [20, 60, 200],
+};
+
+function reclaimedDreadFromUpgrades(upgrades: Record<string, number> | undefined): number {
+  if (!upgrades) return 0;
+  let reclaimed = 0;
+  for (const [id, level] of Object.entries(upgrades)) {
+    const costs = DEPRECATED_UPGRADE_COSTS[id];
+    if (!costs) continue;
+    const capped = Math.min(Math.max(0, level), costs.length);
+    for (let i = 0; i < capped; i += 1) {
+      reclaimed += costs[i];
+    }
+  }
+  return reclaimed;
+}
+
+function migrate(data: AnySave): SaveV4 {
   const v = data.v ?? 0;
   let migrated: AnySave = data;
 
   // v0 → v1: wrap an unversioned save into the v1 shape, filling defaults
   // for missing fields and deep-merging nested objects.
   if (v < 1) {
-    const base = defaultV3();
-    const d = data as Partial<SaveV3> & Partial<Pick<SaveV2, 'thralls'>>;
+    const base = defaultV4();
+    const d = data as Partial<SaveV4> & Partial<Pick<SaveV2, 'thralls'>>;
     migrated = {
       ...base,
       ...d,
@@ -184,33 +231,60 @@ function migrate(data: AnySave): SaveV3 {
     migrated = next;
   }
 
-  if (migrated.v === 3) return migrated as SaveV3;
+  // v3 → v4 (M1): Dread becomes a pure rank. Reclaim every Dread that
+  // was spent on the 5 deprecated meta-upgrades and add it back to
+  // `dread`. Then clear the upgrades map — the 5 effects either (a)
+  // got absorbed by Phase L thralls (Velmor=auto-collect, Nox/Mirella=
+  // blood gen, Lilith/Crypt Warden=offline cap) or (b) were removed
+  // outright (dread_amplifier conflicted with M2 form-gated cap).
+  // Bloodline Scholar's effect is re-granted automatically via the
+  // new milestone system (see src/game/milestones.ts).
+  if ((migrated.v ?? 0) <= 3) {
+    const legacyUpgrades =
+      (migrated as unknown as Partial<SaveV3>).upgrades ?? {};
+    const reclaimed = reclaimedDreadFromUpgrades(legacyUpgrades);
+    migrated = {
+      ...migrated,
+      v: 4,
+      dread: (migrated.dread ?? 0) + reclaimed,
+      upgrades: {},
+    } as unknown as AnySave;
+  }
+
+  if (migrated.v === 4) return migrated as SaveV4;
   throw new Error(`Unknown save version: ${migrated.v}`);
 }
 
 /** Back-compat alias — old callers still use defaultV1(), which now
  * returns the current default shape. */
-export function defaultV1(): SaveV3 {
-  return defaultV3();
+export function defaultV1(): SaveV4 {
+  return defaultV4();
 }
 
-/** @deprecated Returns a v3 save under this legacy name. */
-export function defaultV2(): SaveV3 {
-  return defaultV3();
+/** @deprecated Returns a v4 save under this legacy name. */
+export function defaultV2(): SaveV4 {
+  return defaultV4();
 }
 
-export function defaultV3(): SaveV3 {
+/** @deprecated Returns a v4 save under this legacy name. */
+export function defaultV3(): SaveV4 {
+  return defaultV4();
+}
+
+export function defaultV4(): SaveV4 {
   const servants = {} as Record<ServantId, { owned: number; totalPurchased: number }>;
   for (const t of SERVANTS) {
     servants[t.id] = { owned: 0, totalPurchased: 0 };
   }
   return {
-    v: 3,
+    v: 4,
     ts: Date.now(),
     blood: 0,
     totalRunBlood: 0,
+    totalRunBloodOnline: 0,
     totalLifetimeBlood: 0,
     dread: 0,
+    ichor: 0,
     servants,
     baseClickPower: 1,
     boost: { active: false, endTime: 0, cooldownEnd: 0, isRewarded: false },
@@ -241,7 +315,7 @@ export function defaultV3(): SaveV3 {
 
 // ─────────── Validation ───────────
 
-function validate(save: SaveV3): boolean {
+function validate(save: SaveV4): boolean {
   if (save.v !== SAVE_VERSION) return false;
   if (!Number.isFinite(save.blood) || save.blood < 0) return false;
   if (!Number.isFinite(save.dread) || save.dread < 0) return false;

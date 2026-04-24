@@ -1093,97 +1093,294 @@ img.shop-card__price-icon {
 
 /* ───────── Header ───────── */
 
+/* ───────── Header (HUD v5.4, 2026-04-24) — vampiric elegance pass ─────
+   Two columns: brand logo / pill row with inline gear. Gear no longer
+   floats fixed; it's a 4th element in the pill row, visually glued to
+   the Ichor pill. Pills get the full vampiric treatment: velvet depth
+   gradient, hairline gold inlay, inner candlelight shadow, icon glow. */
 .header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--sp-3);
-  align-items: center;
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
   padding: 0;
+  position: relative;
 }
 
+/* ── Col 1: brand (logo PNG) ── */
 .header__brand {
-  font-family: var(--font-brand);
-  font-size: var(--fs-brand);
-  color: var(--blood);
-  letter-spacing: 0.01em;
-  line-height: 1;
-  text-shadow: 0 0 20px rgba(165, 20, 35, 0.5);
-  white-space: nowrap;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
 }
-
 .header__logo {
   width: auto;
-  height: 110px;
-  max-width: 160px;
+  height: 78px;
+  max-width: 120px;
   object-fit: contain;
-  filter: drop-shadow(0 0 18px rgba(165, 20, 35, 0.6));
-  margin-left: -6px;
-  margin-top: -4px;
+  filter: drop-shadow(0 0 14px rgba(165, 20, 35, 0.5));
+  margin-left: -4px;
 }
-
-.header__status {
-  text-align: center;
-  min-width: 0;
-}
-
-.header__status-label,
-.header__dread-label {
-  font-family: var(--font-mono);
-  font-size: var(--fs-label);
-  color: var(--ink-faint);
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-
-.header__dread-label {
-  color: var(--shadow);
-  letter-spacing: 0.3em;
-}
-
-.header__status-title {
+/* Fallback wordmark shown only when the logo PNG fails to load. */
+.header__brand-line {
   font-family: var(--font-serif);
-  font-weight: 500;
-  font-size: var(--fs-title);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--blood);
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+  text-shadow: 0 0 8px rgba(168, 21, 37, 0.45);
+}
+
+/* ── Col 2: 2×2 pill grid ── */
+.header__stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 5px;
+  justify-content: center;
+}
+
+.header__pill-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Generic pill — baroque cartouche via PNG (v5.5).
+   Background is the sanctum-filter-idle cartouche asset (already
+   ornate, gilded, vignetted). Per-rarity variants apply a CSS filter
+   to the BACKGROUND LAYER ONLY (via ::before), so icon + text stay
+   rendered with their native colors. Same pattern as thrall frames.
+   ═══════════════════════════════════════════════════════════════════ */
+.header__pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: none;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: transparent;
+  transition: transform 0.18s var(--ease-out-pop, ease-out);
+}
+
+.header__pill::before {
+  /* Baroque cartouche background — the illustration shared with
+     Sanctum filters. Filter gets hue-shifted per variant below. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/assets/ornaments/sanctum-filter-idle.webp') center / 100% 100% no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.header__pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  position: relative;
+  z-index: 1;
+}
+.header__pill-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Diamond gem — Dread (purple). Rotates into a rhombus, sits inside
+   a soft radial aura so it reads as a lit ember rather than a flat
+   square. */
+.header__pill-icon--diamond {
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(135deg, #d1aaff 0%, #a855f7 55%, #6b2d8f 100%);
+  transform: rotate(45deg);
+  box-shadow:
+    0 0 4px rgba(168, 85, 247, 0.85),
+    0 0 10px rgba(168, 85, 247, 0.45),
+    inset 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+/* Droplet — Ichor (gold). Mucha-like highlight + soft gold halo. */
+.header__pill-icon--drop {
   color: var(--gold);
-  letter-spacing: 0.1em;
+  filter:
+    drop-shadow(0 0 3px rgba(201, 169, 98, 0.55))
+    drop-shadow(0 0 6px rgba(201, 169, 98, 0.25));
+}
+
+.header__pill-icon--blood {
+  color: var(--blood-glow);
+  filter: drop-shadow(0 0 3px rgba(212, 69, 92, 0.45));
+}
+
+.header__pill-col {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.header__pill-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 9px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.header__pill-value {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
-.header__status-title em {
-  font-style: italic;
-  font-weight: 300;
-  color: var(--blood-glow);
+/* Dread pill — shift the gold cartouche toward purple/amethyst. */
+.header__pill--dread::before {
+  filter: brightness(0.92) sepia(0.6) hue-rotate(225deg) saturate(1.5);
+}
+.header__pill--dread .header__pill-label {
+  color: #c4a9d6;
+}
+.header__pill--dread .header__pill-value {
+  color: #e8c8ff;
+  text-shadow:
+    0 0 8px rgba(192, 132, 252, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-.header__dread {
-  text-align: right;
+/* Ichor pill — the asset is already gold; we just nudge it slightly
+   warmer so it reads as distinctly Ichor vs the gear on its right. */
+.header__pill--ichor::before {
+  filter: brightness(1.05) saturate(1.15);
+}
+.header__pill--ichor .header__pill-label {
+  color: #c9a961;
+}
+.header__pill--ichor .header__pill-value {
+  color: #f5d998;
+  text-shadow:
+    0 0 8px rgba(232, 196, 128, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-.header__dread-value {
-  display: inline-flex;
+/* Active state — pills press subtly inward (filter stays per-variant
+   so we don't fight with hue-rotate). */
+.header__pill:active {
+  transform: scale(0.97);
+}
+
+/* v5.5 — inline Settings gear. Uses the same baroque cartouche PNG
+   as the pills (via ::before) so it reads as a companion control,
+   not an afterthought. Square aspect — the asset stretches to fit. */
+.header__gear {
+  flex: 0 0 auto;
+  width: 38px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--shadow);
-  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  position: relative;
+  align-self: stretch;
+  transition: color 0.2s, transform 0.18s var(--ease-out-pop, ease-out);
+}
+.header__gear::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/assets/ornaments/sanctum-filter-idle.webp') center / 100% 100% no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+.header__gear:hover,
+.header__gear:focus-visible {
+  color: #f5d998;
+  outline: none;
+}
+.header__gear:hover::before,
+.header__gear:focus-visible::before {
+  filter: brightness(1.15);
+}
+.header__gear:active {
+  transform: scale(0.94);
+}
+.header__gear-icon {
+  display: inline-block;
+  line-height: 1;
+  filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.5));
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  position: relative;
+  z-index: 1;
+}
+
+/* Rank pill — blood red, flex-1. Just the Form emphasis word in
+   italic serif, glowing blood tone. */
+.header__pill--rank {
+  justify-content: center;
+  background: rgba(60, 15, 25, 0.4);
+  border-color: rgba(212, 69, 92, 0.3);
+}
+.header__pill-rank-word {
+  font-family: var(--font-serif);
+  font-style: italic;
   font-weight: 500;
+  font-size: 14px;
+  color: var(--blood-glow);
+  text-shadow: 0 0 6px rgba(212, 69, 92, 0.4);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.header__dread-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 4px rgba(107, 45, 143, 0.55));
+/* Mult pill — compact (auto width, not flex-1), gold. */
+.header__pill--mult {
+  flex: 0 1 auto;
+  gap: 5px;
+  padding: 4px 8px;
+  justify-content: center;
+  background: rgba(50, 30, 15, 0.25);
+  border-color: rgba(140, 100, 60, 0.3);
 }
-
-.header__dread-number {
+.header__pill-mult-number {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.header__pill-mult-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: #8a7555;
+  text-transform: uppercase;
   line-height: 1;
 }
 
@@ -1194,9 +1391,9 @@ img.shop-card__price-icon {
   aspect-ratio: 600 / 70;
   background: url('/assets/ornaments/divider.png') center / 100% 100% no-repeat;
   opacity: 0.9;
-  /* Pull up into the visually empty area below the middle-column text of
-     the header, without touching the header itself. */
-  margin-top: -28px;
+  /* HUD v5: divider sits BELOW the header pills with breathing room —
+     no more negative margin pulling it into the status row. */
+  margin-top: 6px;
   position: relative;
   z-index: 5;
 }
@@ -1698,20 +1895,27 @@ img.shop-card__price-icon {
   opacity: 0;
 }
 
-/* Title sits over the bottom cartouche of the frame PNG. */
+/* Century label sits over the bottom cartouche of the baroque frame
+   PNG. HUD v5.1: restored after being pulled below the portrait.
+   Larger size + heavier drop shadow so it reads as a nameplate
+   engraved on the frame, not an afterthought caption. */
 .portrait__title {
   position: absolute;
   left: 10%;
   right: 10%;
-  bottom: 5%;
+  bottom: 4%;
   z-index: 4;
   text-align: center;
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 13px;
+  font-weight: 500;
+  font-size: 17px;
   color: var(--ink);
-  letter-spacing: 0.04em;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.95),
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 12px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
@@ -1725,6 +1929,20 @@ img.shop-card__price-icon {
   padding: 0;
 }
 
+/* HUD v5: Century label — lives under the portrait, above the main
+   blood value. Italic serif in gold so it reads as a soft lore
+   caption, not a stat to chase. Mult and "— blood —" label were
+   dropped in v5 (mult moved to topbar, label redundant with rate). */
+.blood-display__century {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--gold-dim);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+
+/* Legacy label kept to avoid breaking any other callers; unused in v5. */
 .blood-display__label {
   font-family: var(--font-serif);
   font-style: italic;
@@ -1735,10 +1953,13 @@ img.shop-card__price-icon {
 }
 
 .blood-display__value {
-  font-family: var(--font-mono);
-  font-size: 44px;
+  font-family: var(--font-serif);
+  font-size: 40px;
   font-weight: 500;
-  color: var(--blood);
+  color: var(--blood-glow);
+  text-shadow: 0 0 12px rgba(212, 69, 92, 0.3);
+  line-height: 1;
+  margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   text-shadow:
@@ -2022,14 +2243,19 @@ img.shop-card__price-icon {
   z-index: 220;
 }
 
+/* Deprecated (v5.4): the original floating gear is no longer
+   rendered — Header now owns an inline `.header__gear` button that
+   calls menuInstance.open(). Styles kept for a11y / safety in case
+   the old button is reintroduced somewhere. */
 .menu__button {
+  display: none;
   position: fixed;
-  top: 10px;
-  right: 10px;
-  width: 36px;
-  height: 36px;
+  top: 30px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  background: rgba(12, 8, 12, 0.55);
+  background: rgba(12, 8, 12, 0.7);
   border: 1px solid var(--gold-dim);
   color: var(--gold-dim);
   cursor: pointer;
@@ -2037,7 +2263,7 @@ img.shop-card__price-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   transition: color 0.2s, border-color 0.2s, transform 0.15s;
   backdrop-filter: blur(4px);
@@ -2149,6 +2375,36 @@ img.shop-card__price-icon {
   text-align: center;
   text-transform: uppercase;
   margin-bottom: var(--sp-2);
+}
+
+/* v5.3 — stat rows inside the Settings panel. Used for the Blood
+   multiplier readout that was pulled off the main HUD. Label left,
+   value right, thin divider underneath. */
+.menu__stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 12px;
+  margin-bottom: var(--sp-2);
+  background: rgba(40, 25, 30, 0.35);
+  border: 1px solid rgba(140, 100, 60, 0.25);
+  border-radius: 3px;
+}
+
+.menu__stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.menu__stat-value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
 }
 
 .menu__action {
@@ -2705,6 +2961,23 @@ img.shop-card__price-icon {
   letter-spacing: 0.06em;
   text-align: center;
   padding: 2px 0;
+}
+
+/* M2 — narrative hint shown inside the rewards cartouche when the
+   Dread gain is capped by current form. Italic serif in blood tone to
+   signal "this is why you're gated, not a bug". */
+.ascend-modal__hint {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(165, 20, 35, 0.25);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--blood-glow);
+  text-align: center;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
 }
 
 /* ───────── Confirmation dialog ───────── */

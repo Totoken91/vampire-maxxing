@@ -1,5 +1,12 @@
-// Blood counter + rate/sec meter.
-// Updates on every tick for smooth feel (10Hz is fine for idle numbers).
+// Blood counter block — HUD v5.1 (2026-04-24).
+//
+// Lives directly UNDER the portrait. 2 lines only:
+//   1. "{amount}" — big red serif counter (40px)
+//   2. "+{rate} / per second" — mono rate caption
+//
+// v5.1: Century label moved BACK to the portrait frame (.portrait__title)
+// where the baroque cartouche reads as a natural nameplate. Mult pill
+// and "— blood —" label stay removed (moved to topbar / redundant).
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
@@ -17,11 +24,9 @@ export class BloodDisplay extends Component<HTMLElement> {
   constructor() {
     const root = el('div', 'blood-display');
 
-    const label = el('div', 'blood-display__label', '— blood —');
     const value = el('div', 'blood-display__value', '0');
     const rate = el('div', 'blood-display__rate');
 
-    root.appendChild(label);
     root.appendChild(value);
     root.appendChild(rate);
 

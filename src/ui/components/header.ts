@@ -1,76 +1,111 @@
-// Header: brand (left), identity (center), dread (right).
-// Reads live from gameState + subscribes to form-changed / blood-changed for updates.
+// Header — HUD v5.3 layout (2026-04-24).
+//
+// Three-column flex:
+//   [Vampire / Maxxing logo]  [Dread + Ichor pills]  [settings gear]
+//
+// The ×mult caption was dropped from the topbar (Kenny, v5.3): it
+// surfaces only inside the Settings panel now so the HUD stays
+// minimal. Rank ("Methuselah" etc.) was dropped in v5.2 — the
+// Century label on the portrait frame carries the rank identity.
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
 import { events } from '../../game/events';
 import { gameState } from '../../game/state';
-import { getCurrentFormDefinition } from '../../game/forms';
+import { fmt } from '../../utils/format';
+import { menuInstance } from './menu';
+
+const DROPLET_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path d="M12 2 C12 2 5 10 5 15 C5 19 8 22 12 22 C16 22 19 19 19 15 C19 10 12 2 12 2 Z" ' +
+  'fill="currentColor" stroke="rgba(0,0,0,0.35)" stroke-width="1"/></svg>';
 
 export class Header extends Component<HTMLElement> {
-  private readonly statusTitle: HTMLElement;
-  private readonly dreadNumber: HTMLElement;
+  private readonly dreadValue: HTMLElement;
+  private readonly ichorValue: HTMLElement;
 
   constructor() {
     const root = el('div', 'header');
 
+    // ── Col 1: brand (logo PNG, text fallback) ─────────────────────
     const brand = el('div', 'header__brand');
     const logo = el('img', 'header__logo') as HTMLImageElement;
     logo.src = '/assets/ornaments/logo.png';
     logo.alt = 'Vampire Maxxing';
     logo.decoding = 'async';
     logo.onerror = () => {
-      // Fallback to textual brand if the PNG is missing.
       brand.textContent = '';
-      brand.innerHTML = 'Vampire<br>Maxxing';
+      const top = el('span', 'header__brand-line', 'Vampire');
+      const bot = el('span', 'header__brand-line', 'Maxxing');
+      brand.appendChild(top);
+      brand.appendChild(bot);
     };
     brand.appendChild(logo);
 
-    const status = el('div', 'header__status');
-    const statusLabel = el('div', 'header__status-label', 'you are');
-    const statusTitle = el('div', 'header__status-title');
-    status.appendChild(statusLabel);
-    status.appendChild(statusTitle);
+    // ── Col 2: 2×2 pill grid ───────────────────────────────────────
+    const stack = el('div', 'header__stack');
 
-    const dread = el('div', 'header__dread');
-    const dreadLabel = el('div', 'header__dread-label', 'DREAD');
-    const dreadValue = el('div', 'header__dread-value');
-    const dreadIcon = el('img', 'header__dread-icon') as HTMLImageElement;
-    dreadIcon.src = '/assets/ornaments/dread-icon.webp';
-    dreadIcon.alt = '';
-    dreadIcon.decoding = 'async';
-    dreadValue.appendChild(dreadIcon);
-    const dreadNumber = el('span', 'header__dread-number', '0');
-    dreadValue.appendChild(dreadNumber);
-    dread.appendChild(dreadLabel);
-    dread.appendChild(dreadValue);
+    // Row 1 — Dread + Ichor + Mult (wallet + global multiplier)
+    const walletRow = el('div', 'header__pill-row');
+
+    const dreadPill = el('div', 'header__pill header__pill--dread');
+    const dreadIcon = el('span', 'header__pill-icon header__pill-icon--diamond');
+    const dreadCol = el('div', 'header__pill-col');
+    dreadCol.appendChild(el('span', 'header__pill-label', 'Dread'));
+    const dreadValue = el('span', 'header__pill-value', 'Lv.0');
+    dreadCol.appendChild(dreadValue);
+    dreadPill.appendChild(dreadIcon);
+    dreadPill.appendChild(dreadCol);
+
+    const ichorPill = el('div', 'header__pill header__pill--ichor');
+    const ichorIcon = el('span', 'header__pill-icon header__pill-icon--drop');
+    ichorIcon.innerHTML = DROPLET_SVG;
+    const ichorCol = el('div', 'header__pill-col');
+    ichorCol.appendChild(el('span', 'header__pill-label', 'Ichor'));
+    const ichorValue = el('span', 'header__pill-value', '0');
+    ichorCol.appendChild(ichorValue);
+    ichorPill.appendChild(ichorIcon);
+    ichorPill.appendChild(ichorCol);
+
+    // Inline gear — sits adjacent to the wallet pills (v5.4). Opens
+    // the Settings panel via the Menu singleton; the panel itself is
+    // mounted globally by app.ts.
+    const gear = el('button', 'header__gear') as HTMLButtonElement;
+    gear.type = 'button';
+    gear.setAttribute('aria-label', 'Open settings');
+    gear.innerHTML = '<span class="header__gear-icon" aria-hidden="true">⚙</span>';
+    gear.addEventListener('click', () => menuInstance?.open());
+
+    walletRow.appendChild(dreadPill);
+    walletRow.appendChild(ichorPill);
+    walletRow.appendChild(gear);
+
+    stack.appendChild(walletRow);
 
     root.appendChild(brand);
-    root.appendChild(status);
-    root.appendChild(dread);
+    root.appendChild(stack);
 
     super(root);
-    this.statusTitle = statusTitle;
-    this.dreadNumber = dreadNumber;
+    this.dreadValue = dreadValue;
+    this.ichorValue = ichorValue;
   }
 
   protected override onMount(): void {
     this.render();
-    this.addTeardown(events.on('form-changed', () => this.render()));
-    this.addTeardown(events.on('blood-changed', () => this.renderDread()));
-    this.addTeardown(events.on('tick', () => this.renderDread()));
+    this.addTeardown(events.on('ascended', () => this.render()));
+    this.addTeardown(events.on('dread-changed', () => this.renderDread()));
   }
 
   private render(): void {
-    const form = getCurrentFormDefinition(gameState.getPrestigeCount());
-    this.statusTitle.innerHTML = form.title.replace(
-      form.emphasis,
-      `<em>${form.emphasis}</em>`,
-    );
     this.renderDread();
+    this.renderIchor();
   }
 
   private renderDread(): void {
-    this.dreadNumber.textContent = `${gameState.getDread()}`;
+    this.dreadValue.textContent = `Lv.${gameState.getDread()}`;
+  }
+
+  private renderIchor(): void {
+    this.ichorValue.textContent = fmt(gameState.getIchor());
   }
 }

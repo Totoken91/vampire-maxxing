@@ -69,19 +69,48 @@ describe('servantRate', () => {
   });
 });
 
-describe('globalMult', () => {
+describe('globalMult (log curve — M1)', () => {
   it('returns 1 at dread = 0', () => {
     expect(globalMult(0, false)).toBe(1);
   });
 
-  it('matches doc table', () => {
-    expect(globalMult(10, false)).toBeCloseTo(2);
-    expect(globalMult(50, false)).toBeCloseTo(6);
-    expect(globalMult(100, false)).toBeCloseTo(11);
+  it('follows 1 + log2(1 + d) curve — agressive early, tamed late', () => {
+    // Explicit sample points. The log curve is what fixes the runaway
+    // feedback loop observed in v1.0.0 closed testing (Kenny hit 3375
+    // Dread × 338 mult in 2 days of light play on the old linear formula).
+    expect(globalMult(10, false)).toBeCloseTo(1 + Math.log2(11), 5);
+    expect(globalMult(100, false)).toBeCloseTo(1 + Math.log2(101), 5);
+    expect(globalMult(1000, false)).toBeCloseTo(1 + Math.log2(1001), 5);
+    expect(globalMult(10000, false)).toBeCloseTo(1 + Math.log2(10001), 5);
+  });
+
+  it('keeps d=3375 under ×13 (regression guard vs runaway)', () => {
+    // The old linear formula gave ×338.5 here — unplayable ceiling
+    // jump per ascend. The log curve caps the same Dread at ~×12.72.
+    const mult = globalMult(3375, false);
+    expect(mult).toBeGreaterThan(12);
+    expect(mult).toBeLessThan(13);
+  });
+
+  it('is monotonically non-decreasing in dread', () => {
+    for (let d = 0; d < 1000; d += 37) {
+      expect(globalMult(d + 37, false)).toBeGreaterThanOrEqual(globalMult(d, false));
+    }
+  });
+
+  it('clamps negative dread to 0 (defensive)', () => {
+    expect(globalMult(-5, false)).toBe(1);
   });
 
   it('applies progenitor bonus when active', () => {
-    expect(globalMult(10, true)).toBeCloseTo(2 * BALANCE.GLOBAL_MULT_BONUS_PROGENITOR);
+    const base = globalMult(10, false);
+    expect(globalMult(10, true)).toBeCloseTo(base * BALANCE.GLOBAL_MULT_BONUS_PROGENITOR, 5);
+  });
+
+  it('uses the configured DREAD_MULT_COEF', () => {
+    // If this ever drifts from 1.0 the sample values above must be
+    // recomputed — so pin the constant here.
+    expect(BALANCE.DREAD_MULT_COEF).toBe(1);
   });
 });
 
@@ -100,16 +129,39 @@ describe('clickPower', () => {
   });
 });
 
-describe('dreadGain', () => {
-  it('returns 0 below the threshold', () => {
-    expect(dreadGain(0)).toBe(0);
-    expect(dreadGain(BALANCE.ASCEND_THRESHOLD - 1)).toBe(0);
+describe('dreadGain (form-gated — M2)', () => {
+  it('returns 0 below the threshold regardless of form', () => {
+    expect(dreadGain(0, 'NEWBORN')).toBe(0);
+    expect(dreadGain(BALANCE.ASCEND_THRESHOLD - 1, 'THIRST')).toBe(0);
   });
 
-  it('matches doc table within floor tolerance', () => {
-    expect(dreadGain(1e6)).toBe(2);
-    expect(dreadGain(1e7)).toBe(Math.floor(Math.sqrt(10) * 2));
-    expect(dreadGain(1e8)).toBe(Math.floor(Math.sqrt(100) * 2));
+  it('matches sqrt formula when under the form cap', () => {
+    // 1e6 → raw sqrt gives 2, well under any cap.
+    expect(dreadGain(1e6, 'NEWBORN')).toBe(2);
+    expect(dreadGain(1e7, 'ELDER')).toBe(Math.floor(Math.sqrt(10) * 2));
+    expect(dreadGain(1e8, 'LORD_OF_NIGHT')).toBe(Math.floor(Math.sqrt(100) * 2));
+  });
+
+  it('caps at NEWBORN 10 — overnight-offline runaway fix', () => {
+    // With the old formula, 1e14 blood would give ~2×10,000 = 20,000
+    // Dread in NEWBORN. M2 caps that at the form's max = 10.
+    expect(dreadGain(1e14, 'NEWBORN')).toBe(10);
+  });
+
+  it('cap doubles at each form', () => {
+    // Huge blood → sqrt is absurd, so we always hit the cap for non-THIRST.
+    expect(dreadGain(1e20, 'NEWBORN')).toBe(10);
+    expect(dreadGain(1e20, 'ELDER')).toBe(25);
+    expect(dreadGain(1e20, 'LORD_OF_NIGHT')).toBe(50);
+    expect(dreadGain(1e20, 'METHUSELAH')).toBe(100);
+    expect(dreadGain(1e20, 'PROGENITOR')).toBe(200);
+    expect(dreadGain(1e20, 'TERA_OVERLORD')).toBe(400);
+    expect(dreadGain(1e20, 'HORROR_INCARNATE')).toBe(800);
+  });
+
+  it('THIRST is uncapped (Infinity) — endgame freedom', () => {
+    // At 1e20 blood, sqrt = 1e7 × 2 = 2×10^7. Should pass through.
+    expect(dreadGain(1e20, 'THIRST')).toBe(Math.floor(Math.sqrt(1e14) * 2));
   });
 });
 

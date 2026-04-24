@@ -1,25 +1,29 @@
-// Settings menu — floating gear button top-right. Opens a small panel
-// with destructive actions (wipe save) behind a confirmation.
-// Future home for sound toggle, credits, privacy link.
+// Settings menu — panel + backdrop only. The gear trigger itself
+// lives inside the Header's pill row (v5.4) so it stays visually
+// stuck to the wallet pills. Menu exposes open()/close() through a
+// singleton reference that the Header wires to its inline button.
 
 import { Component } from './base';
 import { el } from '../../utils/dom';
 import { wipeSave } from '../../game/save';
 import { gameState } from '../../game/state';
 import { events } from '../../game/events';
+import { globalMult } from '../../game/math';
+import { hasUnlock } from '../../game/config/prestige-unlocks';
+
+/** Singleton reference, set on Menu construction. Null until the
+ * Menu mounts (once at app boot). Header consumes this to wire its
+ * inline gear button without passing refs through component trees. */
+export let menuInstance: Menu | null = null;
 
 export class Menu extends Component<HTMLElement> {
   private readonly panel: HTMLElement;
   private readonly backdrop: HTMLElement;
-  private open = false;
+  private readonly multValue: HTMLElement;
+  private isOpen = false;
 
   constructor() {
     const root = el('div', 'menu');
-
-    const button = el('button', 'menu__button') as HTMLButtonElement;
-    button.type = 'button';
-    button.setAttribute('aria-label', 'Open menu');
-    button.innerHTML = '<span class="menu__gear" aria-hidden="true">\u2699</span>';
 
     const backdrop = el('div', 'menu__backdrop');
     const panel = el('div', 'menu__panel');
@@ -28,6 +32,14 @@ export class Menu extends Component<HTMLElement> {
 
     const header = el('div', 'menu__label', '— the rite —');
     const title = el('div', 'menu__title', 'SETTINGS');
+
+    // Blood multiplier readout — surfaced only here (v5.3) so the main
+    // HUD stays minimal. Populated on open so the value stays current
+    // without a global subscription.
+    const multRow = el('div', 'menu__stat');
+    multRow.appendChild(el('span', 'menu__stat-label', 'Blood multiplier'));
+    const multValue = el('span', 'menu__stat-value', '×1.00');
+    multRow.appendChild(multValue);
 
     const wipeBtn = el('button', 'menu__action menu__action--danger') as HTMLButtonElement;
     wipeBtn.type = 'button';
@@ -41,29 +53,51 @@ export class Menu extends Component<HTMLElement> {
 
     panel.appendChild(header);
     panel.appendChild(title);
+    panel.appendChild(multRow);
     panel.appendChild(wipeBtn);
     panel.appendChild(closeBtn);
 
-    root.appendChild(button);
     root.appendChild(backdrop);
     root.appendChild(panel);
 
     super(root);
     this.panel = panel;
     this.backdrop = backdrop;
+    this.multValue = multValue;
 
-    button.addEventListener('click', () => this.setOpen(true));
     backdrop.addEventListener('click', () => this.setOpen(false));
     closeBtn.addEventListener('click', () => this.setOpen(false));
     wipeBtn.addEventListener('click', () => {
       void this.confirmWipe();
     });
+
+    menuInstance = this;
+  }
+
+  /** Public API so external buttons (Header's inline gear) can
+   * request the panel to open. Also refreshes the mult readout. */
+  open(): void {
+    this.setOpen(true);
+  }
+
+  close(): void {
+    this.setOpen(false);
   }
 
   private setOpen(open: boolean): void {
-    this.open = open;
+    this.isOpen = open;
     this.panel.classList.toggle('menu__panel--open', open);
     this.backdrop.classList.toggle('menu__backdrop--open', open);
+    if (open) this.refreshStats();
+  }
+
+  private refreshStats(): void {
+    const hasProgenitor = hasUnlock(
+      gameState.getPrestigeCount(),
+      'globalMultBonus',
+    );
+    const mult = globalMult(gameState.getDread(), hasProgenitor);
+    this.multValue.textContent = `×${mult.toFixed(2)}`;
   }
 
   private async confirmWipe(): Promise<void> {
@@ -83,8 +117,8 @@ export class Menu extends Component<HTMLElement> {
     this.setOpen(false);
   }
 
-  isOpen(): boolean {
-    return this.open;
+  isPanelOpen(): boolean {
+    return this.isOpen;
   }
 }
 

@@ -3,6 +3,7 @@
 
 import { BALANCE } from './config/balance';
 import type { Servant } from './config/servants';
+import type { VampireForm } from './config/forms';
 
 /** Cost of the next purchase of a servant, given how many are already owned. */
 export function servantCost(baseCost: number, owned: number): number {
@@ -36,9 +37,25 @@ export function servantRate(
   return owned * servant.baseRate * servantMilestoneMult(owned) * globalMult * boost;
 }
 
-/** Global multiplier applied to all rates + click, based on accumulated Dread. */
+/**
+ * Global multiplier applied to all rates + click, based on Dread Level.
+ *
+ * Log curve: `1 + DREAD_MULT_COEF × log2(1 + dread)`. Replaces the
+ * linear `1 + 0.1 × d` which let each prestige snowball the next run's
+ * ceiling exponentially (M1 fix, 2026-04-24).
+ *
+ * - d=0     → ×1.00
+ * - d=10    → ×4.46
+ * - d=100   → ×7.66
+ * - d=1000  → ×10.97
+ * - d=10000 → ×14.29
+ *
+ * `dread` here is the permanent rank (monotonically increasing). It is
+ * never decremented — the upgrade "spend" pattern was removed in M1.
+ */
 export function globalMult(dread: number, progenitorBonusActive: boolean): number {
-  const base = 1 + dread * BALANCE.DREAD_MULT_PER_UNIT;
+  const safeDread = Math.max(0, dread);
+  const base = 1 + BALANCE.DREAD_MULT_COEF * Math.log2(1 + safeDread);
   return progenitorBonusActive ? base * BALANCE.GLOBAL_MULT_BONUS_PROGENITOR : base;
 }
 
@@ -54,12 +71,29 @@ export function clickPower(currentTotalRate: number, mult: number, boost: number
   return base * mult * boost;
 }
 
-/** Dread gained by ASCENDing the bloodline now. */
-export function dreadGain(totalRunBlood: number): number {
+/**
+ * Dread gained by ASCENDing the bloodline now.
+ *
+ * M2 (2026-04-24) — the raw sqrt result is capped by the current form's
+ * entry in `DREAD_GAIN_CAP_PER_FORM`. This gates prestige power behind
+ * form advancement: a player can't snowball an overnight-offline run
+ * into hundreds of Dread. They have to ascend their FORM to claim
+ * bigger payouts. THIRST (endgame) has no cap.
+ */
+export function dreadGain(totalRunBlood: number, form: VampireForm): number {
   if (totalRunBlood < BALANCE.ASCEND_THRESHOLD) return 0;
-  return Math.floor(
+  const raw = Math.floor(
     Math.sqrt(totalRunBlood / BALANCE.DREAD_GAIN_DIVISOR) * BALANCE.DREAD_GAIN_COEF,
   );
+  const cap = BALANCE.DREAD_GAIN_CAP_PER_FORM[form];
+  return Math.min(raw, cap);
+}
+
+/** The hard cap that would apply if the player ascended right now in
+ * `form`. Exposed so UI can display "{gain} / {cap}" and drive the
+ * "ascend your form to claim more" narrative hint. */
+export function dreadGainCap(form: VampireForm): number {
+  return BALANCE.DREAD_GAIN_CAP_PER_FORM[form];
 }
 
 /** Blood gained offline, capped by hours and scaled by efficiency. */

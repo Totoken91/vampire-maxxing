@@ -18,11 +18,7 @@ import { initAds } from './platform/ads';
 import { checkAchievements, installAchievementChecks } from './game/achievements';
 import { ACHIEVEMENTS_BY_ID } from './game/config/achievements';
 import { showAchievementToast } from './ui/components/achievement-toast';
-import {
-  installAltarHeartbeat,
-  republishAllUpgradeModifiers,
-} from './game/upgrades';
-import { fmt } from './utils/format';
+import { installMilestones } from './game/milestones';
 import { SERVANTS, SERVANTS_BY_ID } from './game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
 
@@ -36,9 +32,10 @@ async function boot(): Promise<void> {
   // Restore save (if any) BEFORE the UI renders so components read final state.
   const offlineReport = await gameState.loadFromStorage();
 
-  // Reinstate every persisted upgrade as a modifier in the registry.
-  // Must run after state load and before any rate/cost calc fires.
-  republishAllUpgradeModifiers();
+  // Publish milestone-driven modifiers (M1: Bloodline Scholar auto-tier
+  // from Dread Level). Must run after state load and before any
+  // rate/cost calc fires. Subscribes to dread-changed internally.
+  installMilestones();
 
   installFx(document.body);
   installMilestone();
@@ -73,11 +70,8 @@ async function boot(): Promise<void> {
   installAchievementChecks();
   checkAchievements();
 
-  // Blood Altar: background timer that auto-claims when level ≥ 1.
-  installAltarHeartbeat();
-  events.on('altar-claimed', ({ amount }) => {
-    showToast('THE ALTAR DRINKS', `+${fmt(amount)} blood while you slept.`);
-  });
+  // Blood Altar upgrade was removed in M1 (redundant with Velmor thrall's
+  // auto-collect effect landing in Phase L7).
 
   // Back-fill lore unlocks for existing saves from before the Bestiary /
   // Histories shipped. Any thrall the player has ever bought unlocks its

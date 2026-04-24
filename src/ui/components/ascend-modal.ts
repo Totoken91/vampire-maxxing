@@ -7,6 +7,7 @@ import { gameState } from '../../game/state';
 import { FORMS_BY_ID } from '../../game/config/forms';
 import { getCurrentForm } from '../../game/forms';
 import { BALANCE } from '../../game/config/balance';
+import { dreadGainCap } from '../../game/math';
 
 const HOLD_MS = 700;
 
@@ -61,10 +62,21 @@ export function openAscendModal(): Promise<boolean> {
     const rewards = el('div', 'ascend-modal__rewards');
     rewards.appendChild(el('div', 'ascend-modal__rewards-title', 'Rewards'));
     const rewardsList = el('ul', 'ascend-modal__rewards-list');
+
+    // M2 — show "{gain} / {cap}" when the form cap bites so the player
+    // understands the gate. THIRST has Infinity cap → no denominator.
+    const cap = dreadGainCap(currentForm);
+    const capped = gameState.isDreadGainCapped();
+    const dreadLabel =
+      cap === Infinity
+        ? `+${gainWithCurse} Dread`
+        : capped
+          ? `+${gainWithCurse} / ${cap} Dread (form limit reached)`
+          : `+${gainWithCurse} / ${cap} Dread`;
     if (curseMult > 1) {
-      addReward(rewardsList, `+${gainWithCurse} Dread (×${curseMult} CURSED)`);
+      addReward(rewardsList, `${dreadLabel} · ×${curseMult} CURSED`);
     } else {
-      addReward(rewardsList, `+${gainWithCurse} Dread`);
+      addReward(rewardsList, dreadLabel);
     }
     if (formWillChange) {
       const nextFormDef = FORMS_BY_ID[nextFormAfter];
@@ -76,6 +88,16 @@ export function openAscendModal(): Promise<boolean> {
       addReward(rewardsList, 'Unlocks shorter Boost cooldown');
     }
     rewards.appendChild(rewardsList);
+
+    // Narrative hint when capped — steers the player toward form bumps.
+    if (capped) {
+      const hint = el(
+        'div',
+        'ascend-modal__hint',
+        'Ascend your form to claim more Dread per run.',
+      );
+      rewards.appendChild(hint);
+    }
 
     // Confirm plate (hold to confirm)
     const confirm = el('button', 'ascend-modal__confirm') as HTMLButtonElement;

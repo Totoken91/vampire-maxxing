@@ -27,6 +27,9 @@ export interface GameEvents {
    * firstTime is true only on the initial unlock; re-grants (awaken
    * via duplicates) land with firstTime:false. */
   'thrall-obtained': { id: ThrallId; firstTime: boolean };
+  /** M1 — Dread Level changed (ascend or daily gift). Drives the
+   * milestone-modifiers refresh (Bloodline Scholar auto-tier). */
+  'dread-changed': { level: number };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

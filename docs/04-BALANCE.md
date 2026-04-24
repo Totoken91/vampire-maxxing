@@ -186,7 +186,10 @@ Sur 10h, le joueur a vu 4 portraits différents. **L'incarnation narrative est r
 ```ts
 export const BALANCE = {
   COST_MULTIPLIER: 1.15,
-  DREAD_MULT_PER_UNIT: 0.10,
+  // M1 (2026-04-24): formula changed from linear `1 + 0.1×d` to
+  // `1 + coef × log2(1 + d)` to kill the runaway feedback loop.
+  // See src/game/math.ts:globalMult and tasks/ROADMAP-V2.md Phase M1.
+  DREAD_MULT_COEF: 1.0,
   ASCEND_THRESHOLD: 1e6,
   DREAD_GAIN_DIVISOR: 1e6,
   DREAD_GAIN_COEF: 2,

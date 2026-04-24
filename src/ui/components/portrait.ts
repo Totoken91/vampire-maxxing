@@ -84,7 +84,8 @@ export class Portrait extends Component<HTMLElement> {
   constructor() {
     const root = el('div', 'portrait');
 
-    const label = el('div', 'portrait__label', '— the bloodline —');
+    // HUD v5: "— the bloodline —" label removed (redundant with the
+    // tab name + the rank pill in the topbar).
     const body = el('div', 'portrait__body');
     body.setAttribute('role', 'button');
     body.setAttribute('aria-label', 'Feed the hunger');
@@ -139,7 +140,6 @@ export class Portrait extends Component<HTMLElement> {
     body.appendChild(frameReflect);
     body.appendChild(title);
 
-    root.appendChild(label);
     root.appendChild(body);
 
     super(root);
@@ -188,7 +188,11 @@ export class Portrait extends Component<HTMLElement> {
     const prestige = gameState.getPrestigeCount();
     const form = getCurrentFormDefinition(prestige);
     const centuryNum = getCenturyInForm(prestige);
-    this.title.textContent = `${form.subtitle} · Century ${toRoman(centuryNum)}`;
+    // HUD v4: form identity lives in the topbar, not on the portrait.
+    // We keep `title` for a11y / asset-missing fallback only — the
+    // century display proper is rendered below the portrait by
+    // BloodDisplay.
+    this.title.textContent = `Century ${toRoman(centuryNum)}`;
     this.placeholder.textContent = form.subtitle;
 
     this.image.onload = () => {

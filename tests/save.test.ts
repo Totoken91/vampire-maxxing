@@ -4,11 +4,11 @@ import {
   defaultV1,
   parseSave,
   serializeSave,
-  type SaveV3,
+  type SaveV4,
 } from '../src/game/save';
 
 describe('save round-trip', () => {
-  let base: SaveV3;
+  let base: SaveV4;
 
   beforeEach(() => {
     base = defaultV1();
@@ -84,10 +84,10 @@ describe('save migration', () => {
     expect(migrated!.upgrades).toEqual({});
   });
 
-  it('renames v2 thralls field to servants in v3', () => {
+  it('renames v2 thralls field to servants (v2 → v4 chain)', () => {
     // Build a realistic v2 payload: start from the current default, bump
     // rat's count, then rename the field back to the legacy name so we
-    // exercise the v2→v3 path.
+    // exercise the v2→v3→v4 path.
     const base = defaultV1();
     base.servants.rat.owned = 5;
     base.servants.rat.totalPurchased = 5;
@@ -103,5 +103,92 @@ describe('save migration', () => {
     expect(migrated!.v).toBe(SAVE_VERSION);
     expect(migrated!.servants.rat.owned).toBe(5);
     expect((migrated as unknown as { thralls?: unknown }).thralls).toBeUndefined();
+  });
+
+  it('v3 → v4 reclaims Dread spent on deprecated upgrades into rank', () => {
+    // A v3 player who maxed Scholar (1005 spent) + bought Altar lv 2 (35
+    // spent) should recover 1040 Dread as rank; their current dread
+    // balance 800 + 1040 reclaimed = 1840 rank post-migration.
+    const base = defaultV1();
+    const v3Payload = {
+      ...base,
+      v: 3,
+      dread: 800,
+      upgrades: {
+        bloodline_scholar: 5, // cumulative cost 15+40+100+250+600 = 1005
+        blood_altar: 2, // cumulative cost 10+25 = 35
+      },
+    };
+    const migrated = parseSave(JSON.stringify(v3Payload));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.v).toBe(SAVE_VERSION);
+    expect(migrated!.dread).toBe(800 + 1005 + 35);
+    // Upgrade map is cleared — the system was removed.
+    expect(migrated!.upgrades).toEqual({});
+  });
+
+  it('v3 → v4 with no upgrades is a no-op on dread', () => {
+    const base = defaultV1();
+    const v3Payload = {
+      ...base,
+      v: 3,
+      dread: 42,
+      upgrades: {},
+    };
+    const migrated = parseSave(JSON.stringify(v3Payload));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.v).toBe(SAVE_VERSION);
+    expect(migrated!.dread).toBe(42);
+  });
+
+  it('v3 → v4 ignores upgrade levels beyond max without crashing', () => {
+    // Safety: a corrupt save with inflated level values shouldn't
+    // reclaim more than the real max cumulative cost.
+    const base = defaultV1();
+    const v3Payload = {
+      ...base,
+      v: 3,
+      dread: 0,
+      upgrades: {
+        dread_amplifier: 99, // real max is 3 levels = 25+80+250 = 355
+      },
+    };
+    const migrated = parseSave(JSON.stringify(v3Payload));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.dread).toBe(355);
+  });
+
+  it('v3 → v4 ignores unknown upgrade ids gracefully', () => {
+    const base = defaultV1();
+    const v3Payload = {
+      ...base,
+      v: 3,
+      dread: 10,
+      upgrades: {
+        ghost_of_christmas_past: 5,
+      },
+    };
+    const migrated = parseSave(JSON.stringify(v3Payload));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.dread).toBe(10);
+    expect(migrated!.upgrades).toEqual({});
+  });
+
+  it('pre-M3 save without totalRunBloodOnline round-trips safely', () => {
+    // Even a current-v4 save may lack the M3 field if written before
+    // the refactor shipped. It's optional → the state layer falls back
+    // to totalRunBlood on load.
+    const base = defaultV1();
+    const sansOnline = {
+      ...base,
+      totalRunBlood: 500_000,
+    };
+    delete (sansOnline as { totalRunBloodOnline?: number }).totalRunBloodOnline;
+    const raw = JSON.stringify(sansOnline);
+    const parsed = parseSave(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.totalRunBlood).toBe(500_000);
+    // Field absent → undefined, consumer grandfathers it.
+    expect(parsed!.totalRunBloodOnline).toBeUndefined();
   });
 });

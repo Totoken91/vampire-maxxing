@@ -1,6 +1,13 @@
 # ROADMAP V2 — Phases A → E (post-nav-refactor)
 
-> État au 2026-04-20 : J1–J10 + J12 partiels faits (core loop, cinematic, Capacitor, 2 rewarded ads, achievements, tab nav 5 onglets, ascend modal). IAP + i18n + release AAB restent à faire.
+> État au 2026-04-24 — **course correction V1.2** (voir `VAMPIRE_MAXXING_THRALLS_V1.2_GACHA_FINAL.md`) :
+> - 🆕 Phase **M** (balance overhaul) insérée — fix runaway feedback loop sur Dread (log mult + form-gated cap + offline exclusion).
+> - 🆕 Phase **L** (Thralls Gacha MVP) insérée — Ichor currency, banners Standard/Featured, pity + FRG, Essence + étoiles, ladder packs 7 tiers, disclosure légale.
+> - Phase **H** (Sanctum post-launch) **absorbée dans Phase L** — plus de roster Sanctum post-launch, tout ship en MVP.
+> - Phase **D** (pack ladder) : le contenu est transféré dans L10/L11, D1 (Billing infra) reste standalone.
+> - Kill-list "pas de 3e currency MVP" **révoquée** — Ichor EST la 3e currency au MVP (plate, non-inflationniste, pull-only).
+>
+> État pré-V1.2 : J1–J10 + J12 partiels faits, K1/K4/K5 ✓, L0-L2 ✓ (rename servants + PlayerThrallState + locked/owned Sanctum). v1.0.0 en closed testing.
 >
 > **Principe directeur** : chaque élément affiché à l'écran doit avoir une fonction. Tout ce qui est mocké "pour le look" devient vraiment jouable — ou est coupé.
 >
@@ -16,7 +23,9 @@
 | **B — Meta progression** | B0a, B0b, B1, B2 | Archi prep + upgrades = dread sinks, Shop a un sens |
 | **C — Content depth** | C1, C2 | Tome = codex vivant, Servants = gestion réelle |
 | **K — MVP readiness (v1.1 prod target)** | K1, K2, K3, K4, K5 | Century VFX scaling, IAP Play Billing, FTB popup, Milestone juice, Daily gift |
-| **D — Monétisation réelle** | D1, D2, D3 | IAP Play Billing + FTB popup + LiveOps scaffold |
+| **🆕 M — Balance overhaul (ship-blocker)** | M1, M2, M3 | Fix runaway Dread, log multiplier, form-gated cap, offline exclusion |
+| **🆕 L — Thralls Gacha MVP (V1.2)** | L1–L15 | Ichor + Power Level + Banners + Pity + Essence/Stars + Packs + Disclosure |
+| **D — Monétisation réelle** | D1 | Play Billing infra (pack contenu → L10/L11) |
 | **E — Release prep** | E1, E2, E3, E4 | i18n, audio compression, ASO, AAB internal track |
 
 **Note** : la phase K a été ajoutée suite à l'audit croisé des 3 skills (idle-expert / monetization-shark / ux-sensei) le 2026-04-22. v1.0.0 est en closed testing mais manque les pilonnes monetization + retention pour un vrai MVP. K = ce qui doit shipper en v1.1.0 AVANT Production release. D1+D2+D3 chevauchent avec K2 et seront mergés.
@@ -35,10 +44,20 @@ Ordre strict : faire A avant B avant C… Les dépendances suivent cet ordre (B 
 
 ## Design réajusté des systèmes
 
-### Currencies (fin)
-- **Blood** — soft currency du run. Produite par thralls, dépensée en thralls. Reset sur ascend.
-- **Dread** — prestige currency permanente. Donne global multiplier. Dépensée en upgrades meta permanentes (Shop → Upgrades).
-- **Pas de 3e currency au MVP.** Les "dread crystals" du mockup = dread tout court, juste renommé à l'affichage.
+### Currencies (V1.2 — triple-wallet)
+
+| Currency | Rôle | Nature | Source | Spendable ? |
+|---|---|---|---|---|
+| 🩸 **Blood** | Soft currency du run, achats servants | Réserve bigint, reset à chaque ascend | Génération passive + tap | ✓ |
+| ⚫ **Ichor** | Currency de pulls (rituels) | Réserve **plate** (cap soft 1000), 5-7/jour F2P actif | Daily quest, login chain, ads, milestones, achievements, IAP | ✓ |
+| ⬢ **Dread Level** | Power Level / rank permanent | Rang entier (pas de "réserve"). Donne mult Blood global | Ascend (avec cap per Form, voir Phase M) | **Non spendable** — c'est un rank, pas une pièce |
+
+**Layout HUD décidé** :
+- Ichor = top-right (place actuelle de Dread) — currency spendable → placement visible pour friction min sur les pulls.
+- Dread Level = badge juste en dessous d'Ichor, label permanent `×N.NN Blood Mult` — chiffres arabes (pas romains, trop galère à lire selon Kenny), format `DREAD LEVEL 12`.
+- Blood = top-left comme aujourd'hui.
+
+**⚠️ Implication à résoudre en M1** : les upgrades meta du Shop (B2) consomment actuellement du Dread. Si on sémantise Dread en "rank non-spendable", il faut soit (a) ajouter une sub-currency "Ascend Points" gagnée à l'ascend, (b) migrer les upgrades sur Ichor (mélange les deux économies), (c) garder Dread dual (rank affiché + réserve internal). Option (a) est la plus propre. Décision à valider en M1.
 
 ### Shop — restructuré
 
@@ -354,6 +373,210 @@ Ces 5 tickets ferment ces trous. Ship en v1.1.0 au moment du promote Production.
 
 ---
 
+## 🆕 Phase M — Balance overhaul (ship-blocker)
+
+**Context** : observé par Kenny le 2026-04-24 après 2 jours de jeu léger + 1 nuit offline → **3375 Dread accumulés** en partant de 0. Target design (`docs/04-BALANCE.md:151`) était 6 Dread en 60min de Run 1 → le jeu est **~500× au-dessus** du barème. Cause : runaway feedback loop.
+
+**Diagnostic** :
+1. `globalMult = 1 + dread × 0.10` → linéaire en Dread → chaque prestige rend la prochaine course exponentiellement plus rapide.
+2. `dreadGain = floor(sqrt(totalRunBlood / 1e6) × 2)` → sqrt n'amortit pas parce que le ceiling Blood lui-même saute d'un ordre de grandeur à chaque run.
+3. Offline overnight (4h cap) + générateurs achetés = Blood hors barème au réveil → drop massif de Dread au next ascend.
+
+**Fix** (combinaison A+B+E validée par Kenny) :
+
+### M1 — Log multiplier + Dread as pure rank + upgrade prune (ship-blocker)
+
+**Décision prise 2026-04-24 après synthèse 4 skills (idle-expert / gacha-expert / ux-sensei / monetization-shark)** :
+Option **(c) refined** — Dread devient un pur rank non-spendable. Le système d'upgrades meta est démantelé : 4 des 5 upgrades sont déjà couvertes par des effets de thralls V1.2 (Velmor → auto-collect, Nox/Mirella → Blood gen %, Lilith/Crypt Warden → offline cap). La 5e upgrade unique (Bloodline Scholar, -cost mult) devient un bonus de milestone débloqué automatiquement par paliers de Dread Level, gratuit. Dread Amplifier (+dread gain/ascend) est supprimée (dangereuse vs. M2 cap par forme). Aucune nouvelle currency ajoutée.
+
+**Scope**
+
+- `src/game/math.ts` : remplacer `globalMult = 1 + 0.10 × d` par `globalMult = 1 + log2(1 + d)`.
+  - d=0 → ×1.00
+  - d=10 → ×4.5 (courbe agressive early, early Dread hyper récompensé)
+  - d=100 → ×7.7
+  - d=500 → ×10.0
+  - d=1000 → ×11.0
+  - d=3375 (save actuelle Kenny) → ×12.7 au lieu de ×338 — correctif massif intentionnel.
+- `BALANCE.DREAD_MULT_COEF: 1.0` (renommé depuis `DREAD_MULT_PER_UNIT: 0.1`).
+- **Dread devient monotonically increasing** : on supprime `GameState.spendDread()`. Le champ `dread` du save reste (c'est maintenant le rank, pas une réserve).
+- **Upgrades prune** (`config/upgrades.ts`) : suppression de `blood_altar`, `servant_loyalty`, `dread_amplifier`, `offline_keeper`. Ces effets sont redondants avec les thralls V1.2 ou dangereux.
+- **Bloodline Scholar migré en milestone** : nouveau module `src/game/milestones.ts` qui publie le modifier `servantCost -0.01/level` via `ModifierRegistry`. Paliers débloqués automatiquement : Dread Level 10/25/50/100/200 → level 1/2/3/4/5 du Scholar effect.
+- Update affichage : `Dread × 12` → `DREAD LEVEL 12` + label `×4.52 Blood Mult` toujours visible (voir HUD layout V1.2). Chiffres arabes (pas romains).
+- Tests `math.test.ts` : assertions sur 5 points de la courbe log, non-régression existantes mises à jour.
+- Tests `upgrades.test.ts` : purger les upgrades supprimées, ajouter tests Scholar-via-milestones.
+- Tests `save.test.ts` : migration v3 → v4 strippe les upgrade keys obsolètes, tolère les saves avec Scholar levels legacy (ignorés — Scholar est auto-granted).
+
+**Definition of done**
+- Old save avec Dread=3375 doit rester jouable (le mult passera de ×338 ridicule à ×2.18 raisonnable — c'est un correctif intentionnel, pas de compensation nécessaire en closed testing).
+- Balance sim : Run 1 = 45-60 min pour 6-10 Dread (match design target).
+- Sim Run 5 = ~15 min pour 15-25 Dread (progression croissante mais pas explosive).
+
+### M2 — Form-gated Dread cap per Ascend
+
+**Scope**
+- Ajouter `BALANCE.DREAD_GAIN_CAP_PER_FORM: { NEWBORN: 10, FLEDGLING: 15, THRALL: 20, ELDER: 30, LORD_OF_NIGHT: 50, METHUSELAH: 75, PROGENITOR: 120, TERA_OVERLORD: 200, HORROR_INCARNATE: 350, THIRST: 600 }`.
+- `math.ts:dreadGain()` → min de (sqrt formula, cap_for_current_form).
+- Gate narratif : "you must ascend your form to claim more Dread" quand le cap est atteint → tension motivante.
+
+**Definition of done**
+- Impossible de farm 100 Dread en Newborn même avec une nuit offline.
+- Form bump = vraie promotion (débloque un palier de cap).
+- UI montre "{gain} / {cap} Dread this run" dans le modal Ascend.
+
+### M3 — Offline exclusion de totalRunBlood pour Dread
+
+**Scope**
+- Split `totalRunBlood` en deux champs : `totalRunBloodOnline` (incrémenté par gameplay actif) et `totalRunBloodOffline` (incrémenté au retour offline).
+- `dreadGain()` utilise **uniquement** `totalRunBloodOnline` pour le calcul.
+- Offline gain reste utile pour acheter des servants / maintenir la run, mais ne fait pas snowball le prestige.
+- Migration save : inchangée (champ ajouté optionnel, migration v3→v4 initialise online=legacyTotal).
+
+**Definition of done**
+- Dormir 8h avec des générateurs achetés ne multiplie plus le Dread gain du prochain ascend.
+- Sim 24h offline : le joueur retrouve sa Blood, peut jouer normalement, Dread gain identique à un run 100% online équivalent.
+
+---
+
+## 🆕 Phase L — Thralls Gacha MVP (V1.2)
+
+**Spec complète** : `VAMPIRE_MAXXING_THRALLS_V1.2_GACHA_FINAL.md`
+**Skill** : invoquer `gacha-systems-expert` à chaque décision de tuning rates / pity / packs.
+**Status** : L0 ✓ (rename servants), L1 ✓ (Sanctum grid + 7 thralls), L2 ✓ (PlayerThrallState + locked/owned + save). L3+ ci-dessous.
+
+### L3 — Ichor currency (fondation)
+
+**Scope**
+- `src/game/config/balance.ts` : `ICHOR_CAP_SOFT: 1000`.
+- State : `ichor: number` + `ichorLedger: IchorTransaction[]` (flag earned/paid pour futures features).
+- Save v4 : ajouter champs optionnels (migration legacy → 0 Ichor).
+- Sources F2P initiales (les plus critiques) :
+  - Daily quest login+1action → +2 Ichor
+  - Login chain jour N (cap 3) → +1-3 Ichor
+  - Rewarded ad "Offrande du Soir" → +1 Ichor (3×/jour)
+  - Milestone Prestige 1/3/5/10/15 → +5/10/15/25/40 Ichor
+  - First Rare obtenu → +5 Ichor
+  - First Epic obtenu → +10 Ichor
+  - Collection complète 12/12 → +100 Ichor
+- Events `'ichor-changed'` + `'ichor-earned'` pour juice.
+- UI : `IchorCounter` component dans le header (top-right, remplace placement actuel de Dread).
+
+### L4 — Dread → Power Level UI refactor
+
+**Scope** (complément de M1 qui gère la math)
+- Déplacer le badge Dread sous Ichor dans le HUD.
+- Format `DREAD LEVEL 12` + label `×1.35 Blood Mult`.
+- Animation rank-up : flash, particle burst, haptic heavy, sound "roar" au passage à N+1.
+- `src/utils/roman.ts` → conservé pour les Century dans le titre de forme (YOU ARE A METHUSELAH · Century III), pas utilisé sur Dread.
+
+### L5 — Banners, Pulls & Pity
+
+**Scope**
+- `src/game/config/ritual-rates.ts` : rates Standard (82/15/3) + Featured (80/17/3 avec rate-up).
+- `src/game/config/ritual-pools.ts` : quels thralls dans chaque pool.
+- `src/game/ritual.ts` : RNG + pity (Rare/10, Epic/40 featured) + FRG (Flag `firstRareGuaranteeUsed`) + anti-streak (5 Communs → force Rare) + duplicate protection soft (50% reroll) + pool dynamic (redistribute rates si rareté complète).
+- State : `ritualState: { standard: {pity, streak, total}, featured: {pityRare, pityEpic, streak, total, featuredIds[]}, frgUsed, history[50] }`.
+- UI : `RitualsScreen` avec 2 cards banners, pity counter visible, historique des 50 derniers pulls.
+- Bundle 10-pull = 95 Ichor (5 discount) + 1 Rare+ garanti.
+- `src/fx/pull-animation.ts` : 4 tiers d'animation (Commun fade 0.5s / Rare zoom+violet 1.5s / Epic darken+flames 2.5s / Legendary 4s cinematic — legendary prêt pour v1.1).
+- Skip button visible dès 1s.
+
+### L6 — Essence & Stars (awakening)
+
+**Scope**
+- `src/game/config/star-progression.ts` : multiplicateurs par rareté (C: [1.0, 1.25, 1.5, 1.75, 2.0] / R: [1.0, 1.375, 1.75, 2.125, 2.5] / E: [1.0, 1.5, 2.0, 2.5, 3.0]).
+- State : `essences: { common, rare, epic }` + `PlayerThrallState.stars` déjà en place (L2).
+- Conversion dupe → essence (auto à chaque pull dupe).
+- `AwakeningScreen` : card thrall + slider ★ → ★+1 + coût essences visible + confirm.
+- Conversion downward (1 Epic → 3 Rare, 1 Rare → 3 Common) — pas upward.
+- Plumber le multiplicateur étoiles dans `thrall-bonus-calc.ts`.
+
+### L7 — Roster v1.0 (6C + 4R + 2E)
+
+**Spec** : voir `docs/10-THRALL-ROSTER-V1.md`.
+
+**Scope**
+- Refactor `src/game/config/thralls.ts` pour 12 thralls (6 Commons + 4 Rares + 2 Epics).
+- Les 3 Legendaries actuels (Lord of Night, Blood Countess, Crimson Reaper) restent dans le code mais flaggés `v1_1Preview: true` — affichés en silhouette verrouillée "v1.1 coming" dans le Sanctum (tease).
+- Bonuses rebalancés par le brief V1.2 : C +6-12%, R +22-30%, E +60-80%.
+- **Bloquant assets** : 8 portraits à générer (6 Commons + 2 Rares), prompts dans `docs/10-THRALL-ROSTER-V1.md`.
+
+### L8 — FTUE rework (Ichor gift + FRG)
+
+**Scope**
+- Suppression du plan "L2.5 Welcome Summon grant Nox gratis".
+- Nouveau flow FTUE (sec 0-180) :
+  - sec 0-30 : core loop inchangé.
+  - sec 30-60 : animation "Les Anciens t'offrent leur nectar…" → +25 Ichor.
+  - sec 60-90 : arrow pulse sur RITUEL ANCIEN, player tap → First Rare Guarantee applied → cérémonie juice full.
+  - sec 90-150 : arrow vers slot actif, drag-to-equip.
+  - sec 150-180 : autonomy, 15 Ichor restants, skip tuto visible.
+
+### L9 — Page Taux disclosure (légal bloquant)
+
+**Scope**
+- `src/ui/screens/rates-disclosure-screen.ts` : page statique listant rates Standard + Featured + garanties + méthodologie.
+- Accessible ≤ 2 taps depuis Rituals screen (bouton "ℹ Taux").
+- CGU mis à jour avec mention gacha + renvoi.
+
+### L10 — Ladder packs (7 tiers + First-Time Double)
+
+**Scope** (remplace contenu K2 + D1 pack offerings) :
+| Pack | SKU | Prix | Base | FT Double |
+|---|---|---|---|---|
+| Offrande Modeste | `vm_ichor_modest` | 0,99€ | 15 Ichor | +15 |
+| Pacte Fondateur ⭐ | `vm_founder_pact` | 2,99€ | 50 Ichor + Nox garanti | +100 |
+| Offrande Substantielle | `vm_ichor_substantial` | 4,99€ | 100 Ichor | +100 |
+| Offrande Majeure | `vm_ichor_major` | 9,99€ | 250 Ichor | +250 |
+| Starter Coven | `vm_starter_coven` | 9,99€ | 200 Ichor + 1 Rare garanti | +200 |
+| Offrande Royale | `vm_ichor_royal` | 19,99€ | 600 Ichor | +600 |
+| Offrande Cataclysmique | `vm_ichor_cataclysm` | 49,99€ | 1800 Ichor | +1800 |
+
+- State : `packsFirstTimeBought: Set<sku>` pour tracking du doublement.
+- UI : badge "×2 PREMIÈRE FOIS" visible tant que non acheté.
+- Confirmation explicite sur packs > 19,99€.
+- **Dépend de** : K2 (Play Billing infra) → K2 devient un ticket "Billing infra only", le contenu des 3 packs K2 est remplacé par la ladder L10.
+
+### L11 — Pack Fondateur trigger (post-first-Rare)
+
+**Scope**
+- Détecter le 1er Rare obtenu (quelle que soit la source : FRG / pull / pack / milestone).
+- Flag `welcomePackFirstRareAt: timestamp`.
+- Modal "Offre de bienvenue — disponible 7 jours" (pas de countdown 48h anxiogène).
+- Ne se reset jamais ; reste accessible dans Shop tab après les 7 jours (au tarif de base sans le ×2).
+- Flag `welcomePackPurchased` pour masquer.
+- **Remplace K3** (FTB starter pact popup post-3-ascends) — trigger éthique.
+
+### L12 — Rewarded ads (4 placements)
+
+**Scope**
+- Offrande du Soir → +1 Ichor, 3×/jour.
+- Bénédiction Nocturne → offline progress ×2 au retour, 1×/session.
+- Sang Bouillonnant → Blood ×3 pendant 10min, cooldown 2h.
+- Frisson du Destin → pity counter +1 après pull Commun, 1×/prestige.
+
+### L13 — Spending dashboard + Age gate (légal/RGPD)
+
+**Scope**
+- Settings → "Historique de dépenses" : total à vie, par mois, liste triable.
+- Settings → "Limite de dépenses journalière" (optionnelle, EUR).
+- First launch : age gate 13+ (pas d'upload de date, juste checkbox ≥ 13).
+
+### L14 — Analytics events gacha
+
+**Scope** : instrumenter les events du brief V1.2 sec 14 (pull_performed, thrall_awakened, ichor_earned, welcome_pack_shown, pack_purchased avec first_time, …). Persist queue offline si besoin.
+
+### L15 — Polish & QA
+
+**Scope**
+- Shimmer sur Rituel quand 10-pull affordable.
+- Toast contextuel à chaque gain d'Ichor avec source visible.
+- Reduced-motion respecté sur anim pulls.
+- Touch targets ≥ 48dp verified on device.
+- Passage complet de la checklist V1.2 sec 15.
+
+---
+
 ## Phase C — Content depth
 
 ### C1 — Tome expanded (Bestiary + Histories + Run log)
@@ -404,6 +627,8 @@ Ces 5 tickets ferment ces trous. Ship en v1.1.0 au moment du promote Production.
 ---
 
 ## Phase D — Monétisation réelle
+
+> **2026-04-24 course correction** : le contenu des packs bascule dans **L10** (ladder 7 tiers V1.2). Phase D conserve uniquement l'infra Billing (D1) qui est un pré-requis de L10. D2 (FTB popup) est remplacé par **L11** (Pack Fondateur trigger post-first-Rare). D3 (LiveOps scaffold) reste tel quel.
 
 ### D1 — Google Play Billing plumbing
 
@@ -665,7 +890,13 @@ Ces 5 tickets ferment ces trous. Ship en v1.1.0 au moment du promote Production.
 
 ---
 
-## Phase H — Post-launch #3 : Unique Thralls (The Sanctum)
+## ~~Phase H — Post-launch #3 : Unique Thralls (The Sanctum)~~
+
+**🔀 ABSORBÉ DANS PHASE L (MVP)** — 2026-04-24. Le roster Sanctum avec acquisition, étoiles, synergies ship en v1.0 via le système gacha V1.2. Les noms originaux de H (Seraphiel, Mordecai, Lysandre, Gaspard, Cendre) ne sont **pas** retenus — le roster v1.0 est défini dans `docs/10-THRALL-ROSTER-V1.md` et re-travaillé pour l'équilibrage gacha (6 Commons + 4 Rares + 2 Epics).
+
+Les éléments originaux de H conservés pour référence future (synergies entre thralls en particulier, qui arrivent post-MVP en v1.2) :
+
+---
 
 **Timing** : 5-6 mois post-launch
 
@@ -806,24 +1037,60 @@ Ordre décroissant d'impact selon les skills :
 
 ## Kill-list (à NE PAS faire)
 
-- ❌ Ajouter une 3e currency au MVP
-- ❌ Loot boxes
+- ❌ ~~Ajouter une 3e currency au MVP~~ — **révoqué V1.2** : Ichor EST la 3e currency (plate, non-inflationniste, pull-only, cap 1000).
+- ❌ **Multiplier linéaire sur prestige** — source du runaway. `globalMult = 1 + dread × 0.10` est remplacé par log ou sqrt (voir M1).
+- ❌ **Kompu gacha** (2 drops combinés pour unlock un 3e) — illégal au Japon, signal rouge UE.
+- ❌ **Thralls exclusifs IAP** — tout thrall est obtenable via pulls F2P. Les packs contiennent au max un Rare garanti + Ichor.
+- ❌ **Dread affiché comme une currency spendable** — c'est un rank, traitement visuel distinct obligatoire.
+- ❌ **Trigger Pack Fondateur post-frustration** — en V1.2 le trigger est post-succès (premier Rare obtenu), 7 jours dispo, pas 48h countdown.
+- ❌ Loot boxes opaques (rates non disclosés) — disclosure légal obligatoire (loi KR 2024, best practice UE).
 - ❌ Pay-to-win (les effets permanents IAP sont cosmétiques + qualité de vie, pas puissance absolue)
 - ❌ Timer gates sur core progression
 - ❌ Forced interstitial ads
 - ❌ Notifications > 1/jour
 
-## Ordre de priorité exécutif
+## Ordre de priorité exécutif (V1.2 — 2026-04-24)
 
-**Ship-to-production minimum** : A1 + A2 + B0a + B0b + B1 + B2 + D1 + D2 + E4. Soit ~9 tickets avant AAB live.
+### Ship-to-production v1.0 (post-course-correction)
 
-**Si tout saute sauf 3 tickets dispo** : **A1 + B0a + D1**.
-**Si tout saute sauf 7 tickets** : ajouter **A2, B0b, B1, D2, E4**.
+Tickets bloquants pour un AAB gacha-ready :
 
-Les phases C (Tome/Servants depth) et F-J (post-launch) peuvent glisser dans le temps sans bloquer le release — sauf si D3 (LiveOps scaffold) dérape, auquel cas F devient douloureux.
+1. **M1** — log multiplier + Dread refactor math (ship-blocker absolu, fix le runaway découvert 04-24)
+2. **M2** — form-gated Dread cap
+3. **M3** — offline exclusion de totalRunBlood pour Dread
+4. **L3** — Ichor currency + sources F2P de base
+5. **L4** — Dread → Power Level UI refactor
+6. **L5** — Banners + Pulls + Pity + FRG + 10-pull
+7. **L6** — Essence + Stars (awakening)
+8. **L7** — Roster v1.0 refactor (6C+4R+2E) — *bloqué sur les 8 portraits*
+9. **L8** — FTUE rework avec gift Ichor + FRG
+10. **L9** — Page Taux disclosure (légal)
+11. **K2 (refactored)** — Play Billing infra (sans le contenu des packs)
+12. **L10** — Ladder packs 7 tiers + First-Time Double
+13. **L11** — Pack Fondateur trigger post-first-Rare
+14. **L13** — Spending dashboard + Age gate (légal/RGPD)
+15. **E4** — AAB production upload
 
-**Règle d'or post-launch** : jamais 2 content tracks en parallèle. Phase F stabilisée → Phase G. Phase G stabilisée → Phase H. Cadence monogame = content soutenable sur 18 mois.
+**Tickets parallélisables** : L12 (ads), L14 (analytics), L15 (polish) peuvent avancer pendant que les portraits L7 sont générés.
+
+### Si 3 tickets seulement
+
+**M1 + L3 + L5** — le pivot minimum : math safe, une currency de pull, une mécanique de pull. Tout le reste peut survivre une release tardive.
+
+### Si 7 tickets
+
+Ajouter **M2 + L4 + L6 + L7** — le cœur de l'expérience gacha + balance fix complet.
+
+### Priorité décroissante des phases
+
+- **M** (balance) — ship-blocker absolu. Sans fix, les métriques de rétention sont corrompues par le runaway.
+- **L** (gacha MVP) — scope du pivot V1.2.
+- **K** restant (K2, K3) — K2 refactoré en "Billing only", K3 replacé par L11.
+- **C** (Tome/Servants depth) — peut glisser, zéro risque sur launch.
+- **F-J** (post-launch) — inchangés, H absorbée.
+
+**Règle d'or post-launch** : jamais 2 content tracks en parallèle. Phase F stabilisée → Phase G. Phase G stabilisée → v1.1 (Legendaries + featured rerun). Cadence monogame = content soutenable sur 18 mois.
 
 ---
 
-Dernière mise à jour : 2026-04-20
+Dernière mise à jour : 2026-04-24 (course correction V1.2)
