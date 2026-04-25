@@ -37,7 +37,7 @@
   /* Padding clears the panel PNG's baroque corner ornaments while
      keeping the content compact enough to fit a portrait viewport. */
   padding: 44px 26px 26px;
-  background: url('/assets/ornaments/panel-invocation.png') center / 100%
+  background: url('/assets/ornaments/panel-invocation.webp') center / 100%
     100% no-repeat;
   border: none;
   text-align: center;
@@ -101,16 +101,33 @@
   background: rgba(0, 0, 0, 0.35);
 }
 .rituals-screen__balance-icon {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  color: var(--gold);
-  filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.5));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
 }
-.rituals-screen__balance-icon svg {
+.rituals-screen__balance-icon img,
+.rituals-screen__balance-icon .rituals-screen__icon-img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
+  filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.55));
+}
+.pull-cta__cost-icon {
+  display: inline-flex;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+}
+.pull-cta__cost-icon img,
+.pull-cta__cost-icon .rituals-screen__icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 0 3px rgba(201, 169, 98, 0.45));
 }
 .rituals-screen__balance-value {
   font-family: var(--font-mono);
@@ -135,7 +152,7 @@
   /* Padding clears the panel-rituel PNG's baroque frame. The PNG
      carries its own ornamental border + drips. */
   padding: 22px 22px 18px;
-  background: url('/assets/ornaments/panel-rituel.png') center / 100% 100%
+  background: url('/assets/ornaments/panel-rituel.webp') center / 100% 100%
     no-repeat;
   border: none;
   display: flex;
@@ -147,6 +164,74 @@
   /* Per-banner accent (gold for Standard, blood for Featured) is
      applied only to label / pity-bar text — the panel art stays
      identical across both rituals. */
+}
+
+/* ── L15 — Shimmer affordable on the 10-pull bundle ───────────────
+ * Triggered by the `.banner-card--bundle-affordable` class added in
+ * rituals-screen.ts when canAffordPull(10) becomes true. Two layered
+ * cues: a continuous diagonal sweep across the panel + a subtle
+ * gold-tinted drop-shadow breathing.
+ *
+ * Tier choice (per the AAA-UI audit): horizontal sweep is the AAA
+ * "you can afford this NOW" signal — Genshin's Wish button uses a
+ * similar pattern. Cheap to render (CSS-only), respects gamma
+ * falloff via a non-linear 50% gradient peak.
+ */
+.banner-card--bundle-affordable {
+  filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.22))
+    drop-shadow(0 0 18px rgba(201, 169, 98, 0.12));
+  animation: banner-card-affordable-breathe 3.2s ease-in-out infinite;
+}
+
+.banner-card--bundle-affordable::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(243, 234, 216, 0.18) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: banner-card-affordable-shimmer 2.4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: screen;
+}
+
+@keyframes banner-card-affordable-shimmer {
+  0%,
+  10% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes banner-card-affordable-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(201, 169, 98, 0.18))
+      drop-shadow(0 0 16px rgba(201, 169, 98, 0.1));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(201, 169, 98, 0.32))
+      drop-shadow(0 0 22px rgba(201, 169, 98, 0.18));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-card--bundle-affordable {
+    animation: none;
+    /* Keep the static glow so the cue still works without movement. */
+    filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.25));
+  }
+  .banner-card--bundle-affordable::after {
+    display: none;
+  }
 }
 
 /* ── Ambient particles drifting through the banner card ─────────── */
@@ -647,13 +732,25 @@
 }
 
 .rituals-screen__foot {
+  display: block;
+  width: 100%;
   text-align: center;
   font-family: var(--font-mono);
   font-size: 8px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--ink-faint);
-  padding-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-2) 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.rituals-screen__foot:hover {
+  color: var(--gold-dim);
+}
+.rituals-screen__foot:active {
+  color: var(--gold);
 }
 
 /* ── Pull overlay (animation + summary) ──────────────────────────── */
@@ -678,7 +775,9 @@
   transform-origin: center;
 }
 
-/* ── Anticipation lead-in (rare+ only) ──────────────────────────── */
+/* ── Anticipation lead-in. Even commons get a brief 250ms version
+   (subtle gold haze) so no pull feels instant. Rare+ stack a
+   tier-tinted bloom on top. ──────────────────────────────────── */
 .pull-anticipation {
   position: absolute;
   inset: 0;
@@ -686,7 +785,20 @@
   background:
     radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.4) 80%),
     radial-gradient(circle at 50% 50%, rgba(140, 60, 200, 0.0) 0%, transparent 70%);
-  animation: anticipation-rare 500ms ease-out forwards;
+  animation: anticipation-base 240ms ease-out forwards;
+}
+.pull-anticipation[data-rarity='common'] {
+  /* Subtle warm haze — no bloom pseudo, just the dim background. */
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.32) 80%),
+    radial-gradient(circle at 50% 50%, rgba(168, 132, 80, 0.18) 0%, transparent 60%);
+  animation-duration: 240ms;
+}
+.pull-anticipation[data-rarity='rare'],
+.pull-anticipation[data-rarity='epic'],
+.pull-anticipation[data-rarity='legendary'] {
+  animation-name: anticipation-rare;
+  animation-duration: 580ms;
 }
 .pull-anticipation[data-rarity='rare']::before,
 .pull-anticipation[data-rarity='epic']::before,
@@ -700,13 +812,19 @@
     transparent 35%
   );
   opacity: 0;
-  animation: anticipation-bloom 480ms ease-out forwards;
+  animation: anticipation-bloom 560ms ease-out forwards;
 }
 .pull-anticipation[data-rarity='rare']      { --anticipation-color: #8a3fb5; }
-.pull-anticipation[data-rarity='epic']      { --anticipation-color: #c02838; animation-duration: 900ms; }
-.pull-anticipation[data-rarity='legendary'] { --anticipation-color: #ff3040; animation-duration: 1100ms; }
-.pull-anticipation[data-rarity='epic']::before      { animation-duration: 880ms; }
-.pull-anticipation[data-rarity='legendary']::before { animation-duration: 1080ms; }
+.pull-anticipation[data-rarity='epic']      { --anticipation-color: #c02838; animation-duration: 920ms; }
+.pull-anticipation[data-rarity='legendary'] { --anticipation-color: #ff3040; animation-duration: 1180ms; }
+.pull-anticipation[data-rarity='epic']::before      { animation-duration: 900ms; }
+.pull-anticipation[data-rarity='legendary']::before { animation-duration: 1160ms; }
+
+@keyframes anticipation-base {
+  0%   { opacity: 0; }
+  60%  { opacity: 1; }
+  100% { opacity: 1; }
+}
 
 @keyframes anticipation-rare {
   0%   { opacity: 0; }

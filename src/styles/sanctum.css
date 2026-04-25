@@ -212,9 +212,63 @@
 
 .thrall-card[data-rarity='legendary'] {
   --rarity-color: #e01818;
+  /* V1.2-EXT — Legendary AAA treatment.
+   * 5-layer FDP glow stack: hot WHITE core → blood-glow body →
+   * crimson body → gold halo → outer crimson rim. Breathe 2.4s so
+   * the Legendary card visibly stands out across the Sanctum grid. */
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.32))
+    drop-shadow(0 0 12px rgba(255, 51, 66, 0.45))
+    drop-shadow(0 0 22px rgba(165, 20, 35, 0.4))
+    drop-shadow(0 0 36px rgba(201, 169, 98, 0.32));
+  animation: thrall-card-legendary-breathe 2.4s ease-in-out infinite;
 }
 .thrall-card[data-rarity='legendary'] .thrall-frame {
-  filter: brightness(0.8) sepia(1) hue-rotate(345deg) saturate(3.2);
+  filter: brightness(0.85) sepia(1) hue-rotate(345deg) saturate(3.4);
+}
+
+@keyframes thrall-card-legendary-breathe {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 3px rgba(255, 255, 255, 0.28))
+      drop-shadow(0 0 12px rgba(255, 51, 66, 0.38))
+      drop-shadow(0 0 22px rgba(165, 20, 35, 0.32))
+      drop-shadow(0 0 32px rgba(201, 169, 98, 0.26));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 5px rgba(255, 255, 255, 0.42))
+      drop-shadow(0 0 16px rgba(255, 51, 66, 0.55))
+      drop-shadow(0 0 28px rgba(165, 20, 35, 0.48))
+      drop-shadow(0 0 44px rgba(201, 169, 98, 0.4));
+  }
+}
+
+/* "LEGENDARY" tier label — gold caps with shimmer sweep, sits at the
+ * top of the card. Shows nothing on lower tiers; only Legendary cards
+ * get this badge as part of the 100ms readability rule. */
+.thrall-card[data-rarity='legendary']::before {
+  content: 'LEGENDARY';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: var(--gold);
+  filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.7))
+    drop-shadow(0 0 8px rgba(255, 51, 66, 0.4));
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thrall-card[data-rarity='legendary'] {
+    animation: none;
+  }
 }
 
 /* ── Locked state (portrait exists but not yet acquired) ─────────

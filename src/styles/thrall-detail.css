@@ -50,7 +50,7 @@
   /* Dedicated thrall-panel PNG (Kenny's bespoke baroque cartouche).
      Stretched 100% 100% so the panel grows with content height —
      lore-heavy thralls get more panel, not a repeated texture. */
-  background: url('/assets/ornaments/panel-thrall.png') center / 100% 100%
+  background: url('/assets/ornaments/panel-thrall.webp') center / 100% 100%
     no-repeat;
   border: none;
   box-shadow:

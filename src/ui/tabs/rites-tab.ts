@@ -10,6 +10,8 @@ import { BALANCE } from '../../game/config/balance';
 import { showToast } from '../components/toast';
 import { fmt } from '../../utils/format';
 import { OFFERING_COOLDOWN_SEC } from '../../game/rites';
+import { grantIchor } from '../../game/ichor';
+import { track } from '../../analytics/events';
 
 function formatCooldown(sec: number): string {
   if (sec >= 3600) {
@@ -191,6 +193,61 @@ export class RitesTab {
           // Real trigger lives in the offline modal.
         },
       },
+      // L12 — V1.2 spec rites: daily Ichor (Offrande du Soir) +
+      // Frisson (pity bump after the next Common pull, 1×/prestige).
+      {
+        id: 'offrande-du-soir',
+        title: 'Evening Tribute',
+        subtitle: '+1 Ichor — three offerings each night',
+        flavor: 'A small drop given freely, in exchange for your patience.',
+        reward: '+1',
+        icon: '⬤', // ⬤ — solid round droplet stand-in
+        canRun: () => {
+          if (!gameState.canClaimOffrandeIchor()) {
+            const cap = gameState.getDailyIchorAdsCap();
+            return {
+              ok: false,
+              reason: `${cap}/${cap} tributes already given tonight. Returns at dawn.`,
+            };
+          }
+          return { ok: true };
+        },
+        onReward: () => {
+          gameState.recordOffrandeClaim();
+          grantIchor(1, 'ad_offering');
+          // ichor-earned listener already shows the violet toast.
+        },
+      },
+      {
+        id: 'frisson-du-destin',
+        title: 'Tremor of Fate',
+        subtitle: 'Next Common pull bumps Rare pity by 1',
+        flavor: "Slip the dice a finger's weight. The night looks aside.",
+        reward: '+1 pity',
+        icon: '⚛', // ⚛
+        canRun: () => {
+          if (gameState.hasFrissonBuff()) {
+            return {
+              ok: false,
+              reason: 'The tremor already runs through you. Spend it on a pull.',
+            };
+          }
+          if (!gameState.canArmFrisson()) {
+            return {
+              ok: false,
+              reason: 'Only once per ascension. The veil tires of the trick.',
+            };
+          }
+          return { ok: true };
+        },
+        onReward: () => {
+          gameState.armFrissonBuff();
+          showToast(
+            'TREMOR ARMED',
+            'Your next Common pull tightens the Rare pity by 1.',
+          );
+        },
+      },
     ];
   }
 
@@ -219,6 +276,7 @@ export class RitesTab {
 
     if (result.rewarded) {
       rite.onReward();
+      track('rite_used', { id: rite.id });
       if (navigator.vibrate) navigator.vibrate(20);
       this.render();
     } else if (result.reason === 'failed' || result.reason === 'native-unavailable') {

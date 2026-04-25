@@ -11,7 +11,13 @@ const TEST_REWARDED_ID = 'ca-app-pub-3940256099942544/5224354917';
 // Kenny's real rewarded ad unit — "VM Rewarded Main" created 2026-04-21.
 const PROD_REWARDED_ID = 'ca-app-pub-1055719152373783/4532355142';
 
-export type RewardAdType = 'summon-night' | 'embrace-dawn' | 'invoke-curse' | 'offering';
+export type RewardAdType =
+  | 'summon-night'
+  | 'embrace-dawn'
+  | 'invoke-curse'
+  | 'offering'
+  | 'offrande-du-soir'
+  | 'frisson-du-destin';
 
 export interface RewardResult {
   rewarded: boolean;

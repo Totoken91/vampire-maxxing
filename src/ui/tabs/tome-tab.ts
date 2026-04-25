@@ -1,6 +1,14 @@
-// TOME — the codex. Five sections: Chronicle (run stats), Achievements
-// (20-card grid), Bestiary (8 thrall lore entries), Histories (8 form
-// lore entries), Run log (10 most recent ascensions).
+// TOME — the codex. Six sections:
+//   - DAILY QUESTS (L_QUESTS) — one rotating quest per day with a CLAIM
+//     CTA when complete. Sticky-feeling header carries a "Rotates in
+//     Xh Ym" countdown.
+//   - CHRONICLE — run stats.
+//   - ACHIEVEMENTS — 20-card grid. Each unlocked card with a non-zero
+//     ichorReward exposes a CLAIM CTA. A CLAIM ALL flush sits at the
+//     section header when the unclaimed pool is non-empty.
+//   - BESTIARY — 8 thrall lore entries.
+//   - HISTORIES — 8 form lore entries.
+//   - RUN LOG — 10 most recent ascensions.
 //
 // Bestiary + Histories unlock progressively — thralls on first purchase,
 // forms when reached. Locked entries show a silhouette + "???". Tap an
@@ -14,6 +22,17 @@ import { fmt } from '../../utils/format';
 import { SERVANTS, type ServantId } from '../../game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from '../../game/config/forms';
 import { SERVANT_LORE, FORM_LORE } from '../../game/config/lore';
+import {
+  canClaimQuest,
+  claimQuest,
+  getActiveQuest,
+  rotateIfNeeded,
+  secondsUntilRotate,
+} from '../../game/quests';
+import {
+  claimAchievement,
+  claimAllAchievements,
+} from '../../game/achievement-claim';
 
 export class TomeTab {
   private readonly root: HTMLElement;
@@ -21,12 +40,16 @@ export class TomeTab {
   private readonly statValues = new Map<string, HTMLElement>();
   private readonly achievementsGrid: HTMLElement;
   private readonly achievementsSummary: HTMLElement;
+  private readonly achievementsClaimAll: HTMLButtonElement;
+  private readonly questCard: HTMLElement;
+  private readonly questCountdown: HTMLElement;
   private readonly bestiaryGrid: HTMLElement;
   private readonly bestiarySummary: HTMLElement;
   private readonly historiesGrid: HTMLElement;
   private readonly historiesSummary: HTMLElement;
   private readonly runLog: HTMLElement;
   private readonly runLogEmpty: HTMLElement;
+  private countdownTimer: number | null = null;
 
   constructor() {
     this.root = el('div', 'tab-view tab-view--tome');
@@ -38,6 +61,19 @@ export class TomeTab {
       el('div', 'tab-head__sub', 'A record of centuries, deeds, and discoveries.'),
     );
     this.root.appendChild(head);
+
+    // ── DAILY QUESTS (L_QUESTS) ─────────────────────────────
+    const questSection = el('section', 'tome-section tome-section--quest');
+    const questHead = el('div', 'tome-section__head tome-quest__head');
+    const questTitleWrap = el('div', 'tome-quest__title-wrap');
+    questTitleWrap.appendChild(el('h2', 'tome-section__title', 'DAILY QUEST'));
+    this.questCountdown = el('div', 'tome-quest__countdown', '');
+    questTitleWrap.appendChild(this.questCountdown);
+    questHead.appendChild(questTitleWrap);
+    questSection.appendChild(questHead);
+    this.questCard = el('div', 'quest-card');
+    questSection.appendChild(this.questCard);
+    this.root.appendChild(questSection);
 
     // ── CHRONICLE (stats)
     const statsSection = el('section', 'tome-section');
@@ -57,8 +93,23 @@ export class TomeTab {
     // ── ACHIEVEMENTS
     this.achievementsGrid = el('div', 'achievements__grid');
     this.achievementsSummary = el('div', 'tome-section__summary');
+    this.achievementsClaimAll = el(
+      'button',
+      'btn-claim-all',
+      'CLAIM ALL',
+    ) as HTMLButtonElement;
+    this.achievementsClaimAll.type = 'button';
+    this.achievementsClaimAll.hidden = true;
+    this.achievementsClaimAll.addEventListener('click', () =>
+      this.handleClaimAll(),
+    );
     this.root.appendChild(
-      this.buildSection('ACHIEVEMENTS', this.achievementsSummary, this.achievementsGrid),
+      this.buildSection(
+        'ACHIEVEMENTS',
+        this.achievementsSummary,
+        this.achievementsGrid,
+        this.achievementsClaimAll,
+      ),
     );
 
     // ── BESTIARY
@@ -92,11 +143,14 @@ export class TomeTab {
   mountTo(parent: HTMLElement): void {
     parent.appendChild(this.root);
     gameState.markAchievementsSeen();
+    rotateIfNeeded();
+    this.renderQuest();
     this.renderStats();
     this.renderAchievements();
     this.renderBestiary();
     this.renderHistories();
     this.renderRunLog();
+    this.startCountdown();
     this.teardowns.push(
       events.on('tick', () => this.renderStats()),
       events.on('blood-changed', () => this.renderStats()),
@@ -109,17 +163,27 @@ export class TomeTab {
         this.renderBestiary();
       }),
       events.on('achievement-unlocked', () => this.renderAchievements()),
+      events.on('achievement-claimed', () => this.renderAchievements()),
       events.on('lore-unlocked', ({ kind }) => {
         if (kind === 'servant') this.renderBestiary();
         else this.renderHistories();
       }),
       events.on('ascended', () => this.renderRunLog()),
+      events.on('quest-completed', () => this.renderQuest()),
+      events.on('quest-claimed', () => this.renderQuest()),
+      events.on('ichor-earned', () => this.renderQuest()),
+      events.on('tapped', () => this.renderQuestProgress()),
+      events.on('servant-bought', () => this.renderQuestProgress()),
+      events.on('thrall-equipped', () => this.renderQuestProgress()),
+      events.on('thrall-awakened', () => this.renderQuestProgress()),
+      events.on('rite-used', () => this.renderQuestProgress()),
     );
   }
 
   destroy(): void {
     for (const t of this.teardowns) t();
     this.teardowns.length = 0;
+    this.stopCountdown();
     this.root.remove();
   }
 
@@ -129,14 +193,139 @@ export class TomeTab {
     title: string,
     summary: HTMLElement,
     body: HTMLElement,
+    extraAction?: HTMLElement,
   ): HTMLElement {
     const section = el('section', 'tome-section');
     const head = el('div', 'tome-section__head');
     head.appendChild(el('h2', 'tome-section__title', title));
-    head.appendChild(summary);
+    const right = el('div', 'tome-section__head-right');
+    right.appendChild(summary);
+    if (extraAction) right.appendChild(extraAction);
+    head.appendChild(right);
     section.appendChild(head);
     section.appendChild(body);
     return section;
+  }
+
+  // ── Quest rendering ──
+
+  /** Full re-render — runs on state changes that swap the active quest
+   *  (rotation, claim) or flip its claimable status. */
+  private renderQuest(): void {
+    rotateIfNeeded();
+    const def = getActiveQuest();
+    const qs = gameState.getQuestState();
+    const claimable = canClaimQuest();
+    const claimed = qs.claimed;
+
+    let stateClass = 'quest-card--in-progress';
+    if (claimed) stateClass = 'quest-card--claimed';
+    else if (claimable) stateClass = 'quest-card--complete';
+
+    this.questCard.className = `quest-card ${stateClass}`;
+    this.questCard.innerHTML = '';
+
+    const title = el('div', 'quest-card__title', def.title);
+    const desc = el('div', 'quest-card__desc', def.description);
+    this.questCard.appendChild(title);
+    this.questCard.appendChild(desc);
+
+    const progressWrap = el('div', 'quest-card__progress');
+    const fill = el('div', 'quest-card__progress-fill');
+    const ratio = Math.min(1, qs.progress / def.target);
+    fill.style.width = `${ratio * 100}%`;
+    progressWrap.appendChild(fill);
+    this.questCard.appendChild(progressWrap);
+
+    const meta = el('div', 'quest-card__meta');
+    const counter = el(
+      'div',
+      'quest-card__counter',
+      `${Math.min(qs.progress, def.target)} / ${def.target}`,
+    );
+    const reward = el('div', 'quest-card__reward');
+    reward.innerHTML = `<span class="quest-card__reward-amt">+${def.reward.ichor}</span><span class="quest-card__reward-label">Ichor</span>`;
+    meta.appendChild(counter);
+    meta.appendChild(reward);
+    this.questCard.appendChild(meta);
+
+    if (claimable) {
+      const cta = el(
+        'button',
+        'btn-claim btn-claim--quest',
+        `CLAIM +${def.reward.ichor} ICHOR`,
+      ) as HTMLButtonElement;
+      cta.type = 'button';
+      cta.addEventListener('click', () => this.handleClaimQuest(cta));
+      this.questCard.appendChild(cta);
+    } else if (claimed) {
+      this.questCard.appendChild(el('div', 'quest-card__claimed', 'CLAIMED'));
+    }
+  }
+
+  /** Lighter re-render — only the progress bar + counter when a metric
+   *  bumps without flipping completion state. Avoids tearing down the
+   *  CLAIM CTA mid-animation. */
+  private renderQuestProgress(): void {
+    if (this.questCard.classList.contains('quest-card--complete')) {
+      // Crossing into "complete" requires a full re-render to spawn
+      // the CLAIM CTA. Detect by re-checking against the current state.
+      this.renderQuest();
+      return;
+    }
+    if (canClaimQuest()) {
+      this.renderQuest();
+      return;
+    }
+    const def = getActiveQuest();
+    const qs = gameState.getQuestState();
+    const fill = this.questCard.querySelector<HTMLElement>(
+      '.quest-card__progress-fill',
+    );
+    const counter = this.questCard.querySelector<HTMLElement>(
+      '.quest-card__counter',
+    );
+    if (fill) {
+      const ratio = Math.min(1, qs.progress / def.target);
+      fill.style.width = `${ratio * 100}%`;
+    }
+    if (counter) {
+      counter.textContent = `${Math.min(qs.progress, def.target)} / ${def.target}`;
+    }
+  }
+
+  private async handleClaimQuest(cta: HTMLButtonElement): Promise<void> {
+    cta.disabled = true;
+    const ichor = claimQuest();
+    if (ichor <= 0) {
+      cta.disabled = false;
+      return;
+    }
+    flyIchorToHud(cta, ichor);
+    cinderBurst(cta);
+    await wait(420);
+    this.renderQuest();
+  }
+
+  private startCountdown(): void {
+    const update = (): void => {
+      const remaining = secondsUntilRotate();
+      this.questCountdown.textContent = `Rotates in ${formatCountdown(remaining)}`;
+      if (remaining === 0) {
+        // Date crossed — pull a fresh quest. State.rotateIfNeeded()
+        // takes care of the actual pivot; we only need to re-render.
+        this.renderQuest();
+      }
+    };
+    update();
+    this.countdownTimer = window.setInterval(update, 1000);
+  }
+
+  private stopCountdown(): void {
+    if (this.countdownTimer !== null) {
+      window.clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
   }
 
   // ── Renderers ──
@@ -171,14 +360,23 @@ export class TomeTab {
 
   private renderAchievements(): void {
     const unlocked = gameState.getUnlockedAchievements();
+    const unclaimed = gameState.getUnclaimedAchievements();
     this.achievementsSummary.textContent = `${unlocked.size} / ${ACHIEVEMENTS.length}`;
+    this.achievementsClaimAll.hidden = unclaimed.size === 0;
+    if (unclaimed.size > 0) {
+      this.achievementsClaimAll.textContent = `CLAIM ALL (${unclaimed.size})`;
+    }
     this.achievementsGrid.innerHTML = '';
     for (const def of ACHIEVEMENTS) {
       const isUnlocked = unlocked.has(def.id);
-      const card = el(
-        'div',
-        `achievement-card achievement-card--${isUnlocked ? 'unlocked' : 'locked'}`,
-      );
+      const isClaimable = unclaimed.has(def.id);
+      const isClaimed = isUnlocked && !isClaimable && def.ichorReward > 0;
+      const stateClass = isClaimable
+        ? 'achievement-card--claimable'
+        : isUnlocked
+        ? 'achievement-card--unlocked'
+        : 'achievement-card--locked';
+      const card = el('div', `achievement-card ${stateClass}`);
       const icon = el('div', 'achievement-card__icon');
       icon.textContent = isUnlocked ? '◈' : '◇';
       const title = el(
@@ -194,8 +392,70 @@ export class TomeTab {
       card.appendChild(icon);
       card.appendChild(title);
       card.appendChild(body);
+
+      if (isClaimable) {
+        const cta = el(
+          'button',
+          'btn-claim btn-claim--ach',
+          `CLAIM +${def.ichorReward}`,
+        ) as HTMLButtonElement;
+        cta.type = 'button';
+        cta.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this.handleClaimAchievement(def.id, cta);
+        });
+        card.appendChild(cta);
+      } else if (isClaimed) {
+        const tag = el(
+          'div',
+          'achievement-card__claimed',
+          `+${def.ichorReward} claimed`,
+        );
+        card.appendChild(tag);
+      } else if (isUnlocked && def.ichorReward > 0) {
+        // Backfill safety — we should never land here, but keep the
+        // reward visible if somehow flagged unlocked w/o claim path.
+        const tag = el(
+          'div',
+          'achievement-card__claimed',
+          `+${def.ichorReward} claimed`,
+        );
+        card.appendChild(tag);
+      }
+
       this.achievementsGrid.appendChild(card);
     }
+  }
+
+  private async handleClaimAchievement(
+    id: string,
+    cta: HTMLButtonElement,
+  ): Promise<void> {
+    cta.disabled = true;
+    const ichor = claimAchievement(id);
+    if (ichor <= 0) {
+      cta.disabled = false;
+      return;
+    }
+    flyIchorToHud(cta, ichor);
+    cinderBurst(cta);
+    await wait(420);
+    this.renderAchievements();
+  }
+
+  private async handleClaimAll(): Promise<void> {
+    this.achievementsClaimAll.disabled = true;
+    const result = claimAllAchievements();
+    if (result.count === 0) {
+      this.achievementsClaimAll.disabled = false;
+      return;
+    }
+    flyIchorToHud(this.achievementsClaimAll, result.totalIchor);
+    cinderBurst(this.achievementsClaimAll, 16);
+    showClaimAllSummary(result.count, result.totalIchor);
+    await wait(420);
+    this.achievementsClaimAll.disabled = false;
+    this.renderAchievements();
   }
 
   private renderBestiary(): void {
@@ -318,6 +578,14 @@ function formatDuration(seconds: number): string {
   return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
 }
 
+function formatCountdown(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h >= 1) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m >= 1) return `${m}m`;
+  return `${seconds}s`;
+}
+
 function formatRelative(date: Date): string {
   const diff = Date.now() - date.getTime();
   const min = Math.floor(diff / 60000);
@@ -372,6 +640,75 @@ function showLoreModal(title: string, subtitle: string, body: string): void {
   };
   backdrop.addEventListener('click', dismiss);
   close.addEventListener('click', dismiss);
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+/** Parabolic flight of an Ichor token from `from` to the HUD ichor
+ *  counter. Renders a single animated div on the body's coords; falls
+ *  back to a fade-up "+N" if the HUD anchor isn't on screen (e.g.
+ *  scrolled out of view or ribbon missing entirely). */
+function flyIchorToHud(from: HTMLElement, amount: number): void {
+  const fromRect = from.getBoundingClientRect();
+  const target = document.querySelector<HTMLElement>('.ichor-pill, [data-ichor-anchor]');
+  const fromX = fromRect.left + fromRect.width / 2;
+  const fromY = fromRect.top + fromRect.height / 2;
+  const targetRect = target?.getBoundingClientRect();
+  const toX = targetRect ? targetRect.left + targetRect.width / 2 : fromX;
+  const toY = targetRect ? targetRect.top + targetRect.height / 2 : fromY - 80;
+
+  const token = el('div', 'ichor-fly', `+${amount}`);
+  document.body.appendChild(token);
+  token.style.left = `${fromX}px`;
+  token.style.top = `${fromY}px`;
+  // Force reflow so the transition kicks in.
+  void token.offsetWidth;
+  token.style.transform = `translate(${toX - fromX}px, ${toY - fromY}px) scale(0.6)`;
+  token.style.opacity = '0';
+  window.setTimeout(() => token.remove(), 700);
+}
+
+/** Cinder particle burst — emits N small sparks radially around the
+ *  source element. Pure CSS keyframes, no canvas (the entire Tome can
+ *  re-render without leaking burst nodes). */
+function cinderBurst(from: HTMLElement, count = 8): void {
+  const rect = from.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < count; i += 1) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+    const distance = 32 + Math.random() * 28;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+    const spark = el('div', 'cinder-spark');
+    document.body.appendChild(spark);
+    spark.style.left = `${cx}px`;
+    spark.style.top = `${cy}px`;
+    spark.style.setProperty('--dx', `${dx}px`);
+    spark.style.setProperty('--dy', `${dy}px`);
+    window.setTimeout(() => spark.remove(), 720);
+  }
+}
+
+/** Compact summary popup for CLAIM ALL. Self-dismisses; 1 popup per
+ *  flush (multi-claim is naturally batched server-side). */
+function showClaimAllSummary(count: number, totalIchor: number): void {
+  const existing = document.querySelector('.claim-all-summary');
+  existing?.remove();
+  const summary = el(
+    'div',
+    'claim-all-summary',
+    `+${totalIchor} Ichor — ${count} achievements collected`,
+  );
+  document.body.appendChild(summary);
+  void summary.offsetWidth;
+  summary.classList.add('claim-all-summary--visible');
+  window.setTimeout(() => {
+    summary.classList.remove('claim-all-summary--visible');
+    window.setTimeout(() => summary.remove(), 280);
+  }, 1800);
 }
 
 // Keep unused-imports happy.

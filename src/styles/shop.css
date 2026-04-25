@@ -1,0 +1,822 @@
+/* L10/L11 — Shop tab pack ladder + Pacte Fondateur welcome modal.
+ *
+ * Layout (post AAA-UI redesign 2026-04-25):
+ *   - List-view 1-col on mobile (the AAA standard for shop pages —
+ *     Genshin Wish, HSR Special Supply, Nikke shop). 2-col grid was
+ *     cramming 5 vertical lines into 156px width on small phones.
+ *   - Standard cards: horizontal grid (left=text, right=ichor),
+ *     full-width price button beneath. Background = `normal-panel.webp`
+ *     (clean baroque plate, not the busy panel-rituel).
+ *   - Hero card (Pacte Fondateur in featured window): vertical stack
+ *     on `achievement-card.webp` (baroque vertical plaque). Buy button
+ *     uses Kenny's hand-painted `btn-shop-price.png` — the only place
+ *     this PNG has the width to look right (≥ 280px).
+ *
+ * Tier-distinction (100ms readability):
+ *   bronze  → no glow
+ *   silver  → 1-layer subtle crimson rim
+ *   gold    → 4-layer FDP stack with hot WHITE core + breathe 3.6s
+ *
+ * Glow stacks use filter:drop-shadow chains, NEVER a single
+ * box-shadow (the boring-glow anti-pattern). Reduced-motion stops all
+ * breathing and shimmer — keeps static glows for the cue-state.
+ */
+
+/* ────── Sections (Hero + Grid) ────── */
+
+.pack-hero-section {
+  background: linear-gradient(
+    180deg,
+    rgba(165, 20, 35, 0.1) 0%,
+    rgba(0, 0, 0, 0.32) 100%
+  );
+  border-color: rgba(201, 169, 98, 0.4);
+}
+
+.pack-hero-slot {
+  display: flex;
+  justify-content: stretch;
+  width: 100%;
+}
+
+.pack-hero-slot--empty {
+  padding: 18px 4px;
+  text-align: center;
+}
+
+/* List-view 1-col, full-width. The 2-col grid was killing the layout
+ * on small phones; vertical scrolling reads cleaner and gives each
+ * card the room to breathe. */
+.pack-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* ────── Pack card — STANDARD (grid) ────── */
+
+.pack-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    'inner  reward'
+    'price  price';
+  column-gap: 16px;
+  row-gap: 10px;
+  align-items: center;
+  padding: 16px 22px 18px;
+  /* Clean baroque plate — 100% surface so ornaments line the bbox
+   * cleanly. The plate alone defines the card; we drop the CSS border
+   * to avoid double-framing. */
+  background: url('/assets/ornaments/normal-panel.webp') center / 100% 100%
+    no-repeat;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  min-height: 132px;
+  transition: filter 0.18s ease, transform 0.12s ease;
+}
+
+.pack-card:hover:not(:disabled),
+.pack-card:focus-visible:not(:disabled) {
+  outline: none;
+  filter: brightness(1.06);
+}
+
+.pack-card:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.pack-card:disabled {
+  cursor: default;
+}
+
+.pack-card--pending {
+  filter: saturate(0.5);
+  pointer-events: none;
+}
+
+/* ── Left column — title + flavor + bonus tag ── */
+
+.pack-card__inner {
+  grid-area: inner;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pack-card__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.pack-card__desc {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.3;
+}
+
+/* ── Right column — Ichor amount + breakdown + expiry ── */
+
+.pack-card__reward {
+  grid-area: reward;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+  min-width: 0;
+}
+
+.pack-card__ichor {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--gold);
+  font-family: var(--font-mono);
+}
+
+.pack-card__ichor-icon {
+  /* Kenny's hand-painted Ichor droplet PNG. Kept for legacy refs
+   * (HUD pill, ceremony) — pack cards now use vessel art instead. */
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(201, 169, 98, 0.5))
+    drop-shadow(0 0 10px rgba(255, 51, 66, 0.18));
+}
+
+/* ── Vessel art (chalice → mug → cauldron, count 1 or 2) ──
+ *
+ * Visual escalation per base Ichor tier — chalice = entry, mug = mid,
+ * cauldron = whale. Two vessels side-by-side double the perceived
+ * generosity without changing the asset, giving each tier two
+ * distinct sub-steps without needing 6 separate PNGs.
+ */
+.pack-card__vessels {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: -8px;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 8px rgba(201, 169, 98, 0.4))
+    drop-shadow(0 0 18px rgba(255, 51, 66, 0.18));
+}
+
+/* Per-kind base sizing — chalice is smallest (slim), mug bulkier,
+ * cauldron widest. The values are tuned so the perceived "footprint"
+ * grows in clean steps, not just numerically. */
+.pack-card__vessels--chalice .pack-card__vessel-img {
+  width: 44px;
+  height: 56px;
+}
+.pack-card__vessels--mug .pack-card__vessel-img {
+  width: 50px;
+  height: 56px;
+}
+.pack-card__vessels--cauldron .pack-card__vessel-img {
+  width: 58px;
+  height: 56px;
+}
+
+/* When two vessels render, overlap them slightly so they read as a
+ * pair (not two disconnected items) and the second one nestles
+ * behind/beside the first. */
+.pack-card__vessels--count-2 .pack-card__vessel-img + .pack-card__vessel-img {
+  margin-left: -14px;
+  transform: translateY(2px) scale(0.92);
+  opacity: 0.92;
+}
+
+.pack-card__vessel-img {
+  object-fit: contain;
+  display: block;
+}
+
+/* Hero card upscales the vessel — the achievement-card / panel-thrall
+ * plate has more vertical room and the vessel becomes a hero shot. */
+.pack-card--hero .pack-card__vessels {
+  margin-bottom: 6px;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3))
+    drop-shadow(0 0 14px rgba(201, 169, 98, 0.55))
+    drop-shadow(0 0 28px rgba(255, 51, 66, 0.25));
+}
+.pack-card--hero .pack-card__vessels--chalice .pack-card__vessel-img {
+  width: 76px;
+  height: 96px;
+}
+.pack-card--hero .pack-card__vessels--mug .pack-card__vessel-img {
+  width: 86px;
+  height: 96px;
+}
+.pack-card--hero .pack-card__vessels--cauldron .pack-card__vessel-img {
+  width: 100px;
+  height: 96px;
+}
+
+.pack-card__ichor-amt {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.45));
+}
+
+.pack-card__ichor-lbl {
+  font-size: 9.5px;
+  letter-spacing: 0.28em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+}
+
+.pack-card__ft-breakdown {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* L15 — Pacte Fondateur "first-time ends in Xd Yh" subtle indicator. */
+.pack-card__ft-expiry {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.pack-card__bonus-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  margin-top: 4px;
+  border: 1px solid rgba(201, 169, 98, 0.45);
+  background: linear-gradient(
+    180deg,
+    rgba(165, 20, 35, 0.18) 0%,
+    rgba(107, 14, 24, 0.24) 100%
+  );
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  align-self: flex-start;
+}
+
+.pack-card__bonus-tag--rare {
+  border-color: rgba(201, 169, 98, 0.55);
+}
+
+.pack-card__bonus-tag--epic {
+  border-color: rgba(255, 51, 66, 0.6);
+  color: var(--ink);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 51, 66, 0.22) 0%,
+    rgba(165, 20, 35, 0.32) 100%
+  );
+}
+
+/* ── Price BUY button — full-width beneath inner/reward ── */
+
+.pack-card__price {
+  grid-area: price;
+  align-self: stretch;
+  text-align: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.22) 0%,
+    rgba(165, 20, 35, 0.26) 100%
+  );
+  border: 1px solid rgba(201, 169, 98, 0.65);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.22));
+  transition: filter 0.18s ease;
+}
+
+.pack-card:hover:not(:disabled) .pack-card__price,
+.pack-card:focus-visible:not(:disabled) .pack-card__price {
+  filter: brightness(1.12) drop-shadow(0 0 12px rgba(201, 169, 98, 0.45));
+}
+
+/* ────── Tier-distinction (100ms readability) ────── */
+
+.pack-card--bronze {
+  /* Entry tier — silent. Plate carries the visual weight on its own. */
+}
+
+.pack-card--silver {
+  /* 2-layer FDP — clearly steps up from bronze (no glow) without
+   * jumping to the gold breathe. White hot-edge + crimson rim. */
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.14))
+    drop-shadow(0 0 10px rgba(165, 20, 35, 0.24));
+}
+
+.pack-card--gold {
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.22))
+    drop-shadow(0 0 12px rgba(201, 169, 98, 0.32))
+    drop-shadow(0 0 22px rgba(165, 20, 35, 0.22));
+  animation: pack-card-gold-breathe 3.6s ease-in-out infinite;
+}
+
+@keyframes pack-card-gold-breathe {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 3px rgba(255, 255, 255, 0.18))
+      drop-shadow(0 0 12px rgba(201, 169, 98, 0.28))
+      drop-shadow(0 0 22px rgba(165, 20, 35, 0.18));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 4px rgba(255, 255, 255, 0.3))
+      drop-shadow(0 0 18px rgba(201, 169, 98, 0.42))
+      drop-shadow(0 0 30px rgba(165, 20, 35, 0.28));
+  }
+}
+
+/* ────── HERO card (Pacte Fondateur featured window) ────── */
+
+.pack-card--hero {
+  /* Hero overrides the standard horizontal grid — vertical stacked
+   * composition. Plate switched to `panel-thrall.webp` (landscape-
+   * friendly aspect) — `achievement-card.webp` portrait 520:849 was
+   * deforming under the 280px height constraint per the AAA-UI audit.
+   * Full FDP stack with breathe, top-down content flow. */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-height: 320px;
+  padding: 32px 28px 26px;
+  background: url('/assets/ornaments/panel-thrall.webp') center / 100% 100%
+    no-repeat;
+  text-align: center;
+  align-items: center;
+  border: none;
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.25))
+    drop-shadow(0 0 14px rgba(201, 169, 98, 0.4))
+    drop-shadow(0 0 28px rgba(165, 20, 35, 0.32))
+    drop-shadow(0 0 40px rgba(255, 51, 66, 0.18));
+  animation: pack-card-hero-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes pack-card-hero-breathe {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 4px rgba(255, 255, 255, 0.22))
+      drop-shadow(0 0 14px rgba(201, 169, 98, 0.36))
+      drop-shadow(0 0 28px rgba(165, 20, 35, 0.28))
+      drop-shadow(0 0 40px rgba(255, 51, 66, 0.16));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 5px rgba(255, 255, 255, 0.32))
+      drop-shadow(0 0 18px rgba(201, 169, 98, 0.5))
+      drop-shadow(0 0 36px rgba(165, 20, 35, 0.4))
+      drop-shadow(0 0 50px rgba(255, 51, 66, 0.24));
+  }
+}
+
+/* Hero column overrides — drop the grid in favor of a centered
+ * vertical stack. The achievement-card plaque is portrait-oriented
+ * so the content reads top-to-bottom. */
+.pack-card--hero .pack-card__inner,
+.pack-card--hero .pack-card__reward {
+  grid-area: auto;
+  width: 100%;
+  align-items: center;
+  text-align: center;
+}
+
+.pack-card--hero .pack-card__title {
+  font-size: 22px;
+  margin-top: 8px;
+}
+
+.pack-card--hero .pack-card__desc {
+  font-size: 13px;
+  max-width: 80%;
+}
+
+.pack-card--hero .pack-card__bonus-tag {
+  align-self: center;
+}
+
+.pack-card--hero .pack-card__ichor-icon {
+  width: 38px;
+  height: 38px;
+}
+
+.pack-card--hero .pack-card__ichor-amt {
+  font-size: 26px;
+}
+
+/* The hero BUY button is the ONLY place btn-shop-price.png appears —
+ * it has the width here to look right (~ 280px+). Standard cards use
+ * the CSS gradient button defined above. */
+.pack-card--hero .pack-card__price {
+  grid-area: auto;
+  width: 100%;
+  margin-top: 8px;
+  background: url('/assets/ornaments/btn-shop-price.png') center / 100% 100%
+    no-repeat;
+  border: none;
+  min-height: 64px;
+  padding: 16px 22px;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.28));
+}
+
+.pack-card--hero:hover:not(:disabled) .pack-card__price,
+.pack-card--hero:focus-visible:not(:disabled) .pack-card__price {
+  filter: brightness(1.1) drop-shadow(0 0 14px rgba(201, 169, 98, 0.45));
+}
+
+/* ────── First-Time Double ribbon ────── */
+
+.pack-card__ribbon {
+  position: absolute;
+  top: 10px;
+  right: -2px;
+  z-index: 4;
+  padding: 5px 11px;
+  background: linear-gradient(
+    180deg,
+    var(--blood) 0%,
+    var(--blood-dark) 100%
+  );
+  border: 1px solid rgba(201, 169, 98, 0.7);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.45));
+  animation: pack-ribbon-drift 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pack-ribbon-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* ────── FEATURED tag (hero only) ────── */
+
+.pack-card__featured {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 3;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  color: var(--gold);
+  text-transform: uppercase;
+  border: 1px solid rgba(201, 169, 98, 0.55);
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.12) 0%,
+    rgba(165, 20, 35, 0.18) 100%
+  );
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.35));
+  pointer-events: none;
+}
+
+/* ────── Welcome modal (Pacte Fondateur post-1st-Rare prompt) ────── */
+
+.welcome-pack__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 5, 10, 0.78);
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+  animation: welcome-fade-in 240ms ease-out;
+}
+
+.welcome-pack__backdrop--exit {
+  animation: welcome-fade-out 280ms ease-in forwards;
+}
+
+.welcome-pack {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, 90vw);
+  z-index: 9001;
+  padding: 28px 24px 20px;
+  background: linear-gradient(
+    180deg,
+    rgba(26, 15, 20, 0.98) 0%,
+    rgba(8, 5, 10, 0.98) 100%
+  );
+  border: 1.5px solid rgba(255, 51, 66, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  filter:
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.18))
+    drop-shadow(0 0 14px rgba(255, 51, 66, 0.35))
+    drop-shadow(0 0 28px rgba(165, 20, 35, 0.25))
+    drop-shadow(0 0 40px rgba(201, 169, 98, 0.18));
+  animation: welcome-pop-in 320ms var(--ease-out-pop);
+}
+
+.welcome-pack--exit {
+  animation: welcome-pop-out 240ms ease-in forwards;
+}
+
+.welcome-pack__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-family: var(--font-serif);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.welcome-pack__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--gold-dim);
+  letter-spacing: 0.32em;
+  text-align: center;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.welcome-pack__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  text-align: center;
+  filter: drop-shadow(0 0 10px rgba(201, 169, 98, 0.5));
+  margin-bottom: 4px;
+}
+
+.welcome-pack__flavor {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  text-align: center;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.welcome-pack__cta {
+  align-self: stretch;
+  min-height: 48px;
+  padding: 14px 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.22) 0%,
+    rgba(165, 20, 35, 0.24) 100%
+  );
+  border: 1px solid rgba(201, 169, 98, 0.6);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  cursor: pointer;
+  animation: welcome-cta-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes welcome-cta-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 8px rgba(201, 169, 98, 0.3));
+  }
+  50% {
+    transform: scale(1.03);
+    filter: brightness(1.1) drop-shadow(0 0 16px rgba(201, 169, 98, 0.55));
+  }
+}
+
+.welcome-pack__cta:hover:not(:disabled),
+.welcome-pack__cta:focus-visible:not(:disabled) {
+  outline: none;
+  filter: brightness(1.2) drop-shadow(0 0 18px rgba(201, 169, 98, 0.6));
+}
+
+.welcome-pack__dismiss {
+  align-self: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+@keyframes welcome-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes welcome-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes welcome-pop-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes welcome-pop-out {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+}
+
+/* ────── Cataclysmic confirmation modal (>19.99€) ────── */
+
+.pack-confirm__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 5, 10, 0.85);
+  z-index: 9100;
+}
+
+.pack-confirm {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, 90vw);
+  z-index: 9101;
+  padding: 22px 22px 18px;
+  background: var(--deep);
+  border: 1px solid rgba(201, 169, 98, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pack-confirm__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold-dim);
+  letter-spacing: 0.32em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pack-confirm__body {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.45;
+  text-align: center;
+}
+
+.pack-confirm__ack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pack-confirm__checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.pack-confirm__ack-text {
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.3;
+}
+
+.pack-confirm__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pack-confirm__cancel,
+.pack-confirm__confirm {
+  flex: 1;
+  min-height: 48px;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+}
+
+.pack-confirm__cancel {
+  background: none;
+  border: 1px solid rgba(243, 234, 216, 0.2);
+  color: var(--ink-dim);
+}
+
+.pack-confirm__confirm {
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.2),
+    rgba(165, 20, 35, 0.22)
+  );
+  border: 1px solid rgba(201, 169, 98, 0.55);
+  color: var(--ink);
+}
+
+.pack-confirm__confirm:disabled {
+  filter: saturate(0.3);
+  cursor: default;
+}
+
+/* ────── Reduced-motion ────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-card--gold,
+  .pack-card--hero,
+  .pack-card__ribbon,
+  .welcome-pack__cta,
+  .welcome-pack,
+  .welcome-pack--exit {
+    animation: none !important;
+  }
+}

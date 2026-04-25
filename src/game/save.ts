@@ -6,7 +6,7 @@ import { FORMS_BY_ID, type VampireForm } from './config/forms';
 import { SERVANTS, type ServantId } from './config/servants';
 import { kvGet, kvRemove, kvSet } from '../platform/storage';
 
-export const SAVE_VERSION = 4 as const;
+export const SAVE_VERSION = 5 as const;
 
 export const SAVE_KEY = 'vampire_maxxing_save';
 export const SAVE_KEY_BACKUP = 'vampire_maxxing_save_bak';
@@ -92,10 +92,11 @@ export interface SaveV3 extends Omit<SaveV2, 'v' | 'thralls'> {
   >;
 }
 
-/** Current save shape (v4). Structurally identical to v3 — the
- * migration's only job is to drop the 4 deprecated upgrade keys from
- * `upgrades` and reclaim their spent Dread as rank (M1 refactor,
- * 2026-04-24). Dread is now a pure monotonically-increasing rank. */
+/** v4 save. Kept around for migration reference only. Structurally
+ * identical to v3 — the migration's only job is to drop the 4
+ * deprecated upgrade keys from `upgrades` and reclaim their spent
+ * Dread as rank (M1 refactor, 2026-04-24). Dread is now a pure
+ * monotonically-increasing rank. */
 export interface SaveV4 extends Omit<SaveV3, 'v'> {
   v: 4;
   /**
@@ -160,13 +161,86 @@ export interface SaveV4 extends Omit<SaveV3, 'v'> {
    * as loose strings; the state layer validates each id against the
    * current roster + ownership before applying. */
   equippedSlots?: (string | null)[];
+  /** L12 — Frisson du Destin pending pity bump (set by the rite,
+   *  consumed by the next Common pull). Optional; defaults false. */
+  pendingFrissonBuff?: boolean;
+  /** L12 — last `stats.totalAscends` value at which the Frisson
+   *  rite fired. Used for the 1×/prestige cap. Defaults -1. */
+  lastFrissonPrestige?: number;
+  /** L12 — Offrande du Soir daily cap state. Resets on date
+   *  change. Optional; defaults to fresh empty. */
+  dailyIchorAds?: { date: string; count: number };
+  /** L13 — RGPD/KR-2024 compliance. Age gate confirmation state +
+   *  optional spending cap + purchase ledger. Optional on pre-L13
+   *  saves: defaults to 'unconfirmed' (player will be asked on
+   *  next launch), no cap, empty ledger. */
+  ageConfirmation?: 'unconfirmed' | 'over13' | 'under13';
+  dailySpendCapEur?: number | null;
+  spendingLog?: Array<{ ts: number; amountEur: number; productId: string }>;
+  /** L_QUESTS — daily quest state. Optional on pre-L_QUESTS saves;
+   *  the state layer rotates a fresh quest on first access. The
+   *  metrics record uses loose string keys at the save boundary so
+   *  adding a new QuestMetric in a later patch doesn't crash old
+   *  saves (state.ts re-merges against emptyMetrics()). */
+  questState?: {
+    date: string;
+    activeId: string;
+    progress: number;
+    claimed: boolean;
+    metrics: Record<string, number>;
+  };
+  /** L_QUESTS — achievement ids whose Ichor reward has been earned
+   *  but not yet claimed by the player. Absent on pre-L_QUESTS saves
+   *  triggers a backfill (every already-unlocked achievement with an
+   *  ichorReward queues itself in the claim pool). */
+  unclaimedAchievements?: string[];
+  /** L10 — IAP pack SKUs whose First-Time Double bonus has been
+   *  consumed. Absent on pre-L10 saves means "no pack ever bought" (no
+   *  FT consumed for any sku, all packs still show the ×2 ribbon). */
+  packsFirstTimeBought?: string[];
+  /** L11 — Welcome / Pacte Fondateur trigger timestamp (Unix ms). null
+   *  = player hasn't earned a first Rare yet. Absent on pre-L11 saves
+   *  → null. The trigger is one-shot: once stamped, never resets. */
+  welcomePackFirstRareAt?: number | null;
 }
 
-export type AnySave = Partial<SaveV4> &
+/** Current save shape (v5). V1.3 SOULREAVE — adds the second-layer
+ * prestige currency + meta-tree state. All five new fields are
+ * optional so a v4 save migrates by default-fill (no destructive
+ * changes). The migration is pure: existing run state is preserved
+ * untouched; the new fields just appear with 0 / empty defaults. */
+export interface SaveV5 extends Omit<SaveV4, 'v'> {
+  v: 5;
+  /** V1.3 — meta-currency earned by Soulreaving. Persists across
+   *  Soulreaves (only spending in the meta-tree depletes it). */
+  soulShards?: number;
+  /** V1.3 — cumulative Dread earned across the player's lifetime.
+   *  Only ever grows; never decreased on ascend or Soulreave. Drives
+   *  `projectedSoulShards()` (formula: floor(2 * sqrt(lifetimeDread /
+   *  1000))). Backfilled on v4→v5 migration to current Dread (the
+   *  best lower-bound we can derive — anyone who already prestiged
+   *  contributed at least their current Dread to lifetime). */
+  lifetimeDread?: number;
+  /** V1.3 — owned meta-tree node ids. Keys are MetaNodeId strings;
+   *  presence + true = node purchased. Linear-unlock order is
+   *  enforced at purchase time, not at save load. */
+  metaTree?: Record<string, boolean>;
+  /** V1.3 — total Soulreaves performed (counts the cinematic, not
+   *  intermediate ascends). Used by the Tome stats screen + the
+   *  reveal copy ("Soulreave I", "Soulreave II"...). */
+  totalSoulreaves?: number;
+  /** V1.3 — set true on Soulreave when WELCOME_TRIBUTE is owned, so
+   *  the next Standard pull after the cinematic guarantees a Rare+.
+   *  One-shot: cleared the moment the buff fires. Lives in save (not
+   *  ephemeral) so it survives an immediate close-relaunch. */
+  welcomeTributeArmed?: boolean;
+}
+
+export type AnySave = Partial<SaveV5> &
   Partial<Pick<SaveV2, 'thralls'>> & { v?: number };
 
 /** Escape hatch for corrupted saves: returns null and the caller starts fresh. */
-export function parseSave(raw: string): SaveV4 | null {
+export function parseSave(raw: string): SaveV5 | null {
   try {
     const data = JSON.parse(raw) as AnySave;
     const migrated = migrate(data);
@@ -177,11 +251,11 @@ export function parseSave(raw: string): SaveV4 | null {
   }
 }
 
-export function serializeSave(save: SaveV4): string {
+export function serializeSave(save: SaveV5): string {
   return JSON.stringify(save);
 }
 
-export async function loadSave(): Promise<SaveV4 | null> {
+export async function loadSave(): Promise<SaveV5 | null> {
   const raw = await kvGet(SAVE_KEY);
   if (raw) {
     const parsed = parseSave(raw);
@@ -196,7 +270,7 @@ export async function loadSave(): Promise<SaveV4 | null> {
   return null;
 }
 
-export async function writeSave(save: SaveV4): Promise<void> {
+export async function writeSave(save: SaveV5): Promise<void> {
   const existing = await kvGet(SAVE_KEY);
   if (existing) await kvSet(SAVE_KEY_BACKUP, existing);
   await kvSet(SAVE_KEY, serializeSave(save));
@@ -237,15 +311,16 @@ function reclaimedDreadFromUpgrades(upgrades: Record<string, number> | undefined
   return reclaimed;
 }
 
-function migrate(data: AnySave): SaveV4 {
+function migrate(data: AnySave): SaveV5 {
   const v = data.v ?? 0;
   let migrated: AnySave = data;
 
   // v0 → v1: wrap an unversioned save into the v1 shape, filling defaults
   // for missing fields and deep-merging nested objects.
   if (v < 1) {
-    const base = defaultV4();
-    const d = data as Partial<SaveV4> & Partial<Pick<SaveV2, 'thralls'>>;
+    const base = defaultV5();
+    const d = data as unknown as Partial<SaveV4> &
+      Partial<Pick<SaveV2, 'thralls'>>;
     migrated = {
       ...base,
       ...d,
@@ -300,33 +375,59 @@ function migrate(data: AnySave): SaveV4 {
     } as unknown as AnySave;
   }
 
-  if (migrated.v === 4) return migrated as SaveV4;
+  // v4 → v5 (V1.3 SOULREAVE): pure additive migration. The five new
+  // fields all default to "first-time Soulreave-ready" state. We
+  // backfill `lifetimeDread` to the current `dread` value as a
+  // lower-bound — pre-V1.3 we never tracked the cumulative, but a
+  // player's current Dread rank IS the lifetime Dread for them
+  // (Dread never resets pre-V1.3). After the upgrade, `lifetimeDread`
+  // continues to grow with every dreadGain credit.
+  if ((migrated.v ?? 0) <= 4) {
+    migrated = {
+      ...migrated,
+      v: 5,
+      soulShards: (migrated as Partial<SaveV5>).soulShards ?? 0,
+      lifetimeDread:
+        (migrated as Partial<SaveV5>).lifetimeDread ?? (migrated.dread ?? 0),
+      metaTree: (migrated as Partial<SaveV5>).metaTree ?? {},
+      totalSoulreaves: (migrated as Partial<SaveV5>).totalSoulreaves ?? 0,
+      welcomeTributeArmed:
+        (migrated as Partial<SaveV5>).welcomeTributeArmed ?? false,
+    } as unknown as AnySave;
+  }
+
+  if (migrated.v === 5) return migrated as SaveV5;
   throw new Error(`Unknown save version: ${migrated.v}`);
 }
 
 /** Back-compat alias — old callers still use defaultV1(), which now
  * returns the current default shape. */
-export function defaultV1(): SaveV4 {
-  return defaultV4();
+export function defaultV1(): SaveV5 {
+  return defaultV5();
 }
 
-/** @deprecated Returns a v4 save under this legacy name. */
-export function defaultV2(): SaveV4 {
-  return defaultV4();
+/** @deprecated Returns a v5 save under this legacy name. */
+export function defaultV2(): SaveV5 {
+  return defaultV5();
 }
 
-/** @deprecated Returns a v4 save under this legacy name. */
-export function defaultV3(): SaveV4 {
-  return defaultV4();
+/** @deprecated Returns a v5 save under this legacy name. */
+export function defaultV3(): SaveV5 {
+  return defaultV5();
 }
 
-export function defaultV4(): SaveV4 {
+/** @deprecated Returns a v5 save under this legacy name. */
+export function defaultV4(): SaveV5 {
+  return defaultV5();
+}
+
+export function defaultV5(): SaveV5 {
   const servants = {} as Record<ServantId, { owned: number; totalPurchased: number }>;
   for (const t of SERVANTS) {
     servants[t.id] = { owned: 0, totalPurchased: 0 };
   }
   return {
-    v: 4,
+    v: 5,
     ts: Date.now(),
     blood: 0,
     totalRunBlood: 0,
@@ -361,12 +462,17 @@ export function defaultV4(): SaveV4 {
       lang: navigator.language.startsWith('fr') ? 'fr' : 'en',
       notifEnabled: false,
     },
+    soulShards: 0,
+    lifetimeDread: 0,
+    metaTree: {},
+    totalSoulreaves: 0,
+    welcomeTributeArmed: false,
   };
 }
 
 // ─────────── Validation ───────────
 
-function validate(save: SaveV4): boolean {
+function validate(save: SaveV5): boolean {
   if (save.v !== SAVE_VERSION) return false;
   if (!Number.isFinite(save.blood) || save.blood < 0) return false;
   if (!Number.isFinite(save.dread) || save.dread < 0) return false;

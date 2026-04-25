@@ -209,3 +209,17 @@
   font-size: 11px;
   color: var(--ink-faint);
 }
+
+/* L15 — Reduced-motion. The offline modal fires every session that
+ * the player returns to after >30s. Honoring user preference here
+ * has the highest impact of any modal in the game. */
+@media (prefers-reduced-motion: reduce) {
+  .offline-modal__backdrop,
+  .offline-modal__backdrop--exit,
+  .offline-modal,
+  .offline-modal::before,
+  .offline-modal::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -4,11 +4,11 @@ import {
   defaultV1,
   parseSave,
   serializeSave,
-  type SaveV4,
+  type SaveV5,
 } from '../src/game/save';
 
 describe('save round-trip', () => {
-  let base: SaveV4;
+  let base: SaveV5;
 
   beforeEach(() => {
     base = defaultV1();

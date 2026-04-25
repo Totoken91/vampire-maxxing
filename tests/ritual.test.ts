@@ -282,8 +282,10 @@ describe('Cinder Ceremony (full saturation)', () => {
     for (const t of THRALLS) gameState.obtainThrall(t.id);
     gameState.getRitualState().firstRareGuaranteeUsed = true;
 
-    // Force epic bucket (rng < 0.03).
-    setRng(constantRng(0.001));
+    // Force epic bucket. Standard rates V1.2-EXT:
+    //   legendary 0.000–0.003 / epic 0.003–0.033 / rare 0.033–0.183 / common 0.183–1.0
+    // 0.01 lands cleanly in the epic band.
+    setRng(constantRng(0.01));
     const out = performPull('standard', 1)!;
     expect(out[0]!.isCinder).toBe(true);
     expect(out[0]!.rarity).toBe('epic');
@@ -310,13 +312,84 @@ describe('Cinder Ceremony (full saturation)', () => {
   });
 });
 
+describe('Legendary tier (V1.2-EXT)', () => {
+  beforeEach(() => {
+    gameState.reset();
+    grantIchor(10000, 'debug');
+    gameState.getRitualState().firstRareGuaranteeUsed = true;
+  });
+
+  it('forces a Legendary at hard pity (80 pulls)', () => {
+    // Force common bucket on every roll — the player won't pull a
+    // Legendary naturally, so the 80th pull should hit hard pity.
+    setRng(constantRng(0.99));
+    for (let i = 0; i < 79; i += 1) {
+      const out = performPull('standard', 1);
+      expect(out![0].rarity).not.toBe('legendary');
+    }
+    const out = performPull('standard', 1)!;
+    expect(out[0]!.rarity).toBe('legendary');
+    expect(out[0]!.flags.pityLegendary).toBe(true);
+  });
+
+  it('soft pity ramp lifts the Legendary rate after pull 70', () => {
+    // Drive pityCounterLegendary to 75 manually, then roll with rng
+    // value just below the ramped legendary rate. Standard base
+    // legendary = 0.003. After 5 overshoot pulls (71→75) at +0.05/pull,
+    // legendary rate = 0.003 + 5×0.05 ≈ 0.253. So rng=0.2 should land
+    // legendary on this 76th pull.
+    const ritual = gameState.getRitualState().standard;
+    ritual.pityCounterLegendary = 75;
+    setRng(constantRng(0.2));
+    const out = performPull('standard', 1)!;
+    expect(out[0]!.rarity).toBe('legendary');
+    expect(out[0]!.flags.pityLegendary).toBe(false);
+  });
+
+  it('Legendary roll resets every counter on the banner', () => {
+    const ritual = gameState.getRitualState().standard;
+    ritual.pityCounterRare = 7;
+    ritual.pityCounterLegendary = 75;
+    ritual.commonStreak = 3;
+    setRng(constantRng(0.2)); // forces legendary via soft pity
+    performPull('standard', 1);
+    expect(ritual.pityCounterRare).toBe(0);
+    expect(ritual.pityCounterLegendary).toBe(0);
+    expect(ritual.commonStreak).toBe(0);
+  });
+
+  it('Legendary dupe credits legendary essence', () => {
+    gameState.obtainThrall('aldric-volkov');
+    // rng sequence: rarity-roll 0.001 → legendary band; thrall-pick 0
+    // → first Legendary in candidates (aldric); dup-protection 0.99
+    // → above the 0.5 reroll threshold so the dupe stays.
+    setRng(sequenceRng([0.001, 0, 0.99]));
+    const before = gameState.getEssence('legendary');
+    performPull('standard', 1);
+    expect(gameState.getEssence('legendary')).toBeGreaterThan(before);
+  });
+
+  it('Legendary cinder fires when all 3 Legendaries owned + pity hits', () => {
+    for (const t of THRALLS) gameState.obtainThrall(t.id);
+    const ritual = gameState.getRitualState().standard;
+    ritual.pityCounterLegendary = 79; // hard pity on next pull
+    setRng(constantRng(0.99));
+    const out = performPull('standard', 1)!;
+    expect(out[0]!.isCinder).toBe(true);
+    expect(out[0]!.rarity).toBe('legendary');
+    expect(out[0]!.essenceGained).toBeGreaterThan(0);
+  });
+});
+
 describe('Featured rate-up routing', () => {
   it('routes a Rare/Epic roll to the featured thrall on share lookup', () => {
-    // Rate-up share for Epic on Featured = 0.75. We force:
-    //   roll 1: 0.001 → epic bucket
+    // Featured rates V1.2-EXT:
+    //   legendary 0.000–0.005 / epic 0.005–0.035 / rare 0.035–0.205 / common 0.205–1.0
+    // We force:
+    //   roll 1: 0.01  → epic bucket
     //   roll 2: 0.5   → featured rate-up share (< 0.75) → mirella
     //   roll 3: 0     → mirella index 0 within featured pool of size 1
-    setRng(sequenceRng([0.001, 0.5, 0]));
+    setRng(sequenceRng([0.01, 0.5, 0]));
     gameState.getRitualState().firstRareGuaranteeUsed = true;
     const out = performPull('featured', 1)!;
     expect(out[0]!.thrallId).toBe('mirella');
@@ -330,6 +403,41 @@ describe('getBannerProgress', () => {
     expect(p.pityRareCap).toBe(PITY.standardRare);
     expect(p.pityEpic).toBeNull();
     expect(p.pityEpicCap).toBeNull();
+  });
+});
+
+describe('Frisson du Destin (L12)', () => {
+  it('arming the buff bumps Rare pity by 1 on the next Common pull', () => {
+    setRng(constantRng(0.99)); // Common bucket
+    gameState.getRitualState().firstRareGuaranteeUsed = true;
+    gameState.armFrissonBuff();
+    expect(gameState.hasFrissonBuff()).toBe(true);
+    const before = gameState.getRitualState().standard.pityCounterRare;
+
+    performPull('standard', 1);
+
+    // Common +1 (regular) +1 (frisson) = +2 from baseline.
+    expect(gameState.getRitualState().standard.pityCounterRare).toBe(before + 2);
+    expect(gameState.hasFrissonBuff()).toBe(false);
+  });
+
+  it('does not consume the buff on a Rare/Epic pull', () => {
+    // Force epic — frisson should stay armed (only Common consumes).
+    setRng(constantRng(0.001));
+    gameState.getRitualState().firstRareGuaranteeUsed = true;
+    gameState.armFrissonBuff();
+    performPull('standard', 1);
+    expect(gameState.hasFrissonBuff()).toBe(true);
+  });
+
+  it('canArmFrisson is gated by the 1×/prestige cap', () => {
+    expect(gameState.canArmFrisson()).toBe(true);
+    gameState.armFrissonBuff();
+    expect(gameState.canArmFrisson()).toBe(false);
+    // Simulate an ascend by bumping totalAscends past lastFrissonPrestige.
+    (gameState.get() as unknown as { stats: { totalAscends: number } }).stats.totalAscends += 1;
+    gameState.consumeFrissonBuff();
+    expect(gameState.canArmFrisson()).toBe(true);
   });
 });
 

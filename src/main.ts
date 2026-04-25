@@ -6,6 +6,9 @@ import { startLoop } from './game/loop';
 import { installFx } from './fx';
 import { installMilestone } from './fx/milestone';
 import { showDailyModal } from './ui/components/daily-modal';
+import { showAgeGate } from './ui/components/age-gate';
+import { installAnalytics } from './analytics/install';
+import { track } from './analytics/events';
 import { installFtue } from './ftue';
 import { startAutosave } from './game/autosave';
 import { maybeShowOfflineModal } from './ui/components/offline-modal';
@@ -21,6 +24,11 @@ import { showAchievementToast } from './ui/components/achievement-toast';
 import { installMilestones } from './game/milestones';
 import { installIchorRewards } from './game/ichor-rewards';
 import { installAwakening } from './game/awakening-install';
+import { installQuestTracking } from './game/quests-install';
+import { installFounderPackTrigger } from './game/iap';
+import { installWelcomePackModal } from './ui/components/welcome-pack-modal';
+import { initIap } from './platform/iap';
+import { installIchorTooltip } from './ui/components/ichor-tooltip';
 import { SERVANTS, SERVANTS_BY_ID } from './game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
 
@@ -49,6 +57,29 @@ async function boot(): Promise<void> {
   // state without manual fix-up. Subscribes to thrall-equipped /
   // thrall-awakened internally.
   installAwakening();
+
+  // L_QUESTS — daily quest metric tracking. Subscribes to gameplay
+  // events to fill the per-day metric counters and rotates the
+  // active quest if the local date changed since last save.
+  installQuestTracking();
+
+  // L10/L11 — IAP. initIap() warms the Capacitor Play Billing client
+  // (no-op on web). The founder-pack trigger arms once on first Rare+
+  // acquisition; the welcome modal listens to that arm event and
+  // surfaces the offer 3s after the Rare reveal.
+  void initIap();
+  installFounderPackTrigger();
+  installWelcomePackModal();
+
+  // L15 — One-shot tooltip explaining Ichor's purpose, anchored to
+  // the HUD pill and dismissed on tap or after 5s. Listens to the
+  // very first 'ichor-earned' event of the save's lifetime.
+  installIchorTooltip();
+
+  // L14 — analytics. Subscribes to the game event bus + emits
+  // session_started with cohort context. Provider sink is no-op
+  // until a real provider (Firebase / Adjust / Mixpanel) lands.
+  installAnalytics({ resumed: offlineReport !== null });
 
   installFx(document.body);
   installMilestone();
@@ -91,6 +122,47 @@ async function boot(): Promise<void> {
   // entry; any form reached so far unlocks its history.
   backfillLoreUnlocks();
 
+  // V1.2-HF1 — Anti-treadhill hotfix compensation. Existing players who
+  // have already prestiged at least once get +10 Ichor on the first
+  // launch post-patch as goodwill for the threshold scaling change.
+  // One-shot via the ichorFlags ledger; brand-new saves get nothing.
+  applyHotfixV12Hf1Compensation();
+
+  // V1.3 — Re-apply runtime effects of every owned meta-tree node.
+  // Modifiers aren't persisted (only state is), so a returning save
+  // with owned nodes needs to republish their effects. Cheap (one
+  // record walk) — fine to do unconditionally.
+  void import('./game/soulreave').then(({ reapplyOwnedMetaNodes }) =>
+    reapplyOwnedMetaNodes(),
+  );
+
+  // V1.3 — First-Soulreave reveal toast. When a Soulreave just
+  // happened, surface a one-shot hint pointing the player at the
+  // meta-tree access in the Ascend modal.
+  events.on('soulreaved', ({ index, soulShardsGained }) => {
+    if (index === 1) {
+      showToast(
+        'SOULREAVE I',
+        `+${soulShardsGained} Soul Shards. Open ASCEND to spend them.`,
+      );
+    } else {
+      showToast(
+        `SOULREAVE ${romanIfShort(index)}`,
+        `+${soulShardsGained} Soul Shards.`,
+      );
+    }
+  });
+
+  // V1.2-HF1 — Auto-ascend pause toast on form-bump. The engine fires
+  // 'auto-ascend-paused' once when the next ascend would cross a form
+  // threshold; we redirect the player to the manual cinematic.
+  events.on('auto-ascend-paused', () => {
+    showToast(
+      'AUTO PAUSED',
+      'A new Form awaits — tap ASCEND to embrace the transition.',
+    );
+  });
+
   // Toast on lore unlock.
   events.on('lore-unlocked', ({ kind, id }) => {
     if (kind === 'servant') {
@@ -110,6 +182,17 @@ async function boot(): Promise<void> {
   events.on('ichor-earned', ({ amount, source }) => {
     showIchorToast(amount, source);
   });
+
+  // L13 — age gate. Fires on first launch (or returning save with
+  // pre-L13 state), blocks further system modals until answered.
+  // Compliance-mandated: RGPD + KR 2024 + EU best practice.
+  if (gameState.getAgeConfirmation() === 'unconfirmed') {
+    await showAgeGate();
+    const after = gameState.getAgeConfirmation();
+    if (after !== 'unconfirmed') {
+      track('age_gate_answered', { confirmation: after });
+    }
+  }
 
   if (offlineReport) {
     maybeShowOfflineModal(offlineReport, (amount) => {
@@ -148,6 +231,41 @@ async function boot(): Promise<void> {
 }
 
 void boot();
+
+/**
+ * V1.2-HF1 — One-shot Ichor compensation for legacy players when the
+ * Anti-Treadmill Hotfix lands. Players past their first ascend get
+ * +10 Ichor as goodwill since the per-form threshold scaling will
+ * make their next-form ascend slower than they were used to. The
+ * flag in `ichorFlags` keeps the grant strictly one-shot per save.
+ */
+/** V1.3 — Tiny roman-numeral helper for the Soulreave toast. Falls
+ *  back to "№N" beyond 10 because anyone Soulreaving 11+ times has
+ *  earned their numeric overlay. */
+function romanIfShort(n: number): string {
+  const numerals = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+  if (n >= 1 && n < numerals.length) return numerals[n];
+  return `№${n}`;
+}
+
+function applyHotfixV12Hf1Compensation(): void {
+  const FLAG = 'hotfix:v1.2-hf1:compensation';
+  const flags = (gameState.get() as unknown as {
+    ichorFlags: Record<string, boolean>;
+  }).ichorFlags;
+  if (flags[FLAG]) return;
+  flags[FLAG] = true;
+  // Brand-new saves (totalAscends === 0) didn't experience the old
+  // threshold cadence so they don't need compensation.
+  if (gameState.getPrestigeCount() < 1) return;
+  void import('./game/ichor').then(({ grantIchor }) => {
+    grantIchor(10, 'event_reward');
+    showToast(
+      'BALANCE UPDATE',
+      'Your bloodline owes you 10 Ichor. The Ancients balance the books.',
+    );
+  });
+}
 
 /**
  * Saves written before the Tome lore expansion don't yet record which

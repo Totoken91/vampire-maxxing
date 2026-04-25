@@ -10,6 +10,7 @@ import { getCurrentTab, navigateTo, onTabChange, type TabId } from '../navigatio
 import { gameState } from '../../game/state';
 import { events } from '../../game/events';
 import { anyRiteUsable } from '../../game/rites';
+import { canClaimQuest } from '../../game/quests';
 
 interface TabDef {
   id: TabId;
@@ -96,6 +97,22 @@ export class TabBar extends Component<HTMLElement> {
         this.refreshDots();
       }),
     );
+    this.addTeardown(
+      events.on('quest-completed', () => this.refreshDots()),
+    );
+    this.addTeardown(
+      events.on('quest-claimed', () => this.refreshDots()),
+    );
+    this.addTeardown(
+      events.on('achievement-claimed', () => this.refreshDots()),
+    );
+    // L11 — first Rare+ unlocks the Shop tab via welcomePackFirstRareAt
+    // (see isTabUnlocked('shop')). Refresh on the arm event so the
+    // tab reveal animates the moment the Pacte Fondateur is queued,
+    // not 2 seconds later when the periodic tick catches up.
+    this.addTeardown(
+      events.on('welcome-pack-armed', () => this.refreshLocks()),
+    );
     // playtime-based unlock (shop) + rite cooldown ticking both need a
     // low-frequency recheck.
     let tickAccum = 0;
@@ -115,15 +132,31 @@ export class TabBar extends Component<HTMLElement> {
     const current = getCurrentTab();
     const dots: Record<TabId, boolean> = {
       bloodline: false,
-      sanctum: false,
+      // FTUE — after the tutorial Ichor gift fires, the player needs
+      // to navigate to Sanctum to invoke. The legacy gold glow on the
+      // tab icon was being washed out by overlays/HUD, so we layer
+      // the existing red dot indicator on top until the player either
+      // opens Sanctum or completes the FTUE bind step. Cleared
+      // automatically once the dot trigger condition flips false.
+      sanctum:
+        current !== 'sanctum' &&
+        gameState.isFtueSanctumPending(),
       // Rites dot: at least one usable rite while the player is somewhere
       // else. Clears when they actually open the tab.
       rites: current !== 'rites' && gameState.isTabUnlocked('rites') && anyRiteUsable(),
-      // Tome dot: any achievement unlocked that hasn't been seen yet.
+      // Tome dot: drives the breathing crimson dot indicator. Three
+      // triggers, ranked by signal strength (any one of them flips it):
+      //   - achievement reward sitting in the unclaimed pool
+      //   - today's daily quest is at target and waiting on CLAIM
+      //   - legacy "achievement unlocked, not yet seen" hint
+      // The dot stays put while the player is on the Tome itself
+      // because the per-card CTA carries the actionable signal there.
       tome:
         current !== 'tome' &&
         gameState.isTabUnlocked('tome') &&
-        gameState.hasUnseenAchievements(),
+        (gameState.hasUnclaimedAchievements() ||
+          canClaimQuest() ||
+          gameState.hasUnseenAchievements()),
       shop: false, // wired up in D2 when real offers exist
     };
     for (const [id, btn] of this.buttons) {

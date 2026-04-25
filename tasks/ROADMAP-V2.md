@@ -575,6 +575,223 @@ Option **(c) refined** — Dread devient un pur rank non-spendable. Le système 
 - Touch targets ≥ 48dp verified on device.
 - Passage complet de la checklist V1.2 sec 15.
 
+### L_QUESTS — Daily quests + Achievement claim mechanic
+
+**Why** : la V1.2 spec liste "Quête quotidienne login + 1 action = 2 Ichor"
+mais ne définit pas un vrai système de tâches rotatives. Sans ça :
+- D7-D30 retention faible (rien à faire après le daily login + ad)
+- Achievements donnent zéro Ichor (juste un dot dans Tome)
+- Aucun **claim mechanic** → tous les rewards arrivent en auto-grant
+  silencieux, dopamine perdue
+
+**Sources de design** consolidées :
+- *gacha-systems-expert* : daily rotation = high D7-D30 retention driver
+  (FGO, Blue Archive). Reward target = 3-5% du pull cost = 2 Ichor
+  pour pull à 10. Meta-streak bonus possible v1.1+.
+- *idle-game-expert* : quest objective visible au launch = D1 hook ;
+  rotating pool variety = D7 hook ; never force play patterns,
+  achievable through normal play.
+- *monetization-shark* : free Ichor drumbeat trains "I want more
+  pulls" mental loop → 3-5× higher conversion when L10 ships.
+- *ux-sensei* : claim button = the dopamine moment. Never
+  auto-grant. Tome tab dot = accurate "claimable" reflect.
+- *aaa-mobile-game-ui* : quest cards baroque parchment style ;
+  CLAIM button = breathing pulse Tier 1 CTA ; progress bars
+  with shimmer at 100%.
+
+**Scope**
+
+1. **Daily quests engine** (`src/game/quests.ts`, `config/quests.ts`)
+   - Pool 10-12 quests (mix metrics : taps, pulls, servants bought,
+     awakenings, ascends, ichor earned, equip swaps).
+   - Daily rotation : 1 quest/day, deterministic seed (date hash)
+     so all players on same day see the same quest. Pool exhaustion
+     handled via rolling cycle.
+   - Reward 2 Ichor per quest (4-7 Ichor/jour total avec daily
+     login chain).
+   - Reset midnight local. State : `questState: { date, activeId,
+     progress, claimed, metrics: Record<metric, count> }`.
+
+2. **Achievement Ichor rewards**
+   - Add `ichorReward?: number` field to AchievementDef.
+   - Backfill existing 30+ achievements : 1 Ichor (minor) → 5 Ichor
+     (major) → 10 Ichor (collection / 100 ascends).
+   - Replace auto-grant with **claim flow** : on unlock, mark
+     `unclaimedAchievements` (pending). Player goes to Tome → tap
+     CLAIM button per row → grant + clear flag.
+
+3. **Tome UI rework**
+   - New section TOP : **DAILY QUESTS** card with title + progress
+     bar + reward + claim button (if completed).
+   - Reset timer "New quest in 3h 12m" italic serif italic.
+   - **ACHIEVEMENTS** section : each unlocked-but-unclaimed row
+     shows `CLAIM +N ⚫` button (golden, breathing pulse).
+   - Tome tab nav dot logic : fire when (claimable quest) OR
+     (unclaimed achievement) OR (existing unseen).
+
+4. **First archetype equipped** (V1.2 spec §4)
+   - 3 new achievements : First Harvester / Nocturne / Predator
+     equipped, +3 Ichor each. Hooks `thrall-equipped` event.
+
+5. **Cheats** : `vm.completeQuest()`, `vm.rotateQuest()`,
+   `vm.claimAllAchievements()`.
+
+6. **Tests** : quest rotation determinism, metric tracking, claim
+   gating, achievement Ichor backfill, daily reset.
+
+**Pourquoi avant K2+L10+L11** (monétisation packs) :
+- Consolide la boucle F2P engagement avant les paywalls landent.
+- 14 jours de claims daily = joueurs warmed-up → 3-5× conversion
+  rate quand le pack store ouvre.
+- Pas de risque de cannibalization : Ichor F2P ≠ Ichor IAP, pull
+  cost reste 10 Ichor.
+
+**Estimation** : 1 jour de dev (quest engine + achievement claim
+field + Tome UI + tests).
+
+---
+
+## 🩸 Phase BAL — Anti-Treadmill Hotfix (V1.2-HF1)
+
+**Why** : passé Methuselah Century I, le jeu dégénère en spirale exponentielle
+"ascend → ascend plus vite → ascend encore plus vite". Les 4 Lois idle audit:
+LAW 2 (always tease next unlock) ❌, LAW 4 (respect player time) ❌. Three-loop test
+à Methuselah Century II = TOUS les 3 loops cassés. Cause racine: `ASCEND_THRESHOLD`
+fixe → chaque ascend reset les servants mais préserve les multiplicateurs accumulés
+→ temps d'ascend converge vers <30s. C'est un game-killer pour D7-D14.
+
+**Sources de design** consolidées (4 skills consultés 2026-04-25):
+- *idle-game-expert* : threshold scale per form pour plateau stable 3-5min/ascend.
+- *ux-sensei* : grandfather les saves existants + +10 Ichor compensation; auto-ascend
+  toggle dans Settings + inline button Ascend modal; "MULT PEAKED" badge avec teaser
+  Soulreave; pause auto sur form bump pour cinematic.
+- *aaa-ui* : pas de change visuel — les fixes sont mécaniques.
+- *gacha-systems* : pas de touchpoint gacha sur ce hotfix.
+
+**Scope (V1.2-HF1)**
+
+1. **`ASCEND_THRESHOLD` per form** (`src/game/config/balance.ts`)
+   - Recalibré 2026-04-25 après audit idle-expert : les valeurs
+     initiales (×20 à Methuselah) donnaient toujours 25-50s ascends.
+     Nouvelle table calibrée avec les VRAIES form thresholds (forms
+     durent 2-50 ascends, pas 200+) :
+   - NEWBORN ×1, ELDER ×3, LORD_OF_NIGHT ×10, METHUSELAH ×60,
+     PROGENITOR ×400, TERA_OVERLORD ×3000, HORROR_INCARNATE ×25000,
+     THIRST ×200000
+   - Form bumps en ×6-8 = peaks-and-valleys cadence (5-10 min reset
+     post-bump, growth dans la form accélère naturellement).
+   - Le globalMult cap ×10 plateau la rate, donc les form mults
+     n'ont qu'à ajuster la cadence d'entry de form.
+   - Communique via tooltip Ascend modal: "Methuselah requires deeper feeding."
+
+2. **Soft cap globalMult à ×10** (`src/game/math.ts globalMult()`)
+   - Cap progressif via `Math.min(10, base)` après le bonus progenitor.
+   - "MULT PEAKED" badge gold sur le multiplier readout HUD quand atteint.
+   - Teaser tooltip: "Continue stacking Dread to unlock the Soulreave (V1.3)".
+
+3. **Auto-Ascend toggle** unlock à Methuselah Century III (totalAscends ≥ 9
+   — Methuselah threshold 7 + 2 within-form ascends; the FORM_THRESHOLDS table
+   tops out at THIRST = 100, not 250)
+   - State : `settings.autoAscend: boolean` (default false)
+   - UI placement : Settings panel (Accessibility section) + inline secondary
+     "AUTO" button next to ASCEND CTA on the Ascend modal.
+   - Mechanic : auto-fire ascend dès que `canAscend()` AND `dreadGain >= 1`.
+   - Pause auto sur form-bump threshold pour que le joueur voit la cinematic
+     du nouveau form (1-shot per form bump).
+   - Tap manuel ascend reste fonctionnel.
+
+4. **Save migration** (`src/game/save.ts`) — V1.2-HF1 patch
+   - Grandfather: pas de scaling rétroactif. Les players déjà à Methuselah+
+     gardent leur progression actuelle, seul l'ASCEND prochain utilise le
+     nouveau threshold.
+   - Compensation: +10 Ichor crédités à l'install patch (one-shot via
+     `ichorFlags['hotfix:v1.2-hf1:compensation']`).
+   - Toast au boot: "Balance Update — your bloodline owes you 10 Ichor."
+
+5. **Tests**
+   - `dreadGain` returns expected values across forms post-scale.
+   - `globalMult` clamps at ×10.
+   - Auto-ascend fires only at threshold + pauses on form bump.
+   - Save round-trip preserves grandfathered progress.
+
+**Estimation** : 2 jours dev solo. Ship-bloquant V1.2 release car le treadmill
+tue la D7 retention.
+
+---
+
+## 🌑 Phase S — SOULREAVE — Second-Layer Prestige (V1.3)
+
+**Why** : V1.2-HF1 retarde le treadmill mais ne le guérit pas. Sans Axis 3
+(meta-currency permanente), un idle game post-3rd-prestige finit toujours en
+treadmill. Soulreave = second-layer prestige qui déverrouille un meta-tree
+permanent et transforme "ascend → ascend faster" en CHOIX stratégique.
+
+**Sources de design** consolidées (idle-game-expert, ux-sensei):
+- Pattern PROVEN sur 10+ idle hits (Cookie Clicker Heavenly Chips, Idle Slayer
+  Soul Shards, AdCap Angel Investors, AFK Arena Hero Affinity).
+- Trigger : `lifetimeDread >= 200` (~10-15h jeu actif, sweet spot D7).
+- Formula : `floor(3 × sqrt(lifetimeDread / 100))` Soul Shards.
+- Reset : Dread, totalAscends, Form, Servants. KEEP : Ichor, Thralls collection,
+  Awakening stars, Achievements, Daily quest progress, Equipped slots, Settings.
+- 6 meta-tree nodes (3/5/8/10/15/25 SS = 66 total ⇒ 5-7 Soulreaves pour max).
+
+**Scope (V1.3)**
+
+1. **State + save** (`src/game/state.ts`, `save.ts`)
+   - `soulShards: number`
+   - `lifetimeDread: number` (cumul jamais reset, drives la formula)
+   - `metaTree: Record<MetaNodeId, number>` — niveau owned par node
+   - `totalSoulreaves: number` — counter (pour achievements + UI)
+   - Save migration V5 (bump SAVE_VERSION) avec defaults legacy.
+
+2. **Soulreave engine** (`src/game/soulreave.ts`)
+   - `canSoulreave()` → lifetimeDread ≥ 200
+   - `projectedSoulShards()` → preview pour le UI
+   - `performSoulreave()` → grant SS + reset scoped fields + emit
+     `soulreaved` event + push `runHistory` entry tagged 'soulreave'.
+
+3. **Meta-tree config** (`src/game/config/meta-tree.ts`)
+   ```ts
+   ETERNAL_FLAME (3 SS)   — +50% blood gen base permanent
+   IRON_WILL (5 SS)        — +25% click power permanent
+   WELCOME_TRIBUTE (8 SS)  — start each run with 25 Ichor + 1 Rare guaranteed
+   AUTO_BUY (10 SS)        — auto-buy servants when affordable (toggle)
+   AUTO_ASCEND_PRO (15 SS) — auto-ascend with configurable threshold mult
+   ETERNAL_BOND (25 SS)    — +1 equip slot permanent (4ème thrall)
+   ```
+   - Linear progression : nodes débloquent dans l'ordre listé (chaque node
+     requires the previous bought).
+
+4. **UI** (`src/ui/components/soulreave-modal.ts`)
+   - Triggered from Ascend modal when `canSoulreave()` (button "SOULREAVE"
+     remplace ou s'ajoute à côté de "ASCEND").
+   - Sub-screen full-overlay : Soul Shards counter + meta-tree 6 nodes
+     (visual : tree branches with locked/unlocked/owned states).
+   - Cinematic Soulreave : 3s anticipation (screen darken + crimson particles)
+     + 2s release (white burst + "SOULREAVE" title slam Cinzel display 64px +
+     meta-tree reveal). Skip dispo après 1.5s.
+   - Sound : sub-bass rumble + impact + ambient whisper layer.
+
+5. **Achievements + tutorial**
+   - 5 achievements one-shot : "First Soulreave", "Soulreave 5×", "All nodes
+     bought", "Ichor accumulé via Welcome Tribute = 1000", etc.
+   - Onboard FTUE post-1st-Soulreave : tooltip teaser "The Ancients remember.
+     Spend your Soul Shards in the meta-tree."
+
+6. **Cheats** (`src/dev/cheats.ts`)
+   - `vm.soulreave()` — instant trigger (skips threshold check)
+   - `vm.addSoulShards(n)` — for meta-tree testing
+   - `vm.unlockMetaTree()` — buys all 6 nodes
+
+7. **Tests**
+   - Soul Shards formula correctness across lifetimeDread tiers.
+   - Reset scope (Dread → 0, Thralls preserved, Ichor preserved).
+   - Meta-tree purchase gating (linear progression).
+   - Save migration V4 → V5.
+
+**Estimation** : 1 semaine dev solo. Cette phase est THE FIX retention long-
+terme. Sans Soulreave, V2.0 Combat Layer ne suffit pas à retenir les D14+.
+
 ---
 
 ## Phase C — Content depth
@@ -1004,6 +1221,102 @@ Les éléments originaux de H conservés pour référence future (synergies entr
 - Ancestral Blood currency live
 - Ancestors system : jusqu'à 3 silhouettes background
 - 1 cross-gen thrall unique
+
+---
+
+## ⚔️ Phase HUNT — V2.0 Combat Layer (THE HUNT)
+
+**Why** : V1.3 Soulreave fixe le treadmill mais reste dans la dimension idle.
+Pour les joueurs D30+, il faut une 3ème dimension de gameplay (idle / collection
+/ **combat**) qui réutilise les 15 thralls collectés et les Soul Shards. Pattern
+PROVEN : AFK Arena → AFK Journey, Idle Heroes, Cookie Run Kingdom. Ouvre 50+h
+de contenu progression.
+
+**Sources de design** consolidées (aaa-ui, idle-game-expert, gacha-systems):
+- Option **A — THE HUNT auto-battler / wave defense** validée (best fit
+  gen-z gothic + idle DNA + 2-3wk effort solo + monétisation hooks clean).
+- Vampires sont les prédateurs : mortal hunters approche le lair, les thralls
+  équipés auto-defendent. Inversion thématique du tropes "tu attaques des monstres"
+  → "tu DÉFENDS la nuit".
+- Auto-resolve combat (pas de per-tap fatigue cohérent avec idle), mais visual
+  manuel mode pour les engaged sessions.
+
+**Scope (V2.0)**
+
+1. **Combat engine** (`src/game/combat/engine.ts`)
+   - State : `huntState: { round, hp, hunterWaveQueue, wins, losses }`
+   - Resolve = deterministic deterministic loop (60fps render, 1 tick/sec
+     simulation). Each tick : 1 hunter advance, 1 thrall ability fire.
+   - Win condition : kill all hunters before HP reaches 0.
+   - Stat sources : équiped thralls' primaryEffect.value × awakening multiplier.
+   - Damage formula : `damage = thrall.primaryValue × thrall.starMult × hunter.armor_mod`
+   - Hunter waves : procedural per round (density grows over rounds).
+
+2. **Combat UI** (`src/ui/combat/hunt-screen.ts`)
+   - Onglet bottom nav "CRYPT" remplace SHOP slot (Shop → sub-tab dans Settings)
+   - 3 thralls équipés en bas du screen (gauche/centre/droite)
+   - Hunter wave en haut (silhouettes approchent)
+   - HP bar centre + round counter haut
+   - Attack/defense animations : sprite atlas + 30 max particles
+   - Auto-resolve mode (sweep) : instant resolve avec capped rewards
+   - Manual mode : 60fps live combat avec tap-to-skip post-1s
+
+3. **Hunter waves config** (`src/game/config/hunters.ts`)
+   - Hunter types : Inquisitor (light armor), Witchhunter (medium),
+     Demon Lord (heavy + ranged)
+   - Wave density per round : `floor(2 + round × 0.3)` (round 1 = 2, round 10 = 5)
+   - HP per round : `100 + round × 50`
+   - Boss every 10 rounds
+
+4. **Rewards** (`src/game/combat/rewards.ts`)
+   - Per round : Soul Shards (1-3), Ichor (5-15), Essence drops
+   - Boss kill : Cosmetic frame ornament + lore entry "Defeated [Boss name]"
+   - Daily reset : 5 free rounds, then Ichor cost per additional round
+
+5. **Live-ops integration** (gacha-systems input)
+   - Monthly boss event : rotating Inquisitor / Witchhunter / Demon Lord
+   - Boss event = 7-day window, leaderboard cosmetic rewards
+   - Battle pass tier "Hunters Defeated" — premium track unlocks
+     boss-fight Legendary skins + thrall combat animations
+
+6. **Monétisation V2.0**
+   - **Cosmetic skins** combat versions des Legendaries (Aldric battle armor,
+     Cassian noble robes, Maris cathedral regalia) — 4.99-9.99€ par skin
+   - **Battle Pass** "The Hunt" — 4.99€ par cycle de 4 semaines, 30 tiers
+     avec rewards combat-focused (Soul Shards, Ichor, exclusive cosmetics)
+   - **Revive ad placement** : "Watch ad to revive on defeat" — 1×/round
+   - **Pas de pay-to-win** : aucun pack ne donne stats combat permanents
+
+7. **Performance mobile**
+   - Sprite atlas pré-rendu (max 200KB GPU)
+   - 30 particles max simultanés (Galaxy A1x 60fps target)
+   - Audio : 1 layer ambient + 1 layer combat (max 2 simultanés)
+   - Auto-resolve mode = pas de runtime animation (instant + summary screen)
+
+8. **Tests + balance**
+   - Hunter waves tunées pour 60% win rate F2P, 95% pour whales fully-awakened
+   - Soft difficulty cap : si 3 défaites consécutives, hint "increase awakening
+     stars" — pas de hard wall progression
+   - Tests : combat engine determinism (same seed = same result), reward
+     scaling, cosmetic unlock gating
+
+**Dépendances** :
+- ✅ V1.2 Phase L (15 thralls collectés)
+- ✅ V1.3 Soulreave (Soul Shards as combat currency)
+- ✅ Awakening stars multiplier (already in awakening.ts)
+
+**Risques** :
+- Production heavy : sprite atlas + animations combat = 1 semaine art assets
+- Performance mobile : need device testing on Galaxy A1x mid-range
+- Scope creep : tentation de turner-based ou narrative en parallèle — STICK
+  to auto-battler for V2.0, defer turn-based à V2.1+
+
+**Estimation** : 2-3 semaines dev solo + 1 semaine art (sprite atlas + sound).
+
+**Pourquoi V2.0 et pas V1.4** : need Soulreave shipped + 4-6 wks data avant
+de commit le combat layer. Si Soulreave seule retient D30 à 10%+, on peut
+shipper V2.0 directement. Si D30 < 5% post-Soulreave, on pivote vers content
+depth (Phase F Black Veil) avant le combat.
 
 ---
 

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ascendThresholdFor,
   clickPower,
   dreadGain,
   globalMult,
+  isGlobalMultPeaked,
   isServantUnlocked,
   offlineGain,
   servantCost,
@@ -11,6 +13,71 @@ import {
 } from '../src/game/math';
 import { SERVANTS_BY_ID } from '../src/game/config/servants';
 import { BALANCE } from '../src/game/config/balance';
+
+describe('V1.2-HF1 — globalMult hard cap', () => {
+  it('caps the multiplier at 10 even at extreme dread', () => {
+    expect(globalMult(1e6, false)).toBeLessThanOrEqual(10);
+    expect(globalMult(1e6, true)).toBeLessThanOrEqual(10);
+  });
+
+  it('is below the cap at moderate dread (no behavior change for early game)', () => {
+    expect(globalMult(50, false)).toBeLessThan(10);
+    expect(globalMult(100, false)).toBeLessThan(10);
+  });
+
+  it('isGlobalMultPeaked flags when the cap is hit', () => {
+    expect(isGlobalMultPeaked(1e6, false)).toBe(true);
+    expect(isGlobalMultPeaked(50, false)).toBe(false);
+  });
+});
+
+describe('V1.2-HF1 — ascendThresholdFor (per-form scaling)', () => {
+  it('NEWBORN keeps the base 1× threshold', () => {
+    expect(ascendThresholdFor('NEWBORN')).toBe(BALANCE.ASCEND_THRESHOLD);
+  });
+
+  it('threshold scales monotonically across forms', () => {
+    const order = [
+      'NEWBORN',
+      'ELDER',
+      'LORD_OF_NIGHT',
+      'METHUSELAH',
+      'PROGENITOR',
+      'TERA_OVERLORD',
+      'HORROR_INCARNATE',
+      'THIRST',
+    ] as const;
+    for (let i = 0; i < order.length - 1; i += 1) {
+      expect(ascendThresholdFor(order[i + 1])).toBeGreaterThan(
+        ascendThresholdFor(order[i]),
+      );
+    }
+  });
+
+  it('METHUSELAH is 60× the base (recalibrated anti-treadmill anchor)', () => {
+    // 2026-04-25 recalibration: was ×20 (gave 25-50s ascends, treadmill
+    // alive). ×60 lands ~2m30s entry-of-form / ~30s end-of-form once
+    // milestones + mult-cap saturate.
+    expect(ascendThresholdFor('METHUSELAH')).toBe(BALANCE.ASCEND_THRESHOLD * 60);
+  });
+
+  it('form bumps land in the ×6-×8 range for peaks-and-valleys cadence', () => {
+    const meth = BALANCE.ASCEND_THRESHOLD_FORM_MULT.METHUSELAH;
+    const prog = BALANCE.ASCEND_THRESHOLD_FORM_MULT.PROGENITOR;
+    const tera = BALANCE.ASCEND_THRESHOLD_FORM_MULT.TERA_OVERLORD;
+    const horror = BALANCE.ASCEND_THRESHOLD_FORM_MULT.HORROR_INCARNATE;
+    expect(prog / meth).toBeGreaterThanOrEqual(6);
+    expect(prog / meth).toBeLessThanOrEqual(9);
+    expect(tera / prog).toBeGreaterThanOrEqual(6);
+    expect(tera / prog).toBeLessThanOrEqual(9);
+    expect(horror / tera).toBeGreaterThanOrEqual(6);
+    expect(horror / tera).toBeLessThanOrEqual(9);
+  });
+
+  it('THIRST is 200000× the base (endgame infinite runway)', () => {
+    expect(ascendThresholdFor('THIRST')).toBe(BALANCE.ASCEND_THRESHOLD * 200000);
+  });
+});
 
 describe('servantCost', () => {
   it('returns baseCost when owned = 0', () => {
@@ -74,22 +141,25 @@ describe('globalMult (log curve — M1)', () => {
     expect(globalMult(0, false)).toBe(1);
   });
 
-  it('follows 1 + log2(1 + d) curve — agressive early, tamed late', () => {
-    // Explicit sample points. The log curve is what fixes the runaway
-    // feedback loop observed in v1.0.0 closed testing (Kenny hit 3375
-    // Dread × 338 mult in 2 days of light play on the old linear formula).
-    expect(globalMult(10, false)).toBeCloseTo(1 + Math.log2(11), 5);
-    expect(globalMult(100, false)).toBeCloseTo(1 + Math.log2(101), 5);
-    expect(globalMult(1000, false)).toBeCloseTo(1 + Math.log2(1001), 5);
-    expect(globalMult(10000, false)).toBeCloseTo(1 + Math.log2(10001), 5);
+  it('follows 1 + COEF × log2(1 + d) curve — first prestige sweet spot', () => {
+    // V1.1 (2026-04-25) retuned coef 1.0 → 0.5 to land first prestige
+    // (Dread 5) at ×2.29 — industry sweet spot for idle/incremental
+    // first prestige (1.5-2.5x). Earlier coef=1.0 produced ×4.46 at
+    // d=10 which compressed 5 prestiges of progression into the first.
+    const k = BALANCE.DREAD_MULT_COEF;
+    expect(globalMult(10, false)).toBeCloseTo(1 + k * Math.log2(11), 5);
+    expect(globalMult(100, false)).toBeCloseTo(1 + k * Math.log2(101), 5);
+    expect(globalMult(1000, false)).toBeCloseTo(1 + k * Math.log2(1001), 5);
+    expect(globalMult(10000, false)).toBeCloseTo(1 + k * Math.log2(10001), 5);
   });
 
-  it('keeps d=3375 under ×13 (regression guard vs runaway)', () => {
+  it('keeps d=3375 well under runaway territory', () => {
     // The old linear formula gave ×338.5 here — unplayable ceiling
-    // jump per ascend. The log curve caps the same Dread at ~×12.72.
+    // jump per ascend. The log curve at coef=0.5 caps the same Dread
+    // at ~×6.86 (was ×12.72 at coef=1.0). Generous floor + ceiling.
     const mult = globalMult(3375, false);
-    expect(mult).toBeGreaterThan(12);
-    expect(mult).toBeLessThan(13);
+    expect(mult).toBeGreaterThan(5);
+    expect(mult).toBeLessThan(8);
   });
 
   it('is monotonically non-decreasing in dread', () => {
@@ -108,9 +178,10 @@ describe('globalMult (log curve — M1)', () => {
   });
 
   it('uses the configured DREAD_MULT_COEF', () => {
-    // If this ever drifts from 1.0 the sample values above must be
-    // recomputed — so pin the constant here.
-    expect(BALANCE.DREAD_MULT_COEF).toBe(1);
+    // V1.1 retuned to 0.5 per idle-game-expert audit. Sample
+    // assertions above derive from BALANCE.DREAD_MULT_COEF so a
+    // future tweak only needs to edit this pin.
+    expect(BALANCE.DREAD_MULT_COEF).toBe(0.5);
   });
 });
 
@@ -142,21 +213,22 @@ describe('dreadGain (form-gated — M2)', () => {
     expect(dreadGain(1e8, 'LORD_OF_NIGHT')).toBe(Math.floor(Math.sqrt(100) * 2));
   });
 
-  it('caps at NEWBORN 10 — overnight-offline runaway fix', () => {
-    // With the old formula, 1e14 blood would give ~2×10,000 = 20,000
-    // Dread in NEWBORN. M2 caps that at the form's max = 10.
-    expect(dreadGain(1e14, 'NEWBORN')).toBe(10);
+  it('caps at NEWBORN 5 — V1.1 tightened first-prestige grind', () => {
+    // Old NEWBORN cap was 10 (forced 25M-blood pre-ascend grind +
+    // ×4.46 first-prestige mult — too generous). V1.1 lowered to 5
+    // so first ascend lands at 6.25M blood + ×2.29 mult — sweet spot.
+    expect(dreadGain(1e14, 'NEWBORN')).toBe(5);
   });
 
-  it('cap doubles at each form', () => {
+  it('cap roughly doubles at each form (V1.1 tightened table)', () => {
     // Huge blood → sqrt is absurd, so we always hit the cap for non-THIRST.
-    expect(dreadGain(1e20, 'NEWBORN')).toBe(10);
-    expect(dreadGain(1e20, 'ELDER')).toBe(25);
-    expect(dreadGain(1e20, 'LORD_OF_NIGHT')).toBe(50);
-    expect(dreadGain(1e20, 'METHUSELAH')).toBe(100);
-    expect(dreadGain(1e20, 'PROGENITOR')).toBe(200);
-    expect(dreadGain(1e20, 'TERA_OVERLORD')).toBe(400);
-    expect(dreadGain(1e20, 'HORROR_INCARNATE')).toBe(800);
+    expect(dreadGain(1e20, 'NEWBORN')).toBe(5);
+    expect(dreadGain(1e20, 'ELDER')).toBe(15);
+    expect(dreadGain(1e20, 'LORD_OF_NIGHT')).toBe(35);
+    expect(dreadGain(1e20, 'METHUSELAH')).toBe(75);
+    expect(dreadGain(1e20, 'PROGENITOR')).toBe(150);
+    expect(dreadGain(1e20, 'TERA_OVERLORD')).toBe(300);
+    expect(dreadGain(1e20, 'HORROR_INCARNATE')).toBe(600);
   });
 
   it('THIRST is uncapped (Infinity) — endgame freedom', () => {

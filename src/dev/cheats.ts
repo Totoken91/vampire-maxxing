@@ -18,6 +18,16 @@ import { performPull, type PullResult } from '../game/ritual';
 import type { BannerId } from '../game/config/banners';
 import { awaken, convertEssence, publishThrallModifiers } from '../game/awakening';
 import { STAR_MAX_PER_RARITY } from '../game/config/awakening';
+import {
+  claimQuest,
+  getActiveQuest,
+  rotateIfNeeded,
+} from '../game/quests';
+import { claimAllAchievements } from '../game/achievement-claim';
+import { localDateKey } from '../game/config/daily';
+import { purchasePack, type PurchaseOutcome } from '../game/iap';
+import { PACKS } from '../game/config/packs';
+import { showWelcomePackModal } from '../ui/components/welcome-pack-modal';
 
 type Cheats = {
   gameState: typeof gameState;
@@ -47,6 +57,19 @@ type Cheats = {
   unequipAll: () => void;
   tutorialGift: () => void;
   clearFlags: () => void;
+  completeQuest: () => number;
+  rotateQuest: () => void;
+  claimAllAchievements: () => { count: number; totalIchor: number; ids: string[] };
+  simulatePurchase: (sku: string) => Promise<PurchaseOutcome>;
+  listPacks: () => readonly { sku: string; price: number; ichor: number; ftBonus: number }[];
+  firstRare: () => void;
+  /** V1.3 — Soulreave debug helpers. */
+  addSoulShards: (n: number) => void;
+  addLifetimeDread: (n: number) => void;
+  unlockMetaTree: () => void;
+  soulreave: () => boolean;
+  resetSoulreave: () => void;
+  showSoulreaveCinematic: () => Promise<void>;
 };
 
 declare global {
@@ -181,6 +204,61 @@ export function installCheats(): void {
         });
       });
     },
+    completeQuest() {
+      // Force the active quest's progress to its target so the CLAIM
+      // CTA lights up, then claim it. Returns Ichor credited (clipped
+      // at the soft cap).
+      rotateIfNeeded();
+      const def = getActiveQuest();
+      const qs = gameState.getQuestState();
+      qs.metrics[def.metric] = def.target;
+      qs.progress = def.target;
+      events.emit('quest-completed', { id: def.id });
+      return claimQuest();
+    },
+    rotateQuest() {
+      // Drop today's quest state so the engine picks a fresh one on
+      // next access. Useful for testing rotation visuals without
+      // having to wait until midnight.
+      const qs = gameState.getQuestState();
+      qs.date = '';
+      qs.activeId = '';
+      qs.progress = 0;
+      qs.claimed = false;
+      rotateIfNeeded();
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[vm] quest rotated to "${getActiveQuest().id}" for ${localDateKey()}.`,
+      );
+    },
+    claimAllAchievements() {
+      return claimAllAchievements();
+    },
+    simulatePurchase(sku) {
+      // Bypasses the Play sheet (web stub already does), runs the
+      // grant flow end-to-end so we can verify Ichor + ribbon + FT
+      // accounting in dev. Returns the same outcome the UI sees.
+      return purchasePack(sku);
+    },
+    listPacks() {
+      return PACKS.map((p) => ({
+        sku: p.sku,
+        price: p.priceEur,
+        ichor: p.baseIchor,
+        ftBonus: p.firstTimeBonusIchor,
+      }));
+    },
+    firstRare() {
+      // Force-arm the Pacte Fondateur trigger so the welcome modal
+      // fires immediately. Useful for iterating on the modal copy
+      // and timing without having to actually pull a Rare.
+      gameState.markWelcomeFirstRareEarned();
+      events.emit('welcome-pack-armed', {
+        sku: 'vm_founder_pact',
+        ts: gameState.getWelcomeFirstRareAt() ?? Date.now(),
+      });
+      showWelcomePackModal();
+    },
     clearFlags() {
       // Wipe every persisted FTUE / reward / ritual flag so the
       // first-time triggers re-arm. Pairs with vm.wipe() when
@@ -244,6 +322,58 @@ export function installCheats(): void {
         events.emit('blood-changed', { blood: s.blood, delta: need });
       }
       await playAscensionFx(() => gameState.ascend());
+    },
+    // ─── V1.3 SOULREAVE ───
+    addSoulShards(n) {
+      gameState._devAddSoulShards(n);
+    },
+    addLifetimeDread(n) {
+      gameState._devAddLifetimeDread(n);
+    },
+    unlockMetaTree() {
+      // Force-fill the entire meta-tree as if every node had been
+      // bought. Re-publishes runtime effects via reapplyOwnedMetaNodes.
+      void import('../game/config/meta-tree').then(
+        async ({ META_NODES }) => {
+          for (const n of META_NODES) gameState._setMetaNodeOwned(n.id, true);
+          const { reapplyOwnedMetaNodes } = await import('../game/soulreave');
+          reapplyOwnedMetaNodes();
+          events.emit('rate-changed', { totalRate: gameState.getTotalRate() });
+          // eslint-disable-next-line no-console
+          console.info('[vm] every meta-tree node unlocked.');
+        },
+      );
+    },
+    soulreave() {
+      // Bypass gating + cinematic; fires the reset directly. Returns
+      // whether anything happened.
+      const before = gameState.getTotalSoulreaves();
+      void import('../game/soulreave').then(({ performSoulreave, projectedSoulShards }) => {
+        // Inflate lifetimeDread to make the projection non-zero if
+        // the dev forgot to call addLifetimeDread first.
+        if (projectedSoulShards(gameState.getLifetimeDread()) < 1) {
+          gameState._devAddLifetimeDread(BALANCE.SOULREAVE_THRESHOLD_DREAD);
+        }
+        // Cheat: also set totalAscends past the unlock gate.
+        const s = gameState.get() as unknown as {
+          stats: { totalAscends: number };
+        };
+        if (s.stats.totalAscends < BALANCE.SOULREAVE_UNLOCK_TOTAL_ASCENDS) {
+          s.stats.totalAscends = BALANCE.SOULREAVE_UNLOCK_TOTAL_ASCENDS;
+        }
+        performSoulreave();
+      });
+      return gameState.getTotalSoulreaves() === before; // resolved async; rough indicator
+    },
+    resetSoulreave() {
+      gameState._devWipeSoulreave();
+    },
+    async showSoulreaveCinematic() {
+      const { playSoulreaveCinematic } = await import('../fx/soulreave');
+      await playSoulreaveCinematic(
+        gameState.getTotalSoulreaves() + 1,
+        () => {},
+      );
     },
   };
 

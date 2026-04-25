@@ -8,6 +8,14 @@ import { FORMS_BY_ID } from '../../game/config/forms';
 import { getCurrentForm } from '../../game/forms';
 import { BALANCE } from '../../game/config/balance';
 import { dreadGainCap } from '../../game/math';
+import {
+  canSoulreave,
+  performSoulreave,
+  projectedSoulShards,
+  soulreaveUnlocked,
+} from '../../game/soulreave';
+import { playSoulreaveCinematic } from '../../fx/soulreave';
+import { openMetaTreeModal } from './meta-tree-modal';
 
 const HOLD_MS = 700;
 
@@ -119,6 +127,14 @@ export function openAscendModal(): Promise<boolean> {
       'Ascension resets your progress.',
     );
 
+    // V1.3 — Soulreave + meta-tree access. Both gate-checks happen
+    // here so the buttons reveal themselves only when contextually
+    // earned. Soulreave button: `canSoulreave()` (Methuselah +
+    // lifetimeDread ≥ threshold). Meta-tree button: `totalSoulreaves
+    // ≥ 1` (player has at least one Soulreave under their belt).
+    const soulreaveRow = buildSoulreaveRow(() => finish(false));
+    const metaTreeRow = buildMetaTreeRow(() => finish(false));
+
     // Assemble
     modal.appendChild(close);
     modal.appendChild(title);
@@ -126,6 +142,8 @@ export function openAscendModal(): Promise<boolean> {
     modal.appendChild(seal);
     modal.appendChild(rewards);
     modal.appendChild(confirm);
+    if (soulreaveRow) modal.appendChild(soulreaveRow);
+    if (metaTreeRow) modal.appendChild(metaTreeRow);
     modal.appendChild(footer);
 
     document.body.appendChild(backdrop);
@@ -178,4 +196,71 @@ function addReward(list: HTMLElement, text: string): void {
   li.appendChild(el('span', 'ascend-modal__reward-marker', '\u25C6')); // ◆
   li.appendChild(el('span', 'ascend-modal__reward-text', text));
   list.appendChild(li);
+}
+
+/** V1.3 — Soulreave button. Returns null when the player isn't yet
+ *  Methuselah (system locked) so the row is fully hidden. When
+ *  unlocked but below the Dread threshold, returns a disabled button
+ *  with hint copy ("XXX Dread to Soulreave") to tease the next gate.
+ *  When ready, returns an enabled button that fires the cinematic. */
+function buildSoulreaveRow(closeAscend: () => void): HTMLElement | null {
+  if (!soulreaveUnlocked()) return null;
+  const lifetime = gameState.getLifetimeDread();
+  const ready = canSoulreave();
+  const projected = projectedSoulShards(lifetime);
+
+  const row = el('div', 'ascend-modal__soulreave-row');
+  const btn = el(
+    'button',
+    'ascend-modal__soulreave-btn',
+  ) as HTMLButtonElement;
+  btn.type = 'button';
+  if (ready) {
+    btn.classList.add('ascend-modal__soulreave-btn--ready');
+    btn.innerHTML =
+      `<span class="ascend-modal__soulreave-label">SOULREAVE</span>` +
+      `<span class="ascend-modal__soulreave-sub">+${projected} Soul Shards</span>`;
+    btn.addEventListener('click', () => {
+      closeAscend();
+      const indexAfter = gameState.getTotalSoulreaves() + 1;
+      void playSoulreaveCinematic(indexAfter, () => {
+        performSoulreave();
+      });
+    });
+  } else {
+    btn.classList.add('ascend-modal__soulreave-btn--locked');
+    btn.disabled = true;
+    const remaining = Math.max(
+      0,
+      BALANCE.SOULREAVE_THRESHOLD_DREAD - lifetime,
+    );
+    btn.innerHTML =
+      `<span class="ascend-modal__soulreave-label">SOULREAVE LOCKED</span>` +
+      `<span class="ascend-modal__soulreave-sub">${remaining} Dread to unlock</span>`;
+  }
+  row.appendChild(btn);
+  return row;
+}
+
+/** V1.3 — META-TREE access. Surfaces only after the player has
+ *  Soulreaved at least once — before that, the meta-tree screen
+ *  has no purchasable nodes and would just confuse. */
+function buildMetaTreeRow(closeAscend: () => void): HTMLElement | null {
+  if (gameState.getTotalSoulreaves() < 1) return null;
+  const row = el('div', 'ascend-modal__meta-tree-row');
+  const btn = el(
+    'button',
+    'ascend-modal__meta-tree-btn',
+  ) as HTMLButtonElement;
+  btn.type = 'button';
+  const shards = gameState.getSoulShards();
+  btn.innerHTML =
+    `<span class="ascend-modal__meta-tree-label">SOUL SHARDS</span>` +
+    `<span class="ascend-modal__meta-tree-sub">${shards} available · view tree</span>`;
+  btn.addEventListener('click', () => {
+    closeAscend();
+    openMetaTreeModal();
+  });
+  row.appendChild(btn);
+  return row;
 }

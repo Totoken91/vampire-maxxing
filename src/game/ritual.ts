@@ -59,10 +59,17 @@ export interface PullFlags {
   readonly frg: boolean;
   readonly pityRare: boolean;
   readonly pityEpic: boolean;
+  /** V1.2-EXT — Legendary hard pity at 80 pulls forced this roll. */
+  readonly pityLegendary: boolean;
   readonly bundleGuarantee: boolean;
   readonly antiStreak: boolean;
   readonly duplicateProtection: boolean;
   readonly featuredRateUp: boolean;
+  /** V1.3 — Welcome Tribute (meta-tree node) consumed: this Standard
+   *  pull was forced to Rare+ because the player Soulreaved with the
+   *  node owned. One-shot per Soulreave; the engine clears the flag
+   *  the moment it fires. */
+  readonly welcomeTribute: boolean;
 }
 
 export interface BannerProgress {
@@ -72,6 +79,12 @@ export interface BannerProgress {
   /** Featured-only — null on Standard. */
   readonly pityEpic: number | null;
   readonly pityEpicCap: number | null;
+  /** V1.2-EXT — pulls since last Legendary on this banner. The
+   *  cap is the hard pity (80); the soft pity ramp starts at
+   *  `legendarySoftStart` and is reflected by progressively higher
+   *  pull odds, not a separate counter. */
+  readonly pityLegendary: number;
+  readonly pityLegendaryCap: number;
   readonly totalPulls: number;
 }
 
@@ -139,27 +152,54 @@ function rollOne(banner: BannerId, ctx: RollContext): PullResult {
     frg: false,
     pityRare: false,
     pityEpic: false,
+    pityLegendary: false,
     bundleGuarantee: false,
     antiStreak: false,
     duplicateProtection: false,
     featuredRateUp: false,
+    welcomeTribute: false,
   };
 
   // ── 1. Resolve forced rarity (top of priority list) ──
+  // Priority order:
+  //   FRG → bundleGuarantee → Legendary hard pity → Epic pity (Featured)
+  //   → Rare pity → anti-streak → roll-with-soft-pity-ramp
+  // Legendary hard pity sits ABOVE Epic pity because a 80-pull
+  // Legendary guarantee outranks a 40-pull Epic — once both are due,
+  // the player gets the Legendary they've been chasing.
   let rarity: ThrallRarity | null = null;
 
   if (!gameState.hasUsedFirstRareGuarantee()) {
     rarity = 'rare';
     flags.frg = true;
+  } else if (banner === 'standard' && gameState.isWelcomeTributeArmed()) {
+    // V1.3 — Welcome Tribute: forced Rare+ on the first Standard
+    // pull after a Soulreave when the meta-tree node is owned.
+    // Standard-only because the audit explicitly scoped it that way
+    // (Featured already has rate-up; piling another forced Rare on
+    // it would dilute Featured's identity). The flag is cleared
+    // here regardless of the rolled rarity.
+    rarity = 'rare';
+    flags.welcomeTribute = true;
+    gameState._setWelcomeTributeArmed(false);
   } else if (ctx.bundleGuaranteeNeeded) {
     // Force Rare; if pity epic is also at threshold, prefer Epic.
-    if (featured && ritual.pityCounterEpic >= PITY.featuredEpic - 1) {
+    // Legendary hard pity also wins if it's due — the bundle
+    // guarantee is "≥1 Rare+", a Legendary trivially satisfies it.
+    if (ritual.pityCounterLegendary >= PITY.legendary - 1) {
+      rarity = 'legendary';
+      flags.pityLegendary = true;
+    } else if (featured && ritual.pityCounterEpic >= PITY.featuredEpic - 1) {
       rarity = 'epic';
       flags.pityEpic = true;
     } else {
       rarity = 'rare';
     }
     flags.bundleGuarantee = true;
+  } else if (ritual.pityCounterLegendary >= PITY.legendary - 1) {
+    // V1.2-EXT — Legendary hard pity. 80 pulls → forced Legendary.
+    rarity = 'legendary';
+    flags.pityLegendary = true;
   } else if (featured && ritual.pityCounterEpic >= PITY.featuredEpic - 1) {
     rarity = 'epic';
     flags.pityEpic = true;
@@ -171,14 +211,14 @@ function rollOne(banner: BannerId, ctx: RollContext): PullResult {
     flags.antiStreak = true;
   }
 
-  // ── 2. Otherwise roll using base rates ──
+  // ── 2. Otherwise roll using base rates with soft-pity ramp ──
   // The cascade walks here — both for naturally rolled rarities AND
   // for forced ones (pity / bundle / anti-streak / FRG). Without
   // this, a pity-forced rare with all rares already owned would
   // pick a duplicate thrall and show its portrait again instead of
   // routing to a Cinder Ceremony.
   if (rarity === null) {
-    rarity = rollRarity(banner);
+    rarity = rollRarity(banner, ritual.pityCounterLegendary);
   }
   const intendedRarity = rarity;
   const climbed = walkCascadeForUnowned(rarity);
@@ -218,18 +258,40 @@ function rollOne(banner: BannerId, ctx: RollContext): PullResult {
   }
 
   // Pity / streak bookkeeping.
+  // The Legendary counter is shared across both banners' pulls in
+  // the sense that EACH banner has its own counter, but every roll
+  // bumps the local counter regardless of result, and a Legendary
+  // result resets it. Same shape as Rare/Epic counters — banner-local.
   ritual.totalPulls += 1;
   if (rarity === 'common') {
     ritual.commonStreak += 1;
     ritual.pityCounterRare += 1;
+    ritual.pityCounterLegendary += 1;
     if (featured) ritual.pityCounterEpic += 1;
+    // L12 — Frisson du Destin: if the player armed the buff via the
+    // rite, this Common pull also bumps pity +1 (so the next Rare
+    // pity arrives one pull sooner). Buff consumed regardless of
+    // banner so the "1x/prestige" cap stays consistent.
+    if (gameState.hasFrissonBuff()) {
+      ritual.pityCounterRare += 1;
+      gameState.consumeFrissonBuff();
+    }
   } else if (rarity === 'rare') {
     ritual.commonStreak = 0;
     ritual.pityCounterRare = 0;
+    ritual.pityCounterLegendary += 1;
     if (featured) ritual.pityCounterEpic += 1;
   } else if (rarity === 'epic') {
     ritual.commonStreak = 0;
     ritual.pityCounterRare = 0;
+    ritual.pityCounterLegendary += 1;
+    if (featured) ritual.pityCounterEpic = 0;
+  } else if (rarity === 'legendary') {
+    // V1.2-EXT — a Legendary resets EVERYTHING. The player just hit
+    // the top of the cascade; counters wipe.
+    ritual.commonStreak = 0;
+    ritual.pityCounterRare = 0;
+    ritual.pityCounterLegendary = 0;
     if (featured) ritual.pityCounterEpic = 0;
   }
 
@@ -304,14 +366,23 @@ function resolveCinder(
   if (rolled === 'common') {
     ritual.commonStreak += 1;
     ritual.pityCounterRare += 1;
+    ritual.pityCounterLegendary += 1;
     if (featured) ritual.pityCounterEpic += 1;
   } else if (rolled === 'rare') {
     ritual.commonStreak = 0;
     ritual.pityCounterRare = 0;
+    ritual.pityCounterLegendary += 1;
     if (featured) ritual.pityCounterEpic += 1;
   } else if (rolled === 'epic') {
     ritual.commonStreak = 0;
     ritual.pityCounterRare = 0;
+    ritual.pityCounterLegendary += 1;
+    if (featured) ritual.pityCounterEpic = 0;
+  } else if (rolled === 'legendary') {
+    // V1.2-EXT — Cinder at Legendary tier resets every counter.
+    ritual.commonStreak = 0;
+    ritual.pityCounterRare = 0;
+    ritual.pityCounterLegendary = 0;
     if (featured) ritual.pityCounterEpic = 0;
   }
 
@@ -340,19 +411,41 @@ function rareCapFor(banner: BannerId): number {
 }
 
 /**
- * Roll a rarity from the BANNER'S BASE RATES — no redistribution.
- * The cascade runs separately in `walkCascadeForUnowned` so a fully
- * saturated player gets a Cinder Ceremony at the rolled rarity
- * (giving 82/15/3 visual variety) instead of 100% epic spam.
+ * Roll a rarity from the BANNER'S BASE RATES + Legendary soft-pity
+ * ramp. After `legendarySoftStart` pulls without a Legendary, the
+ * Legendary rate ramps additively per pull until hard pity at 80
+ * forces it. The Common bucket absorbs the Legendary rate increase
+ * so the Rare/Epic bands stay constant — this matches the HoYo
+ * pattern where soft pity steals from low-rarity, not rate-up tiers.
  */
-function rollRarity(banner: BannerId): ThrallRarity {
+function rollRarity(banner: BannerId, pityLegendary: number): ThrallRarity {
   const base = banner === 'featured' ? FEATURED_RATES : STANDARD_RATES;
+
+  // Soft-pity ramp on Legendary. 0 below the soft-start, then linear
+  // additive. Pulls past the start get +ramp per extra pull.
+  let legendaryRate = base.legendary;
+  if (pityLegendary >= PITY.legendarySoftStart) {
+    const overshoot = pityLegendary - PITY.legendarySoftStart + 1;
+    legendaryRate = Math.min(1, base.legendary + overshoot * PITY.legendarySoftRamp);
+  }
+
+  const epicRate = base.epic;
+  const rareRate = base.rare;
+  // The remainder routes to common — the Legendary ramp eats from
+  // the common bucket exclusively.
+  const commonRate = Math.max(0, 1 - legendaryRate - epicRate - rareRate);
+
   const r = rng();
   let acc = 0;
   // Iterate rarest → commonest so the early-exit lands cleanly when
-  // r falls in the small epic / rare buckets.
-  for (const rarity of ['epic', 'rare', 'common'] as const) {
-    acc += base[rarity];
+  // r falls in the small Legendary / Epic / Rare buckets.
+  for (const [rarity, rate] of [
+    ['legendary', legendaryRate] as const,
+    ['epic', epicRate] as const,
+    ['rare', rareRate] as const,
+    ['common', commonRate] as const,
+  ]) {
+    acc += rate;
     if (r < acc) return rarity;
   }
   // Floating-point drift safety net.
@@ -427,6 +520,8 @@ export function getBannerProgress(banner: BannerId): BannerProgress {
     pityRareCap: rareCapFor(banner),
     pityEpic: banner === 'featured' ? r.pityCounterEpic : null,
     pityEpicCap: banner === 'featured' ? PITY.featuredEpic : null,
+    pityLegendary: r.pityCounterLegendary,
+    pityLegendaryCap: PITY.legendary,
     totalPulls: r.totalPulls,
   };
 }

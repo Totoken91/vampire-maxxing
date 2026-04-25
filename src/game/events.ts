@@ -54,6 +54,56 @@ export interface GameEvents {
     prevId: ThrallId | null;
     nextId: ThrallId | null;
   };
+  /** L_QUESTS — a rite was just consumed (Offering, Curse, Frisson…).
+   *  Carries the rite id so future analytics + the daily quest
+   *  metric tracker can react. Fires from gameState.markRiteUsed(). */
+  'rite-used': { id: string };
+  /** L_QUESTS — daily quest target reached. Drives the "ready to
+   * claim" UI state (breathing pulse on the CLAIM CTA, red dot on
+   * the Tome tab). Fires once per quest completion. */
+  'quest-completed': { id: string };
+  /** L_QUESTS — player tapped CLAIM on the active quest. Carries
+   * the granted Ichor amount (also visible via the ichor-earned
+   * event with source='daily_quest'). */
+  'quest-claimed': { id: string; ichor: number };
+  /** L_QUESTS — player tapped CLAIM on an achievement card.
+   * Drives the per-card claim animation + parabolic Ichor flight. */
+  'achievement-claimed': { id: string; ichor: number };
+  /** L10 — successful IAP pack purchase. Carries the SKU, EUR price,
+   *  Ichor credited (after FT-Double if applicable), and whether this
+   *  was the first-time purchase. Drives analytics + the post-purchase
+   *  celebration modal in the Shop tab. */
+  'pack-purchased': {
+    sku: string;
+    priceEur: number;
+    ichorCredited: number;
+    wasFirstTime: boolean;
+  };
+  /** L11 — Pacte Fondateur trigger window opened. Fires once per save
+   *  when the player obtains their first Rare+ thrall. The Shop tab
+   *  + an FTUE modal listen to this to surface the welcome pack at
+   *  the right dopamine moment (post-Rare reveal). */
+  'welcome-pack-armed': { sku: string; ts: number };
+  /** L15 — A single user setting toggled. The carrier shape uses an
+   *  unknown value type because each setting has a different value
+   *  shape (boolean for sound/haptic/notif, string for lang). */
+  'settings-changed': { key: string; value: unknown };
+  /** V1.2-HF1 — Auto-ascend was paused for a one-shot reason (form
+   *  bump). UI consumes this to surface a hint toast "Auto paused —
+   *  tap ASCEND to embrace the new Form." */
+  'auto-ascend-paused': { reason: 'form-bump' };
+  /** V1.3 — Soul Shards balance moved (granted on Soulreave or spent
+   *  on a meta-tree node). The meta-tree screen + counter listen to
+   *  this for re-render. */
+  'soul-shards-changed': { balance: number; delta: number };
+  /** V1.3 — a Soulreave was performed. `index` is the count post-
+   *  reave (1 on the very first Soulreave). Drives the cinematic
+   *  title ("SOULREAVE I/II/III"), the FX engine, and the post-cine
+   *  meta-tree reveal pulse. */
+  'soulreaved': { index: number; soulShardsGained: number };
+  /** V1.3 — a meta-tree node was purchased. Drives the node-owned
+   *  state mutation in the UI + the "+1 perk" toast. */
+  'meta-node-purchased': { id: string; cost: number };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

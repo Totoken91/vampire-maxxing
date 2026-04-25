@@ -18,17 +18,22 @@ import {
 } from '../game/config/thralls';
 import type { BannerDef } from '../game/config/banners';
 import type { PullResult } from '../game/ritual';
+import {
+  playPullImpact,
+  playPullReveal,
+  playPullRumble,
+} from '../audio/pull-sfx';
 
 const SKIP_VISIBLE_AFTER_MS = 800;
 
-/** Anticipation lead-in (only fires on PORTRAIT reveals of rare+).
- *  Cinder Ceremonies skip anticipation — they're meditative
- *  saturation outcomes, not hero reveals. */
+/** Anticipation lead-in. Even commons get a brief (250ms) build now
+ *  — pure-instant reveal felt jarring per Kenny. Rare+ ramp up so
+ *  the player feels the rarity coming before the visual lands. */
 const ANTICIPATION_MS: Record<ThrallRarity, number> = {
-  common: 0,
-  rare: 400,
-  epic: 700,
-  legendary: 900,
+  common: 250,
+  rare: 600,
+  epic: 950,
+  legendary: 1200,
 };
 
 /** Reveal phase duration for PORTRAIT pulls. Tightened up vs the
@@ -128,16 +133,26 @@ export function playPullSequence(
       readyForTap = false;
       advanceHintEl = null;
 
-      // Phase 1 — anticipation. Only fires on PORTRAIT reveals of
-      // rare+ (cinders are meditative, no anticipation). Radial glow
-      // blooms from the center while the screen dims further.
+      // Phase 1 — anticipation. Common gets a brief 250ms quiet
+      // build, rare/epic/legendary ramp up. Cinders skip
+      // anticipation entirely (meditative, no hero buildup).
       const antMs = result.isCinder ? 0 : ANTICIPATION_MS[result.rarity];
       if (antMs > 0) {
         const ant = el('div', 'pull-anticipation');
         ant.dataset.rarity = result.rarity;
         overlay.appendChild(ant);
+        // Audio rumble synced with the visual build-up. Web Audio
+        // API procedural — sub-bass swell, pitch-rises, peaks at
+        // ~95% of the duration so it cuts at the impact moment.
+        playPullRumble(result.rarity, antMs);
         if (navigator.vibrate) {
-          navigator.vibrate(result.rarity === 'epic' ? [4, 60, 4] : 4);
+          navigator.vibrate(
+            result.rarity === 'epic' || result.rarity === 'legendary'
+              ? [6, 80, 6, 80, 8]
+              : result.rarity === 'rare'
+                ? [4, 80, 4]
+                : 3,
+          );
         }
         after(antMs, () => doReveal(result));
       } else {
@@ -157,6 +172,9 @@ export function playPullSequence(
         const cinder = buildCinder(result);
         overlay.appendChild(cinder);
         hapticForRarity(result.rarity);
+        // Cinder gets a soft impact — quieter than a portrait pull
+        // since there's no thrall to celebrate.
+        playPullImpact(result.rarity);
         // Subtle screen shake on epic Cinder only — rare/common feel
         // meditative rather than impactful.
         if (result.rarity === 'epic' || result.rarity === 'legendary') {
@@ -172,6 +190,16 @@ export function playPullSequence(
 
       triggerScreenShake(overlay, result.rarity, after);
       hapticForRarity(result.rarity);
+      // Color-tell impact — bright percussive strike at the moment
+      // the rarity flash burns. The cluster (and gain) scales with
+      // tier so SSR-equivalent Epics actually feel like an event.
+      playPullImpact(result.rarity);
+      // Bell-like reveal chime that lands as the player reads the
+      // name (~600ms after impact). Higher rarity = more partials.
+      after(600, () => {
+        if (skipped) return;
+        playPullReveal(result.rarity);
+      });
 
       const revealMs = REVEAL_DURATION_MS[result.rarity];
 

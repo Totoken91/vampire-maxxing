@@ -24,6 +24,8 @@ export type IchorSource =
   | 'achievement_first_rare'
   | 'achievement_first_epic'
   | 'achievement_collection'
+  | 'achievement_claim'
+  | 'daily_quest'
   | 'event_reward'
   | 'iap_pack'
   | 'ritual_spent'
@@ -52,9 +54,14 @@ export const ICHOR_SOFT_CAP = 1000;
 const LEDGER_MAX = 100;
 
 /**
- * Grant Ichor. Clipped to ICHOR_SOFT_CAP from above. Appends a ledger
- * entry, emits 'ichor-earned' so the UI can toast + refresh.
- * Returns the clipped amount actually credited (0 if already at cap).
+ * Grant Ichor. Earned-Ichor sources clip at ICHOR_SOFT_CAP (anti-
+ * hoarding ceiling so each F2P drop keeps feeling worth something).
+ * Paid sources (IAP packs) BYPASS the cap entirely — clipping a
+ * purchase would be theft from the player's wallet, full stop.
+ *
+ * Returns the amount actually credited. A clipped earned grant
+ * returns 0 silently (no error popup; the balance UI shows the cap
+ * state and the player can drain it before earning more).
  */
 export function grantIchor(
   amount: number,
@@ -66,8 +73,14 @@ export function grantIchor(
     ichor: number;
     ichorLedger: IchorTransaction[];
   };
-  const headroom = Math.max(0, ICHOR_SOFT_CAP - state.ichor);
-  const credited = Math.min(amount, headroom);
+
+  // Sources that bypass the soft cap. IAP-paid Ichor (any pack)
+  // must always credit fully — it's user-paid currency, the cap is
+  // a F2P-economy guardrail not an upper limit on the wallet.
+  const isPaidSource = source === 'iap_pack';
+  const credited = isPaidSource
+    ? amount
+    : Math.min(amount, Math.max(0, ICHOR_SOFT_CAP - state.ichor));
   if (credited <= 0) return 0;
 
   state.ichor += credited;

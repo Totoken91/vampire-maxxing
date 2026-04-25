@@ -1,0 +1,186 @@
+/* L13 — Age gate modal. Sober, mandatory before the player enters
+   the game. Visual language: same baroque card as daily/disclosure
+   so it reads as "important system message", not random popup. */
+
+.age-gate__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(4, 2, 6, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  animation: age-gate-in 220ms ease-out;
+}
+.age-gate__backdrop--exit {
+  animation: age-gate-out 220ms ease-in forwards;
+}
+@keyframes age-gate-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes age-gate-out {
+  to { opacity: 0; }
+}
+
+.age-gate {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 15, 20, 0.98),
+    rgba(12, 8, 12, 1)
+  );
+  border: 1px solid var(--gold-dim);
+  text-align: center;
+  box-shadow:
+    0 0 50px rgba(201, 169, 98, 0.18),
+    0 8px 40px rgba(0, 0, 0, 0.7);
+  animation: age-gate-pop 380ms var(--ease-out-pop);
+}
+@keyframes age-gate-pop {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.age-gate::before,
+.age-gate::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--gold);
+}
+.age-gate::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+.age-gate::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+.age-gate__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+
+.age-gate__sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin-bottom: var(--sp-4);
+}
+
+.age-gate__question {
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--ink);
+  line-height: 1.3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+}
+
+.age-gate__note {
+  margin: 0 0 var(--sp-4);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+.age-gate__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.age-gate__btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(60, 40, 25, 0.55),
+    rgba(20, 12, 14, 0.65)
+  );
+  border: 1px solid var(--gold-dim);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: center;
+  transition: filter 120ms, transform 120ms var(--ease-out-pop);
+}
+.age-gate__btn:hover {
+  filter: brightness(1.15);
+}
+.age-gate__btn:active {
+  transform: scale(0.98);
+}
+
+.age-gate__btn-label {
+  font-size: 12px;
+  letter-spacing: 0.36em;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+}
+.age-gate__btn-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--ink-dim);
+}
+
+.age-gate__btn--primary {
+  border-color: var(--gold);
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.22),
+    rgba(120, 90, 40, 0.18)
+  );
+}
+.age-gate__btn--primary .age-gate__btn-label {
+  color: var(--gold);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px rgba(252, 211, 77, 0.5);
+}
+
+.age-gate__btn--secondary {
+  border-color: rgba(120, 90, 70, 0.4);
+}
+.age-gate__btn--secondary .age-gate__btn-label {
+  color: var(--ink-dim);
+}
+
+/* L15 — Reduced-motion. Age gate is one-shot but visited by every
+ * new install, so respect the preference on first impression. */
+@media (prefers-reduced-motion: reduce) {
+  .age-gate__backdrop,
+  .age-gate__backdrop--exit,
+  .age-gate,
+  .age-gate::before,
+  .age-gate::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

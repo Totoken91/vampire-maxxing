@@ -2,9 +2,12 @@
 // Physics runs every frame; UI hooks fire at ~10 Hz via the 'tick' event.
 
 import { gameState } from './state';
+import { tickAutoAscend } from './auto-ascend';
+import { tickAutoBuy } from './auto-buy';
 
 let rafId: number | null = null;
 let lastTime = 0;
+let autoAscendAccum = 0;
 
 function tick(time: number): void {
   if (lastTime === 0) {
@@ -14,6 +17,20 @@ function tick(time: number): void {
   lastTime = time;
 
   gameState.tickPassive(dt);
+
+  // V1.2-HF1 — Auto-ascend tick. Throttled to ~2 Hz so the canAscend
+  // check doesn't fire 60×/sec needlessly; ascend gating is itself
+  // a fast read but the ascend itself launches a cinematic so it
+  // shouldn't run on every frame anyway.
+  autoAscendAccum += dt;
+  if (autoAscendAccum >= 0.5) {
+    autoAscendAccum = 0;
+    tickAutoAscend();
+  }
+
+  // V1.3 — Auto-buy tick. Internal 3s accumulator inside the module;
+  // we just feed it the dt every frame.
+  tickAutoBuy(dt);
 
   rafId = requestAnimationFrame(tick);
 }

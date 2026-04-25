@@ -13,7 +13,9 @@ export function anyRiteUsable(): boolean {
   return (
     canSummonNight() ||
     canOffering() ||
-    canInvokeCurse()
+    canInvokeCurse() ||
+    canOffrande() ||
+    canFrisson()
     // Embrace the Dawn is triggered only by the offline modal, so we
     // deliberately don't surface it here.
   );
@@ -31,4 +33,14 @@ export function canOffering(): boolean {
 export function canInvokeCurse(): boolean {
   if (gameState.getPendingCurseMult() > 1) return false;
   return gameState.getPrestigeCount() >= 1;
+}
+
+/** L12 — daily Ichor rewarded ad. */
+export function canOffrande(): boolean {
+  return gameState.canClaimOffrandeIchor();
+}
+
+/** L12 — Frisson du Destin (pity bump on next Common pull). */
+export function canFrisson(): boolean {
+  return gameState.canArmFrisson();
 }

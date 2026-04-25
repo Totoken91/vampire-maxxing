@@ -1,14 +1,17 @@
-// Phase L — unique Thrall roster v1.0 (V1.2 brief, 2026-04-24).
+// Phase L — unique Thrall roster (V1.2 brief + V1.2-EXT 2026-04-25).
 //
 // These are COLLECTIBLE characters (not generators — those live in
-// servants.ts). The launch roster is 6 Commons + 4 Rares + 2 Epics =
-// 12 total. Zero Legendaries at launch; Lord of Night, Blood Countess
-// and Crimson Reaper are planned for v1.1+ and documented in
-// docs/10-THRALL-ROSTER-V1.md — not in code yet.
+// servants.ts). Roster v1.2-EXT = 6 Commons + 4 Rares + 2 Epics + 3
+// Legendaries = 15 total. The 3 Legendaries (Aldric the Reaper,
+// Cassian Lord of the Night, Maris the Blood Countess) doubled the
+// Epic baseline per the idle-expert audit and ship behind 0.5% rate
+// + 80-pull pity per gacha-systems-expert.
 //
-// Balance note: bonuses follow the V1.2 brief (Common +6-12%, Rare
-// +22-30%, Epic +60-80%). The Scholar-style cost reduction is now
-// milestone-driven (see milestones.ts) so we don't stack it here.
+// Balance scale (multipliers):
+//   Common    1.06–1.12
+//   Rare      1.22–1.30
+//   Epic      1.60–1.80
+//   Legendary 2.00–2.40   (≈ ×2 Epic — the "wow" tier, by design)
 //
 // ID policy: kebab-case, SAVE-STABLE (do not rename). If you need to
 // reshape a thrall, add a migration in save.ts.
@@ -28,7 +31,11 @@ export type ThrallId =
   | 'ashen-vale'
   // Epics (2)
   | 'mirella'
-  | 'velmor-the-dread';
+  | 'velmor-the-dread'
+  // Legendaries (3) — V1.2-EXT
+  | 'aldric-volkov'
+  | 'cassian-vale'
+  | 'maris-vale';
 
 export type ThrallRarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -91,8 +98,8 @@ export interface Thrall {
   readonly bespokeCaption?: string;
 }
 
-/** Target roster count for the "Collected: X/12" display. */
-export const THRALL_ROSTER_TARGET = 12;
+/** Target roster count for the "Collected: X/15" display. */
+export const THRALL_ROSTER_TARGET = 15;
 
 export const THRALLS: readonly Thrall[] = [
   // ─────────── Commons (6) ───────────
@@ -235,6 +242,55 @@ export const THRALLS: readonly Thrall[] = [
       { kind: 'offline_efficiency_floor', value: 0.75 },
     ],
     bespokeCaption: 'his sleep does not waste — three more hours, never below three-quarters',
+  },
+
+  // ─────────── Legendaries (3) — V1.2-EXT 2026-04-25 ───────────
+  // The "wow" tier. Each Legendary doubles an Epic's primary
+  // multiplier and lands a unique signature kit:
+  //   - Aldric (Reaper / predator)  → solo-DPS, ascend-scaling
+  //   - Cassian (Lord / hybrid)     → court amplifier, team-builder
+  //   - Maris (Countess / nocturne) → best-in-slot offline queen
+  // Gated behind 0.5% Featured rate + 80-pull pity. F2P expected
+  // first Legendary at ~10-13 days of active play.
+  {
+    id: 'aldric-volkov',
+    name: 'Aldric Volkov, the Crimson Reaper',
+    rarity: 'legendary',
+    archetype: 'predator',
+    lore: 'They say he stopped counting his kills the night the moon turned red. The tally now keeps itself, in the rust on his blade.',
+    portraitPath: '/assets/thralls/aldric-volkov.png',
+    primaryEffect: { type: 'active_gain', value: 2.20 },
+    bespoke: [
+      { kind: 'click_power_mult', value: 1.40 },
+      { kind: 'crit_damage', value: 1.0 },
+      { kind: 'per_ascend_blood', value: 0.005, cap: 0.50 },
+    ],
+    bespokeCaption: 'every Century rusts the blade further; every blade rusts deeper',
+  },
+  {
+    id: 'cassian-vale',
+    name: 'Cassian Vale, Lord of the Night',
+    rarity: 'legendary',
+    archetype: 'hybrid',
+    lore: 'He inherited the night the way other lords inherit estates: by outlasting every claimant who came before. The chandeliers still bow when he enters.',
+    portraitPath: '/assets/thralls/cassian-vale.png',
+    primaryEffect: { type: 'hybrid', value: 2.00 },
+    bespoke: [{ kind: 'amplify_others_primary', value: 1.30 }],
+    bespokeCaption: 'his court magnifies every gift bound beside him',
+  },
+  {
+    id: 'maris-vale',
+    name: 'Maris Vale, the Blood Countess',
+    rarity: 'legendary',
+    archetype: 'nocturne',
+    lore: 'She holds vigil from a cathedral that no longer prays. The rose window remembers her before any saint, and the candles burn six hours longer in her presence.',
+    portraitPath: '/assets/thralls/maris-vale.png',
+    primaryEffect: { type: 'offline_gain', value: 2.40 },
+    bespoke: [
+      { kind: 'offline_cap_h', value: 6 },
+      { kind: 'offline_efficiency_floor', value: 1.0 },
+    ],
+    bespokeCaption: 'six more hours of vigil — and not a drop wasted',
   },
 ];
 

@@ -17,60 +17,22 @@
 import { el } from '../../utils/dom';
 import { grantIchor, type IchorSource } from '../../game/ichor';
 
-/** How long the player must watch before the CLAIM button becomes
- *  interactive. Set far past the build-up (rays + flash + title +
- *  counter roll + subtitle = ~2.2s) with extra grace so a
- *  tap-spammer (30+ taps/sec) can't burn through the gift before
- *  the reveal lands. */
-const SKIP_AFTER_MS = 4000;
+/** Default skip gate. The tutorial gift uses this so a 30-taps/sec
+ *  spammer can't burn through the reveal — IAP-purchase ceremonies
+ *  pass a shorter `skipAfter` since the Play sheet already gated
+ *  the action behind an explicit confirm. */
+const DEFAULT_SKIP_AFTER_MS = 4000;
 const COUNTER_DURATION_MS = 900;
 const EXIT_DURATION_MS = 520;
 
-/** Inline droplet — same shape as the header Ichor pill (small,
- *  flat fill for the pill / counter). */
-const DROPLET_SVG =
-  '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-  '<path d="M12 2 C12 2 5 10 5 15 C5 19 8 22 12 22 C16 22 19 19 19 15 C19 10 12 2 12 2 Z" ' +
-  'fill="currentColor" stroke="rgba(0,0,0,0.35)" stroke-width="1"/></svg>';
-
-/** Premium 3D droplet for the ceremony hero shot. Internal SVG
- *  gradients give it a sculpted look (specular highlight top-left,
- *  warm body, dark amber bottom rim) that scales cleanly to 200px+
- *  — what the flat counter pill icon never could. */
-const HERO_DROPLET_SVG = `
-  <svg viewBox="0 0 100 110" aria-hidden="true">
-    <defs>
-      <radialGradient id="iggift-body" cx="40%" cy="35%" r="65%">
-        <stop offset="0%" stop-color="#fff8dc" stop-opacity="0.95"/>
-        <stop offset="20%" stop-color="#fcd34d"/>
-        <stop offset="55%" stop-color="#f59e0b"/>
-        <stop offset="85%" stop-color="#a8580a"/>
-        <stop offset="100%" stop-color="#5a2d05"/>
-      </radialGradient>
-      <radialGradient id="iggift-spec" cx="35%" cy="28%" r="22%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-        <stop offset="60%" stop-color="#ffffff" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="iggift-rim" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#fef3c7" stop-opacity="0.4"/>
-        <stop offset="60%" stop-color="#92400e" stop-opacity="0.3"/>
-        <stop offset="100%" stop-color="#451a03" stop-opacity="0.7"/>
-      </linearGradient>
-    </defs>
-    <!-- Body (gradient fill) -->
-    <path
-      d="M50 8 C50 8 18 44 18 70 C18 90 32 102 50 102 C68 102 82 90 82 70 C82 44 50 8 50 8 Z"
-      fill="url(#iggift-body)"
-      stroke="url(#iggift-rim)"
-      stroke-width="1.5"
-    />
-    <!-- Specular highlight (top-left ellipse) -->
-    <ellipse cx="38" cy="42" rx="14" ry="22" fill="url(#iggift-spec)"/>
-    <!-- Tight white pinprick (the catch-light) -->
-    <circle cx="36" cy="34" r="3" fill="#ffffff" opacity="0.85"/>
-  </svg>
-`;
+/** Hero droplet markup — Kenny's hand-painted PNG. Replaces the
+ *  earlier inline SVG (radial-gradient sculpted droplet) so the
+ *  ceremony reads as the same currency the player sees in the HUD
+ *  pill / pack cards. The CSS sets the render size; the PNG carries
+ *  its own painting (specular highlight, rim light, gold body) which
+ *  beats anything we could recreate via SVG gradients. */
+const HERO_DROPLET_HTML =
+  '<img class="ichor-gift__droplet-img" src="/assets/ornaments/ichor-icon.png" alt="" decoding="async" />';
 
 interface ShowOpts {
   /** Toast label written on the title bar. Defaults to a tutorial-
@@ -82,6 +44,23 @@ interface ShowOpts {
   readonly subtitle?: string;
   /** Source tag passed through to grantIchor for ledger tracking. */
   readonly source?: IchorSource;
+  /** When true, the ceremony is purely visual — the Ichor was already
+   *  credited by an upstream flow (typical case: IAP purchase, where
+   *  the grant fires on platform-purchase success and we re-use the
+   *  ceremony as the celebration). Default false → grant fires on
+   *  CLAIM as before. */
+  readonly skipGrant?: boolean;
+  /** Override how long the CLAIM gate takes to open. The tutorial gift
+   *  ships with the 4000ms default to defeat tap-spammers; IAP flows
+   *  pass a shorter window (≈ 1500ms) since the Play sheet already
+   *  gated the action and a long lock would feel punitive after the
+   *  3rd consecutive purchase. */
+  readonly skipAfterMs?: number;
+  /** When true, the ceremony auto-dismisses after the CLAIM gate
+   *  opens without waiting for a tap. Used by IAP flows where the
+   *  reveal is celebratory but shouldn't block the player from
+   *  returning to the Shop. Default false → manual CLAIM as before. */
+  readonly autoDismiss?: boolean;
 }
 
 /**
@@ -96,6 +75,9 @@ export function showIchorGift(amount: number, opts: ShowOpts = {}): Promise<void
   const subtitle =
     opts.subtitle ?? 'their nectar to summon those who sleep';
   const source: IchorSource = opts.source ?? 'tutorial_gift';
+  const skipGrant = opts.skipGrant ?? false;
+  const skipAfterMs = opts.skipAfterMs ?? DEFAULT_SKIP_AFTER_MS;
+  const autoDismiss = opts.autoDismiss ?? false;
 
   return new Promise((resolve) => {
     const overlay = el('div', 'ichor-gift');
@@ -137,7 +119,7 @@ export function showIchorGift(amount: number, opts: ShowOpts = {}): Promise<void
     }
 
     const droplet = el('div', 'ichor-gift__droplet');
-    droplet.innerHTML = HERO_DROPLET_SVG;
+    droplet.innerHTML = HERO_DROPLET_HTML;
 
     const flash = el('div', 'ichor-gift__flash');
 
@@ -150,8 +132,13 @@ export function showIchorGift(amount: number, opts: ShowOpts = {}): Promise<void
     stack.appendChild(core);
 
     const amountWrap = el('div', 'ichor-gift__amount-wrap');
-    const amountIcon = el('span', 'ichor-gift__amount-icon');
-    amountIcon.innerHTML = DROPLET_SVG;
+    const amountIcon = el(
+      'img',
+      'ichor-gift__amount-icon',
+    ) as HTMLImageElement;
+    amountIcon.src = '/assets/ornaments/ichor-icon.png';
+    amountIcon.alt = '';
+    amountIcon.decoding = 'async';
     const amountValue = el('span', 'ichor-gift__amount-value', '0');
     const amountLabel = el('span', 'ichor-gift__amount-label', 'ichor');
     amountWrap.appendChild(amountIcon);
@@ -199,7 +186,11 @@ export function showIchorGift(amount: number, opts: ShowOpts = {}): Promise<void
 
       // Grant the actual Ichor + emit events. The header pill
       // listener picks up 'ichor-changed' and pulses naturally.
-      grantIchor(amount, source);
+      // Skipped on IAP-purchase ceremonies where the grant already
+      // fired upstream (otherwise we'd double-credit).
+      if (!skipGrant) {
+        grantIchor(amount, source);
+      }
 
       // Animate the orb scattering toward the header before the
       // overlay dismisses. The exit class triggers the CSS that
@@ -226,12 +217,20 @@ export function showIchorGift(amount: number, opts: ShowOpts = {}): Promise<void
     // Failsafe auto-skip after 18s in case the player is afk.
     skipTimer = window.setTimeout(onClaim, 18_000);
 
-    // Open the gate. Until SKIP_AFTER_MS the entire ceremony plays
+    // Open the gate. Until skipAfterMs the entire ceremony plays
     // uninterruptable — title slam, counter roll, subtitle settle.
+    // IAP flows hit autoDismiss so the ceremony self-closes shortly
+    // after the gate opens, without forcing a manual CLAIM tap.
     window.setTimeout(() => {
       canClaim = true;
       overlay.classList.add('ichor-gift--ready');
       claimBtn.classList.add('ichor-gift__claim--ready');
-    }, SKIP_AFTER_MS);
+      if (autoDismiss) {
+        // Hold a beat post-gate-open so the breathe pulse is visible
+        // before the orb scatters. Tap-anywhere still works inside
+        // this window thanks to the click handler above.
+        window.setTimeout(onClaim, 900);
+      }
+    }, skipAfterMs);
   });
 }

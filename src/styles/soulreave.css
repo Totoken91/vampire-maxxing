@@ -1,0 +1,688 @@
+/* V1.3 SOULREAVE — Cinematic + meta-tree screen.
+
+   Two surfaces:
+   1. .soulreave-cinematic — full-screen 5s sequence (anticipation +
+      release). 5-layer FDP glow stack on the SOULREAVE title.
+   2. .meta-tree — sub-screen accessed from the Ascend modal post-
+      Soulreave. Hexagonal nodes, SVG branches, breathing pulse on
+      affordable nodes.
+
+   Honors prefers-reduced-motion via .soulreave-cinematic--reduce
+   (single fade, no shake/particles/lightning). */
+
+/* ─────────── Cinematic ─────────── */
+
+.soulreave-cinematic {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--void);
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  opacity: 0;
+  animation: soulreave-fade-in 600ms var(--ease-out-sharp) forwards;
+}
+
+@keyframes soulreave-fade-in {
+  to { opacity: 1; }
+}
+
+.soulreave-cinematic--exit {
+  animation: soulreave-fade-out 320ms ease-out forwards;
+}
+
+@keyframes soulreave-fade-out {
+  to { opacity: 0; }
+}
+
+/* Phase 1 — anticipation veil (radial vignette + slow pulse). */
+.soulreave-cinematic__veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(165, 20, 35, 0.18) 0%,
+    rgba(8, 5, 10, 0.95) 70%,
+    rgba(8, 5, 10, 1) 100%
+  );
+  opacity: 0;
+  transition: opacity 2400ms ease-in;
+}
+.soulreave-cinematic--phase1 .soulreave-cinematic__veil {
+  opacity: 1;
+}
+
+/* Phase 1 — portrait dissolve placeholder. The actual portrait DOM
+   isn't lifted into the cinematic — instead we paint a small dim
+   silhouette that fades to nothing, so the player perceives "their
+   form is being unmade". */
+.soulreave-cinematic__portrait-mask {
+  position: absolute;
+  width: 200px;
+  height: 280px;
+  background:
+    radial-gradient(ellipse at center, rgba(201, 169, 98, 0.22), transparent 70%);
+  filter: blur(4px);
+  opacity: 0;
+  animation: soulreave-portrait-dissolve 3000ms ease-out forwards;
+}
+
+@keyframes soulreave-portrait-dissolve {
+  0%   { opacity: 0; transform: scale(1); filter: blur(0); }
+  20%  { opacity: 0.9; transform: scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: scale(0.6); filter: blur(24px); }
+}
+
+/* Phase 1 — lightning bolts. SVG paths animate via stroke-dashoffset
+   so each crackle reads as a flash of energy. */
+.soulreave-cinematic__lightning {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+.soulreave-cinematic--phase1 .soulreave-cinematic__lightning {
+  animation: soulreave-lightning-fade 3000ms ease-in forwards;
+}
+@keyframes soulreave-lightning-fade {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
+.soulreave-bolt {
+  fill: none;
+  stroke: var(--blood-glow);
+  stroke-width: 0.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 1.2px var(--blood-glow))
+    drop-shadow(0 0 6px rgba(255, 51, 66, 0.8))
+    drop-shadow(0 0 18px rgba(165, 20, 35, 0.6));
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: soulreave-bolt-strike 700ms steps(8) infinite;
+}
+.soulreave-bolt--0 { animation-delay:    0ms; }
+.soulreave-bolt--1 { animation-delay:  220ms; }
+.soulreave-bolt--2 { animation-delay:  440ms; }
+
+@keyframes soulreave-bolt-strike {
+  0%   { stroke-dashoffset: 200; opacity: 0; }
+  10%  { stroke-dashoffset: 0;   opacity: 1; }
+  35%  { opacity: 1; }
+  40%  { opacity: 0.2; }
+  60%  { opacity: 0.9; }
+  100% { stroke-dashoffset: -200; opacity: 0; }
+}
+
+/* Phase 2 — flash. Triggered when --phase2 is added. */
+.soulreave-cinematic__flash {
+  position: absolute;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.soulreave-cinematic--phase2 .soulreave-cinematic__flash {
+  animation: soulreave-flash 380ms ease-out forwards;
+}
+@keyframes soulreave-flash {
+  0%   { opacity: 0; }
+  30%  { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+/* Phase 2 — TITLE SLAM. The 5-layer FDP glow stack lives here:
+     1. Hot core (white, tight)            — text-shadow 0 0 2px
+     2. Body (gold, mid-falloff)           — text-shadow 0 0 16px
+     3. Halo (blood, wide-falloff)         — text-shadow 0 0 48px
+     4. Bloom additive (mix-blend overlay) — ::after pseudo
+     5. Drop-shadow stack (chromatic)      — drop-shadow chain
+*/
+.soulreave-cinematic__title-wrap {
+  position: relative;
+  text-align: center;
+  opacity: 0;
+  transform: scale(1.6);
+  pointer-events: none;
+  z-index: 2;
+}
+.soulreave-cinematic--phase2 .soulreave-cinematic__title-wrap {
+  animation: soulreave-title-slam 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes soulreave-title-slam {
+  0%   { opacity: 0; transform: scale(1.6); letter-spacing: 0.5em; }
+  60%  { opacity: 1; transform: scale(0.96); letter-spacing: 0.16em; }
+  100% { opacity: 1; transform: scale(1);   letter-spacing: 0.08em; }
+}
+
+.soulreave-cinematic__title {
+  font-family: 'Cinzel', var(--font-brand), serif;
+  font-size: clamp(48px, 13vw, 96px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #fff8e6;
+  /* Stack 1+2+3: tight white core → gold body → blood halo */
+  text-shadow:
+    0 0 2px  #ffffff,
+    0 0 8px  #fff2c8,
+    0 0 18px var(--gold),
+    0 0 32px #c97a2e,
+    0 0 64px var(--blood);
+  /* Stack 5: chromatic drop-shadow chain — the "AAA" tell */
+  filter:
+    drop-shadow(0 0 6px var(--gold))
+    drop-shadow(0 0 18px var(--blood-dark))
+    drop-shadow(0 0 48px rgba(255, 51, 66, 0.4));
+  position: relative;
+}
+
+/* Stack 4: the bloom additive overlay — a copy of the text painted
+   in screen-blend mode pulsing softly. */
+.soulreave-cinematic__title::after {
+  content: 'SOULREAVE';
+  position: absolute;
+  inset: 0;
+  color: var(--blood-glow);
+  mix-blend-mode: screen;
+  filter: blur(8px);
+  opacity: 0.6;
+  animation: soulreave-bloom-breathe 1200ms ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes soulreave-bloom-breathe {
+  0%   { opacity: 0.4; transform: scale(1); }
+  100% { opacity: 0.85; transform: scale(1.04); }
+}
+
+.soulreave-cinematic__subtitle {
+  margin-top: 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(18px, 4vw, 28px);
+  letter-spacing: 0.4em;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(201, 169, 98, 0.6);
+}
+
+.soulreave-cinematic__particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.soulreave-cinematic__skip {
+  position: absolute;
+  bottom: 32px;
+  right: 24px;
+  z-index: 3;
+  background: rgba(8, 5, 10, 0.7);
+  border: 1px solid rgba(201, 169, 98, 0.4);
+  color: var(--ink-dim);
+  padding: 8px 18px;
+  font-family: var(--font-serif);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  border-radius: 2px;
+  transition: opacity 240ms ease-out, color 180ms;
+  cursor: pointer;
+}
+.soulreave-cinematic__skip:hover {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+/* Reduced-motion path: skip lightning, particles, slam. Just a
+   simple opacity fade with the title on a calm crossfade. */
+.soulreave-cinematic--reduce .soulreave-cinematic__lightning,
+.soulreave-cinematic--reduce .soulreave-cinematic__particles,
+.soulreave-cinematic--reduce .soulreave-cinematic__title::after {
+  display: none;
+}
+.soulreave-cinematic--reduce .soulreave-cinematic--phase2 .soulreave-cinematic__title-wrap {
+  animation: soulreave-title-fade-in 400ms ease-out forwards;
+}
+@keyframes soulreave-title-fade-in {
+  0%   { opacity: 0; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ─────────── Meta-tree screen ─────────── */
+
+.meta-tree-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(8, 5, 10, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: meta-tree-backdrop-in 240ms ease-out;
+}
+@keyframes meta-tree-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.meta-tree-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 801;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  pointer-events: auto;
+  /* Small phones: tree + detail card may exceed viewport. Scroll
+     within the modal so nothing gets clipped. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: meta-tree-modal-in 320ms var(--ease-out-pop);
+}
+@keyframes meta-tree-modal-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.meta-tree-modal__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  color: var(--ink-dim);
+  font-size: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.meta-tree-modal__close:hover { color: var(--ink); border-color: var(--gold); }
+
+.meta-tree-modal__title {
+  font-family: 'Cinzel', var(--font-brand), serif;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-shadow: 0 0 16px rgba(201, 169, 98, 0.4);
+  margin-bottom: 4px;
+}
+
+.meta-tree-modal__subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-dim);
+  letter-spacing: 0.05em;
+  margin-bottom: 18px;
+}
+
+.meta-tree-modal__shards {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--ink);
+  background: rgba(165, 20, 35, 0.08);
+  border: 1px solid rgba(201, 169, 98, 0.3);
+  padding: 8px 18px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.meta-tree-modal__shards-icon {
+  width: 20px; height: 20px;
+  /* Diamond-shape gold marker as placeholder until SVG asset lands */
+  background: linear-gradient(135deg, #fff2c8 0%, var(--gold) 50%, #6b4a1a 100%);
+  transform: rotate(45deg);
+  box-shadow:
+    0 0 4px var(--gold),
+    0 0 14px rgba(201, 169, 98, 0.6);
+}
+
+/* The tree canvas — fixed-size scaled to viewport. The 6 nodes
+   live in a relative container; SVG branches sit underneath in a
+   z=0 layer; nodes float on z=1. */
+.meta-tree-canvas {
+  position: relative;
+  width: min(100%, 360px);
+  aspect-ratio: 0.7;
+  margin-bottom: 16px;
+}
+
+.meta-tree-canvas__branches {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.meta-tree-branch {
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 4;
+  opacity: 0.7;
+  transition: stroke 320ms, opacity 320ms;
+}
+.meta-tree-branch--active {
+  stroke: var(--gold);
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.55));
+}
+
+/* Hexagonal nodes via clip-path. Three states:
+   - locked    : dim + lock icon
+   - affordable: glowing 5-layer FDP + breathing pulse
+   - owned     : gold filled + checkmark */
+.meta-tree-node {
+  position: absolute;
+  width: 84px;
+  height: 96px;
+  margin-left: -42px;
+  margin-top: -48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.meta-tree-node__hex {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: rgba(8, 5, 10, 0.9);
+  border: 1px solid var(--ink-faint);
+  transition: transform 280ms var(--ease-out-pop), filter 320ms;
+}
+
+/* The 5-layer FDP stack on AFFORDABLE nodes — see the cinematic
+   title for the precedent. The breathing pulse uses opacity, not
+   transform, to avoid layout thrash on phones. */
+.meta-tree-node--affordable .meta-tree-node__hex {
+  background:
+    radial-gradient(circle at 50% 35%,
+      rgba(255, 248, 230, 0.15) 0%,
+      rgba(201, 169, 98, 0.08) 40%,
+      rgba(8, 5, 10, 0.9) 70%
+    );
+  border-color: var(--gold);
+  /* Stack 1: hot core */
+  box-shadow:
+    inset 0 0 8px rgba(255, 248, 230, 0.18),
+    /* Stack 2: gold body */
+    0 0 14px rgba(201, 169, 98, 0.55),
+    /* Stack 3: blood halo */
+    0 0 36px rgba(165, 20, 35, 0.35),
+    /* Stack 4: bloom — implemented as a wider, dimmer halo */
+    0 0 64px rgba(255, 51, 66, 0.18);
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.35));
+  animation: meta-tree-node-breathe 2200ms ease-in-out infinite alternate;
+}
+@keyframes meta-tree-node-breathe {
+  0%   { transform: scale(1);    box-shadow:
+    inset 0 0 6px rgba(255, 248, 230, 0.14),
+    0 0 12px rgba(201, 169, 98, 0.45),
+    0 0 28px rgba(165, 20, 35, 0.28),
+    0 0 48px rgba(255, 51, 66, 0.12);
+  }
+  100% { transform: scale(1.04); box-shadow:
+    inset 0 0 10px rgba(255, 248, 230, 0.22),
+    0 0 18px rgba(201, 169, 98, 0.65),
+    0 0 44px rgba(165, 20, 35, 0.42),
+    0 0 80px rgba(255, 51, 66, 0.22);
+  }
+}
+
+.meta-tree-node--owned .meta-tree-node__hex {
+  background:
+    linear-gradient(135deg,
+      rgba(201, 169, 98, 0.4) 0%,
+      rgba(138, 116, 68, 0.85) 100%);
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 0 14px rgba(255, 248, 230, 0.18),
+    0 0 8px rgba(201, 169, 98, 0.4);
+}
+
+.meta-tree-node--locked .meta-tree-node__hex {
+  background: rgba(8, 5, 10, 0.55);
+  border-color: var(--ink-faint);
+  opacity: 0.5;
+}
+
+.meta-tree-node__label {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-align: center;
+  padding: 0 6px;
+  line-height: 1.2;
+  text-shadow: 0 0 4px rgba(8, 5, 10, 0.9);
+}
+.meta-tree-node--locked .meta-tree-node__label {
+  color: var(--ink-faint);
+}
+
+.meta-tree-node__cost {
+  position: relative;
+  z-index: 1;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold);
+}
+.meta-tree-node--owned .meta-tree-node__cost,
+.meta-tree-node--owned .meta-tree-node__label {
+  color: var(--ink);
+}
+.meta-tree-node--owned .meta-tree-node__cost::before {
+  content: '✓ ';
+  color: var(--ink);
+}
+
+/* Detail card on tap — small panel below the tree describing the
+   selected node. Slides in/out. */
+.meta-tree-detail {
+  width: min(100%, 360px);
+  background: rgba(18, 9, 14, 0.85);
+  border: 1px solid rgba(201, 169, 98, 0.3);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-family: var(--font-serif);
+  color: var(--ink);
+}
+.meta-tree-detail__name {
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.meta-tree-detail__flavour {
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.meta-tree-detail__effect {
+  font-size: 13px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.meta-tree-detail__buy {
+  display: block;
+  width: 100%;
+  background: linear-gradient(135deg, var(--blood-dark) 0%, var(--blood) 100%);
+  border: 1px solid var(--gold);
+  color: var(--ink);
+  font-family: 'Cinzel', var(--font-brand), serif;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  padding: 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  min-height: var(--tap-target-min);
+  transition: transform 120ms ease-out, filter 200ms;
+}
+.meta-tree-detail__buy:hover {
+  filter: brightness(1.1);
+}
+.meta-tree-detail__buy:active {
+  transform: scale(0.98);
+}
+.meta-tree-detail__buy:disabled {
+  background: rgba(60, 40, 35, 0.4);
+  border-color: var(--ink-faint);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+/* Entrance toast for first-Soulreave reveal — "You earned 2 Soul
+   Shards" leading the player to tap the meta-tree button. */
+/* ─────────── Ascend modal — Soulreave + meta-tree rows ─────────── */
+
+.ascend-modal__soulreave-row,
+.ascend-modal__meta-tree-row {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.ascend-modal__soulreave-btn,
+.ascend-modal__meta-tree-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(8, 5, 10, 0.6);
+  border: 1px solid var(--ink-faint);
+  color: var(--ink-dim);
+  font-family: var(--font-serif);
+  border-radius: 3px;
+  cursor: pointer;
+  min-height: var(--tap-target-min);
+  transition: filter 200ms, transform 120ms;
+}
+
+.ascend-modal__soulreave-btn--ready {
+  background: linear-gradient(
+    135deg,
+    rgba(8, 5, 10, 0.9) 0%,
+    rgba(58, 16, 40, 0.95) 50%,
+    rgba(8, 5, 10, 0.9) 100%
+  );
+  border-color: var(--gold);
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 8px rgba(255, 248, 230, 0.1),
+    0 0 14px rgba(201, 169, 98, 0.45),
+    0 0 36px rgba(165, 20, 35, 0.35);
+  animation: meta-tree-node-breathe 2400ms ease-in-out infinite alternate;
+}
+.ascend-modal__soulreave-btn--ready:hover {
+  filter: brightness(1.1);
+}
+.ascend-modal__soulreave-btn--ready:active {
+  transform: scale(0.98);
+}
+
+.ascend-modal__soulreave-btn--locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ascend-modal__soulreave-label {
+  font-family: 'Cinzel', var(--font-brand), serif;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+.ascend-modal__soulreave-btn--locked .ascend-modal__soulreave-label {
+  color: var(--ink-faint);
+}
+.ascend-modal__soulreave-sub {
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+}
+
+.ascend-modal__meta-tree-btn {
+  background: rgba(18, 9, 14, 0.85);
+}
+.ascend-modal__meta-tree-btn:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+.ascend-modal__meta-tree-label {
+  font-family: 'Cinzel', var(--font-brand), serif;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+.ascend-modal__meta-tree-sub {
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+}
+
+.soulreave-reveal-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 80px;
+  transform: translateX(-50%);
+  background: rgba(18, 9, 14, 0.96);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  padding: 12px 18px;
+  z-index: 700;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 14px;
+  text-align: center;
+  box-shadow:
+    0 0 18px rgba(201, 169, 98, 0.4),
+    0 4px 24px rgba(0, 0, 0, 0.5);
+  animation: soulreave-toast-in 480ms var(--ease-out-pop);
+}
+.soulreave-reveal-toast strong {
+  display: block;
+  color: var(--gold);
+  font-family: 'Cinzel', var(--font-brand), serif;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+@keyframes soulreave-toast-in {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

@@ -284,10 +284,13 @@
     drop-shadow(0 0 70px rgba(220, 38, 38, 0.35));
   animation: gift-droplet-bob 3.4s ease-in-out infinite;
 }
-.ichor-gift__droplet svg {
+.ichor-gift__droplet svg,
+.ichor-gift__droplet img,
+.ichor-gift__droplet-img {
   width: 100%;
   height: 100%;
   display: block;
+  object-fit: contain;
 }
 @keyframes gift-droplet-bob {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
@@ -339,17 +342,17 @@
 }
 .ichor-gift__amount-icon {
   display: inline-block;
-  width: 28px;
-  height: 28px;
-  color: var(--gold);
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
   filter:
-    drop-shadow(0 0 4px rgba(255, 255, 255, 0.7))
-    drop-shadow(0 0 10px var(--gold));
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.65))
+    drop-shadow(0 0 10px rgba(201, 169, 98, 0.7));
 }
-.ichor-gift__amount-icon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+img.ichor-gift__amount-icon {
+  /* PNG ichor droplet — same source as the HUD pill, scaled up. */
+  width: 32px;
+  height: 32px;
 }
 .ichor-gift__amount-value {
   font-size: 64px;

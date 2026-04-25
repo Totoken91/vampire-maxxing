@@ -28,15 +28,15 @@ import {
 import { playPullSequence } from '../../fx/pull-animation';
 import { showToast } from './toast';
 import { showThrallDetail } from './thrall-detail-modal';
+import { showDisclosureScreen } from './disclosure-screen';
 
 const EXIT_DURATION_MS = 280;
 
-/** Inline droplet — same shape as the Header's Ichor pill so the
- * currency reads identically across the app. */
-const DROPLET_SVG =
-  '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-  '<path d="M12 2 C12 2 5 10 5 15 C5 19 8 22 12 22 C16 22 19 19 19 15 C19 10 12 2 12 2 Z" ' +
-  'fill="currentColor" stroke="rgba(0,0,0,0.35)" stroke-width="1"/></svg>';
+/** Hand-painted PNG droplet — same source the Header uses for the
+ * Ichor pill. CSS sizes it per usage (balance pill: 22px, pull-cta
+ * cost: 16px). Single asset, single source of truth. */
+const ICHOR_ICON_HTML =
+  '<img class="rituals-screen__icon-img" src="/assets/ornaments/ichor-icon.png" alt="" decoding="async" />';
 
 export function showRitualsScreen(): void {
   if (document.querySelector('.rituals-screen__backdrop')) return;
@@ -59,7 +59,7 @@ export function showRitualsScreen(): void {
   // ── Ichor balance strip — gold droplet + tabular-nums value.
   const balance = el('div', 'rituals-screen__balance');
   const balanceIcon = el('span', 'rituals-screen__balance-icon');
-  balanceIcon.innerHTML = DROPLET_SVG;
+  balanceIcon.innerHTML = ICHOR_ICON_HTML;
   const balanceValue = el('span', 'rituals-screen__balance-value');
   balance.appendChild(balanceIcon);
   balance.appendChild(balanceValue);
@@ -112,12 +112,18 @@ export function showRitualsScreen(): void {
   };
   renderHistory();
 
-  // ── Footnote (legal stub — full disclosure page lands in L9)
-  const foot = el(
-    'div',
-    'rituals-screen__foot',
-    'rates disclosed · pity visible · history kept',
-  );
+  // ── Legal disclosure entry — opens the full rates page (L9). Per
+  //    KR 2024 + EU compliance, the disclosure must be reachable in
+  //    ≤ 2 taps from any pull surface; this footer button is one tap.
+  const foot = el('button', 'rituals-screen__foot') as HTMLButtonElement;
+  foot.type = 'button';
+  foot.innerHTML =
+    'rates disclosed &middot; pity visible &middot; history kept';
+  foot.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(4);
+    showDisclosureScreen();
+  });
 
   screen.appendChild(close);
   screen.appendChild(title);
@@ -252,7 +258,14 @@ function buildBannerCard(
       pityEpic.update(p.pityEpic, p.pityEpicCap);
     }
     single.setEnabled(canAffordPull(1));
-    bundle.setEnabled(canAffordPull(10));
+    const bundleAffordable = canAffordPull(10);
+    bundle.setEnabled(bundleAffordable);
+    // L15 — shimmer the whole card when the 10-pull bundle becomes
+    // affordable. CSS handles the sweep + breathing; we just toggle
+    // the class. Single-pull (1 Ichor) is too cheap to bother
+    // signalling — every player can afford a single nearly all the
+    // time, so the bundle is the dopamine target.
+    card.classList.toggle('banner-card--bundle-affordable', bundleAffordable);
   };
 
   const onClick = (count: 1 | 10): void => {
@@ -304,7 +317,7 @@ function buildPullCta(kind: 'single' | 'bundle', cost: number): PullCtaRefs {
 
   const cost_ = el('span', 'pull-cta__cost');
   const icon = el('span', 'pull-cta__cost-icon');
-  icon.innerHTML = DROPLET_SVG;
+  icon.innerHTML = ICHOR_ICON_HTML;
   const num = el('span', 'pull-cta__cost-num', String(cost));
   cost_.appendChild(icon);
   cost_.appendChild(num);

@@ -1,0 +1,457 @@
+/* L_QUESTS — daily quest card + achievement claim CTAs.
+ *
+ * Visual contract (decided after consult with the gacha / idle / ux /
+ * ui skills):
+ *   - in-progress: bone-white-12% border, no glow. Silent.
+ *   - complete:    crimson glow stack (5-layer FDP), shimmer sweep on
+ *                  the progress fill, breathing CLAIM CTA at 1.6s.
+ *   - claimed:     opacity 0.4, no interactivity, "CLAIMED" tag.
+ *
+ * The CLAIM ALL CTA on Achievements uses a calmer 2.4s breathing so it
+ * never out-yells the active-quest CTA when both are claimable.
+ *
+ * No box-shadow casino-blink — every glow ramps via filter:drop-shadow
+ * stacks + brightness, per the buttons-and-juice spec.
+ */
+
+/* ────── Daily quest section header ────── */
+
+.tome-section--quest {
+  /* Slightly more red-tinted than other tome sections — signals this
+     section is time-sensitive without screaming for attention. */
+  background: linear-gradient(
+    180deg,
+    rgba(165, 20, 35, 0.08) 0%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  border-color: rgba(201, 169, 98, 0.35);
+}
+
+.tome-quest__head {
+  align-items: center;
+}
+
+.tome-quest__title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tome-quest__countdown {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ────── Quest card ────── */
+
+.quest-card {
+  position: relative;
+  padding: 16px 18px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(243, 234, 216, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    border-color 0.4s ease,
+    filter 0.4s ease;
+}
+
+/* In-progress is the silent default. */
+.quest-card--in-progress {
+  border-color: rgba(243, 234, 216, 0.12);
+}
+
+/* Complete = ready to claim. 5-layer drop-shadow stack instead of a
+   single bloated box-shadow blob. Crimson hot core + cinder body +
+   gold halo + breathing brightness. */
+.quest-card--complete {
+  border-color: rgba(255, 51, 66, 0.6);
+  filter:
+    drop-shadow(0 0 6px rgba(255, 51, 66, 0.35))
+    drop-shadow(0 0 14px rgba(165, 20, 35, 0.25))
+    drop-shadow(0 0 22px rgba(201, 169, 98, 0.18));
+  animation: quest-card-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes quest-card-breathe {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 6px rgba(255, 51, 66, 0.32))
+      drop-shadow(0 0 14px rgba(165, 20, 35, 0.22))
+      drop-shadow(0 0 22px rgba(201, 169, 98, 0.16));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 8px rgba(255, 51, 66, 0.42))
+      drop-shadow(0 0 18px rgba(165, 20, 35, 0.32))
+      drop-shadow(0 0 28px rgba(201, 169, 98, 0.24));
+  }
+}
+
+.quest-card--claimed {
+  opacity: 0.4;
+  pointer-events: none;
+  filter: saturate(0.5);
+}
+
+.quest-card__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.quest-card__desc {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.35;
+}
+
+.quest-card__progress {
+  position: relative;
+  height: 6px;
+  background: rgba(243, 234, 216, 0.08);
+  border: 1px solid rgba(243, 234, 216, 0.06);
+  overflow: hidden;
+}
+
+.quest-card__progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(
+    90deg,
+    var(--blood-dark) 0%,
+    var(--blood) 60%,
+    var(--blood-glow) 100%
+  );
+  transition: width 0.45s var(--ease-out-sharp);
+}
+
+/* Shimmer sweep — runs ONLY in the complete state. The fill is not
+   actionable, so a constant in-progress shimmer would be the same
+   anti-pattern as a permanent button glow ("affordable trigger"
+   semantics). When the bar fills to 100% the shimmer kicks in as a
+   "this is now ready" cue, in concert with the breathing CLAIM CTA. */
+.quest-card--complete .quest-card__progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(243, 234, 216, 0.22) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: quest-progress-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes quest-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.quest-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+}
+
+.quest-card__counter {
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.quest-card__reward {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--gold);
+}
+
+.quest-card__reward-amt {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.4));
+}
+
+.quest-card__reward-label {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+
+.quest-card__claimed {
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ────── CLAIM buttons ────── */
+
+.btn-claim {
+  align-self: stretch;
+  padding: 12px 18px;
+  margin-top: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.14) 0%,
+    rgba(165, 20, 35, 0.18) 100%
+  );
+  border: 1px solid rgba(201, 169, 98, 0.55);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  cursor: pointer;
+  transition: filter 0.18s ease, transform 0.12s ease;
+  filter: brightness(1);
+  transform: scale(1);
+}
+
+.btn-claim:hover:not(:disabled),
+.btn-claim:focus-visible:not(:disabled) {
+  filter: brightness(1.15)
+    drop-shadow(0 0 12px rgba(201, 169, 98, 0.4));
+  outline: none;
+}
+
+.btn-claim:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-claim:disabled {
+  filter: saturate(0.4);
+  cursor: default;
+}
+
+/* Tier-1 breathing pulse for the daily-quest CTA — 1.6s scale +
+   brightness, no box-shadow blink (per buttons-and-juice spec). One
+   per day = the player's main "this is the dopamine button". */
+.btn-claim--quest {
+  animation: btn-claim-breathe-tier1 1.6s ease-in-out infinite;
+}
+
+@keyframes btn-claim-breathe-tier1 {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1)
+      drop-shadow(0 0 8px rgba(201, 169, 98, 0.25));
+  }
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.1)
+      drop-shadow(0 0 16px rgba(201, 169, 98, 0.45));
+  }
+}
+
+/* Tier-2 breathing for achievement CLAIM — calmer (2.4s, smaller
+   scale) so when the player has 10+ claimable cards in the grid they
+   don't all scream simultaneously. Min height 44dp / 48dp because we
+   ship to phones held one-handed (UX LAW 4); padding alone wasn't
+   enough to clear the threshold on a 10px font. */
+.btn-claim--ach {
+  display: block;
+  margin-top: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 10px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  animation: btn-claim-breathe-tier2 2.4s ease-in-out infinite;
+}
+
+@keyframes btn-claim-breathe-tier2 {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.025);
+    filter: brightness(1.08);
+  }
+}
+
+/* CLAIM ALL is the big batched flush. Wider, slightly louder than a
+   per-card CLAIM but quieter than the daily-quest tier-1. */
+.btn-claim-all {
+  margin-left: auto;
+  min-height: 44px;
+  padding: 10px 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.18) 0%,
+    rgba(165, 20, 35, 0.18) 100%
+  );
+  border: 1px solid rgba(201, 169, 98, 0.55);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  cursor: pointer;
+  transition: filter 0.18s ease, transform 0.12s ease;
+  animation: btn-claim-breathe-tier2 2.4s ease-in-out infinite;
+}
+
+.btn-claim-all:hover:not(:disabled),
+.btn-claim-all:focus-visible:not(:disabled) {
+  filter: brightness(1.18)
+    drop-shadow(0 0 14px rgba(201, 169, 98, 0.45));
+  outline: none;
+}
+
+.btn-claim-all:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-claim-all:disabled {
+  filter: saturate(0.4);
+  cursor: default;
+}
+
+/* Achievement card states — claimable adds a soft crimson rim and
+   reuses the breathe animation; claimed dims the card permanently. */
+.achievement-card--claimable {
+  filter: brightness(1.05) saturate(1.05)
+    drop-shadow(0 0 10px rgba(255, 51, 66, 0.35))
+    drop-shadow(0 0 18px rgba(201, 169, 98, 0.25));
+}
+
+.achievement-card__claimed {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--gold-dim);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.tome-section__head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ────── Claim feedback FX ────── */
+
+/* Parabolic Ichor token flying from the CLAIM button to the HUD ichor
+   counter. Body-rooted so it doesn't get clipped by any overflow
+   ancestor in the Tome. */
+.ichor-fly {
+  position: fixed;
+  z-index: 9999;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  filter: drop-shadow(0 0 12px rgba(201, 169, 98, 0.7));
+  transform: translate(0, 0) scale(1);
+  transition: transform 600ms cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 600ms ease-out;
+  /* Center the token on the source point. */
+  translate: -50% -50%;
+}
+
+/* Cinder spark — radial particle burst on claim. */
+.cinder-spark {
+  position: fixed;
+  z-index: 9998;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--blood-glow);
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(255, 51, 66, 0.7))
+    drop-shadow(0 0 8px rgba(201, 169, 98, 0.4));
+  animation: cinder-spark-burst 600ms cubic-bezier(0.16, 1, 0.3, 1)
+    forwards;
+  translate: -50% -50%;
+}
+
+@keyframes cinder-spark-burst {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* ────── CLAIM ALL summary popup ────── */
+
+.claim-all-summary {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 12px 22px;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 5, 10, 0.95) 0%,
+    rgba(26, 15, 20, 0.95) 100%
+  );
+  border: 1px solid rgba(201, 169, 98, 0.55);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  filter: drop-shadow(0 0 16px rgba(201, 169, 98, 0.4))
+    drop-shadow(0 0 24px rgba(165, 20, 35, 0.25));
+  opacity: 0;
+  transition: opacity 220ms ease-out, transform 280ms var(--ease-out-pop);
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+
+.claim-all-summary--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ────── Reduced motion ────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-card--complete,
+  .btn-claim--quest,
+  .btn-claim--ach,
+  .btn-claim-all,
+  .quest-card__progress-fill::after {
+    animation: none !important;
+  }
+}

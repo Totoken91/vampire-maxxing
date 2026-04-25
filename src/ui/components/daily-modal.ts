@@ -10,6 +10,7 @@ import { fmt } from '../../utils/format';
 import { gameState } from '../../game/state';
 import { DAILY_CYCLE } from '../../game/config/daily';
 import { showToast } from './toast';
+import { track } from '../../analytics/events';
 
 const EXIT_DURATION_MS = 300;
 
@@ -117,6 +118,12 @@ export function showDailyModal(): void {
     finished = true;
     if (claim) {
       const result = gameState.claimDaily();
+      track('daily_claimed', {
+        day: result.day,
+        blood: result.reward.blood,
+        ichor: result.reward.ichor,
+        dread: result.reward.dread,
+      });
       const bloodTxt = `+${fmt(result.reward.blood)} blood`;
       const dreadTxt =
         result.reward.dread > 0 ? ` · +${result.reward.dread} dread` : '';
