@@ -2,8 +2,10 @@
 // Listeners subscribe with a key and receive the matching payload.
 
 import type { ServantId } from './config/servants';
-import type { ThrallId } from './config/thralls';
+import type { ThrallId, ThrallRarity } from './config/thralls';
 import type { VampireForm } from './config/forms';
+import type { BannerId } from './config/banners';
+import type { PullResult } from './ritual';
 
 export interface GameEvents {
   'blood-changed': { blood: number; delta: number };
@@ -36,6 +38,22 @@ export interface GameEvents {
   /** L3 — Ichor balance moved (grant OR spend). Header counter
    * re-renders on this. */
   'ichor-changed': { balance: number };
+  /** L5 — a single pull batch resolved. `results.length` is 1 or 10. */
+  'ritual-pull-performed': { banner: BannerId; results: readonly PullResult[] };
+  /** L5 — essence count moved (dupe conversion or future awakening
+   * spend). Drives the L6 awakening screen + future toasts. */
+  'essence-gained': { rarity: ThrallRarity; amount: number; balance: number };
+  /** L6 — a thrall's star tier increased. Carries the new total
+   * stars (0 = base 1★, 4 = max 5★ for C/R/E). */
+  'thrall-awakened': { id: ThrallId; stars: number };
+  /** L6 — equip slot mutation. `slot` is the index that changed;
+   * `prevId` was kicked out (null if slot was empty), `nextId` was
+   * placed in (null if the slot is being cleared). */
+  'thrall-equipped': {
+    slot: number;
+    prevId: ThrallId | null;
+    nextId: ThrallId | null;
+  };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

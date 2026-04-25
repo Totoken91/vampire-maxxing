@@ -3,7 +3,9 @@
 
 import { BALANCE } from './config/balance';
 import { SERVANTS, SERVANTS_BY_ID, type ServantId } from './config/servants';
-import { THRALLS, type ThrallId } from './config/thralls';
+import { THRALLS, THRALLS_BY_ID, type ThrallId, type ThrallRarity } from './config/thralls';
+import type { BannerId } from './config/banners';
+import type { PullFlags } from './ritual';
 import type { VampireForm } from './config/forms';
 import { events } from './events';
 import {
@@ -124,6 +126,60 @@ export interface GameSnapshot {
    * flag flips to true on acquisition (welcome summon, milestone,
    * pull, etc.). */
   playerThralls: Record<ThrallId, PlayerThrallState>;
+  /** L5 — per-banner pity / streak counters + lifetime FRG flag +
+   * rolling pull history. The engine in ritual.ts mutates this in
+   * place; the UI reads via `getRitualState()` / `getBannerProgress()`. */
+  ritualState: RitualStateSnapshot;
+  /** L5 — essence counts per rarity. Dupe pulls credit these; L6's
+   * awakening screen will spend them. Plate (no cap, no scaling). */
+  essences: PlayerEssences;
+  /** L6 — active equip slots. Length = EQUIP_SLOT_COUNT (3 in v1.0).
+   * `null` means empty. Equipped thralls publish their star-amplified
+   * primary + secondary effects into modifierRegistry. */
+  equippedSlots: (ThrallId | null)[];
+}
+
+/** Per-banner pity counters, streak, totals + global lifetime flags
+ * and rolling pull history. Lives inside GameSnapshot; ritual.ts
+ * mutates it directly via `gameState.getRitualState()`. */
+export interface RitualBannerState {
+  /** Pulls since the last Rare+ on this banner. Resets on Rare or Epic. */
+  pityCounterRare: number;
+  /** Featured-only — pulls since last Epic. Standard ignores this. */
+  pityCounterEpic: number;
+  /** Anti-streak — Commons in a row. Resets on Rare+. */
+  commonStreak: number;
+  /** Lifetime pulls performed on this banner. */
+  totalPulls: number;
+}
+
+export interface RitualStateSnapshot {
+  standard: RitualBannerState;
+  featured: RitualBannerState;
+  /** Set true the moment the very first lifetime pull resolves; the
+   * resolved pull is forced to Rare. Persists across ascends/wipes. */
+  firstRareGuaranteeUsed: boolean;
+  /** Rolling window of the last 50 pulls — drives the transparent
+   * history strip on the Rituals screen + future analytics. */
+  history: PullEntry[];
+}
+
+export interface PullEntry {
+  ts: number;
+  banner: BannerId;
+  /** null on a Cinder Ceremony entry. */
+  thrallId: ThrallId | null;
+  rarity: ThrallRarity;
+  wasDupe: boolean;
+  essenceGained: number;
+  flags: PullFlags;
+}
+
+export interface PlayerEssences {
+  common: number;
+  rare: number;
+  epic: number;
+  legendary: number;
 }
 
 export interface RunEntry {
@@ -162,6 +218,34 @@ function emptyPlayerThralls(): Record<ThrallId, PlayerThrallState> {
   return acc;
 }
 
+function emptyRitualBannerState(): RitualBannerState {
+  return {
+    pityCounterRare: 0,
+    pityCounterEpic: 0,
+    commonStreak: 0,
+    totalPulls: 0,
+  };
+}
+
+function emptyRitualState(): RitualStateSnapshot {
+  return {
+    standard: emptyRitualBannerState(),
+    featured: emptyRitualBannerState(),
+    firstRareGuaranteeUsed: false,
+    history: [],
+  };
+}
+
+function emptyEssences(): PlayerEssences {
+  return { common: 0, rare: 0, epic: 0, legendary: 0 };
+}
+
+function emptyEquipSlots(): (ThrallId | null)[] {
+  // Three slots in v1.0 (EQUIP_SLOT_COUNT). Future expansion happens
+  // by growing this array on save load with default-null entries.
+  return [null, null, null];
+}
+
 function emptySnapshot(): GameSnapshot {
   return {
     blood: 0,
@@ -193,6 +277,9 @@ function emptySnapshot(): GameSnapshot {
     lastMilestoneExp: -1,
     daily: { streakDay: 0, lastClaimedDate: '' },
     playerThralls: emptyPlayerThralls(),
+    ritualState: emptyRitualState(),
+    essences: emptyEssences(),
+    equippedSlots: emptyEquipSlots(),
   };
 }
 
@@ -217,10 +304,18 @@ export class GameState {
     return this.snapshot;
   }
 
-  /** Load a persisted save (if any). Must be called before startLoop. */
+  /** Load a persisted save (if any). Must be called before startLoop.
+   *  When there's no save (first-ever session), silently consume the
+   *  daily streak's day 1 — the player arrives with empty hands and
+   *  the streak's first visible reward lands on day 2 (j+1). Removes
+   *  the "+1000 blood on launch" gift Kenny found out-of-character. */
   async loadFromStorage(): Promise<OfflineReport | null> {
     const save = await loadSave();
-    if (!save) return null;
+    if (!save) {
+      this.snapshot.daily.streakDay = 1;
+      this.snapshot.daily.lastClaimedDate = localDateKey();
+      return null;
+    }
     this.applySave(save);
     return this.computeOfflineReport(save.ts);
   }
@@ -348,20 +443,37 @@ export class GameState {
 
   // ─────────── Actions ───────────
 
-  /** Register a manual tap. Emits tapped + blood-changed. */
+  /** Register a manual tap. Emits tapped + blood-changed. May
+   * trigger a free echo tap if any equipped thrall (Gravebound)
+   * publishes echoTapChance. */
   tap(x: number, y: number): void {
     const crit = Math.random() < BALANCE.CRIT_CHANCE;
     const totalRate = this.getTotalRate();
     const clickMult = modifierRegistry.getMultiplier('clickPower');
+    // L6 — crit damage = base BALANCE multiplier + additive bonus
+    // contributed by equipped thralls (Duskward +0.5).
+    const critMult =
+      BALANCE.CRIT_MULTIPLIER + modifierRegistry.getAdditive('critDamage');
     const base =
       clickPower(totalRate, this.getGlobalMult(), this.getBoostMult()) * clickMult;
-    const gain = crit ? base * BALANCE.CRIT_MULTIPLIER : base;
+    const gain = crit ? base * critMult : base;
 
     this.addBlood(gain);
     this.snapshot.stats.totalTaps += 1;
     if (crit) this.snapshot.stats.totalCrits += 1;
 
     events.emit('tapped', { x, y, crit, gain });
+
+    // L6 — echo tap (Gravebound bespoke). Fires AFTER the main tap
+    // so gain stacks with the same calculation (no recursion). The
+    // echo doesn't increment totalTaps (it's free, not the player's
+    // input) but it DOES award blood + emits a tapped event so the
+    // FX layer can render a duplicate float number.
+    const echoChance = modifierRegistry.getAdditive('echoTapChance');
+    if (echoChance > 0 && Math.random() < echoChance) {
+      this.addBlood(gain);
+      events.emit('tapped', { x, y, crit, gain });
+    }
   }
 
   /** Attempt to buy one of a thrall. Returns true on success. */
@@ -649,6 +761,135 @@ export class GameState {
     if (state.isNew) state.isNew = false;
   }
 
+  // ─────────── L5 Rituals — engine-facing accessors ───────────
+
+  /** Mutable handle so the ritual engine can bump pity / streak /
+   * totals in place. The engine is the only intended caller; the UI
+   * reads via `getBannerProgress()` from ritual.ts. */
+  getRitualState(): RitualStateSnapshot {
+    return this.snapshot.ritualState;
+  }
+
+  hasUsedFirstRareGuarantee(): boolean {
+    return this.snapshot.ritualState.firstRareGuaranteeUsed;
+  }
+
+  markFirstRareGuaranteeUsed(): void {
+    this.snapshot.ritualState.firstRareGuaranteeUsed = true;
+  }
+
+  /** Append a pull entry; rolling window of 50 (oldest drops). */
+  pushPullEntry(entry: PullEntry): void {
+    this.snapshot.ritualState.history.push(entry);
+    if (this.snapshot.ritualState.history.length > 50) {
+      this.snapshot.ritualState.history.splice(
+        0,
+        this.snapshot.ritualState.history.length - 50,
+      );
+    }
+  }
+
+  getPullHistory(): readonly PullEntry[] {
+    return this.snapshot.ritualState.history;
+  }
+
+  // ─────────── L5 Essences (counters; awakening lands in L6) ───────────
+
+  getEssence(rarity: ThrallRarity): number {
+    return this.snapshot.essences[rarity];
+  }
+
+  getAllEssences(): Readonly<PlayerEssences> {
+    return this.snapshot.essences;
+  }
+
+  /** Add to the per-rarity essence balance. Emits `essence-gained` so
+   * future toasts and the L6 awakening UI can react. */
+  grantEssence(rarity: ThrallRarity, amount: number): void {
+    if (amount <= 0) return;
+    this.snapshot.essences[rarity] += amount;
+    events.emit('essence-gained', {
+      rarity,
+      amount,
+      balance: this.snapshot.essences[rarity],
+    });
+  }
+
+  /** Spend essences (returns true on success). Used by L6 awakening. */
+  spendEssence(rarity: ThrallRarity, amount: number): boolean {
+    if (amount <= 0) return false;
+    if (this.snapshot.essences[rarity] < amount) return false;
+    this.snapshot.essences[rarity] -= amount;
+    return true;
+  }
+
+  // ─────────── L6 Awakening / equip ───────────
+
+  /** Increment a thrall's star tier by 1. Caller (awakening engine)
+   * is responsible for paying the essence cost AND for re-publishing
+   * the modifier registry if the thrall is equipped. */
+  bumpThrallStars(id: ThrallId): void {
+    const state = this.snapshot.playerThralls[id];
+    state.stars += 1;
+  }
+
+  getEquippedSlots(): readonly (ThrallId | null)[] {
+    return this.snapshot.equippedSlots;
+  }
+
+  isThrallEquipped(id: ThrallId): boolean {
+    return this.snapshot.equippedSlots.includes(id);
+  }
+
+  /** Slot index (0..N-1) the thrall occupies, or -1 if not equipped. */
+  findEquippedSlot(id: ThrallId): number {
+    return this.snapshot.equippedSlots.indexOf(id);
+  }
+
+  /**
+   * Place `id` into `slot`. If the thrall is already equipped in
+   * another slot, that source slot becomes empty (move semantics —
+   * a single thrall can't double up). Returns true on a state change.
+   */
+  equipThrall(slot: number, id: ThrallId): boolean {
+    if (slot < 0 || slot >= this.snapshot.equippedSlots.length) return false;
+    if (!this.snapshot.playerThralls[id]?.owned) return false;
+    const slots = this.snapshot.equippedSlots;
+    const prev = slots[slot];
+    if (prev === id) return false;
+
+    // If thrall is already in another slot, vacate that one first.
+    const existingSlot = slots.indexOf(id);
+    if (existingSlot !== -1) {
+      slots[existingSlot] = null;
+      events.emit('thrall-equipped', {
+        slot: existingSlot,
+        prevId: id,
+        nextId: null,
+      });
+    }
+    slots[slot] = id;
+    events.emit('thrall-equipped', { slot, prevId: prev, nextId: id });
+    return true;
+  }
+
+  /** Clear a slot. Returns true if it changed. */
+  unequipSlot(slot: number): boolean {
+    if (slot < 0 || slot >= this.snapshot.equippedSlots.length) return false;
+    const prev = this.snapshot.equippedSlots[slot];
+    if (prev === null) return false;
+    this.snapshot.equippedSlots[slot] = null;
+    events.emit('thrall-equipped', { slot, prevId: prev, nextId: null });
+    return true;
+  }
+
+  /** Convenience — clear whatever slot a thrall sits in. */
+  unequipThrall(id: ThrallId): boolean {
+    const slot = this.findEquippedSlot(id);
+    if (slot === -1) return false;
+    return this.unequipSlot(slot);
+  }
+
   // ─────────── K5 Daily gift ───────────
 
   /** True iff the local calendar day changed since the last claim. */
@@ -738,6 +979,22 @@ export class GameState {
       runHistory: [...this.snapshot.runHistory],
       daily: { ...this.snapshot.daily },
       playerThralls: { ...this.snapshot.playerThralls },
+      ritualState: {
+        standard: { ...this.snapshot.ritualState.standard },
+        featured: { ...this.snapshot.ritualState.featured },
+        firstRareGuaranteeUsed: this.snapshot.ritualState.firstRareGuaranteeUsed,
+        history: this.snapshot.ritualState.history.map((e) => ({
+          ts: e.ts,
+          banner: e.banner,
+          thrallId: e.thrallId,
+          rarity: e.rarity,
+          wasDupe: e.wasDupe,
+          essenceGained: e.essenceGained,
+          flags: { ...e.flags },
+        })),
+      },
+      essences: { ...this.snapshot.essences },
+      equippedSlots: [...this.snapshot.equippedSlots],
     };
   }
 
@@ -817,6 +1074,59 @@ export class GameState {
       }
     }
     this.snapshot.playerThralls = base;
+    // L5 — ritual state + essences. Both optional on pre-L5 saves so
+    // existing 1.0.x players land on a clean default (no FRG used,
+    // empty pity, zero essences). History entries' loose-string banner
+    // / rarity fields are narrowed back here.
+    if (save.ritualState) {
+      this.snapshot.ritualState = {
+        standard: { ...save.ritualState.standard },
+        featured: { ...save.ritualState.featured },
+        firstRareGuaranteeUsed: save.ritualState.firstRareGuaranteeUsed,
+        history: save.ritualState.history.map((e) => ({
+          ts: e.ts,
+          banner: e.banner as BannerId,
+          thrallId: e.thrallId === null ? null : (e.thrallId as ThrallId),
+          rarity: e.rarity as ThrallRarity,
+          wasDupe: e.wasDupe,
+          essenceGained: e.essenceGained,
+          flags: {
+            frg: !!e.flags.frg,
+            pityRare: !!e.flags.pityRare,
+            pityEpic: !!e.flags.pityEpic,
+            bundleGuarantee: !!e.flags.bundleGuarantee,
+            antiStreak: !!e.flags.antiStreak,
+            duplicateProtection: !!e.flags.duplicateProtection,
+            featuredRateUp: !!e.flags.featuredRateUp,
+          },
+        })),
+      };
+    } else {
+      this.snapshot.ritualState = emptyRitualState();
+    }
+    this.snapshot.essences = save.essences
+      ? { ...save.essences }
+      : emptyEssences();
+    // L6 — equipped slots. Optional on pre-L6 saves (defaults all-null).
+    // Length is capped at the current EQUIP_SLOT_COUNT; future expansions
+    // grow the array with null entries.
+    const fresh = emptyEquipSlots();
+    if (Array.isArray(save.equippedSlots)) {
+      for (let i = 0; i < fresh.length; i += 1) {
+        const id = save.equippedSlots[i];
+        // Validate: the saved id must exist in the current roster AND
+        // be marked owned (otherwise an old save with a removed thrall
+        // would dangle a phantom equip).
+        if (
+          id &&
+          (THRALLS_BY_ID as Record<string, unknown>)[id] !== undefined &&
+          this.snapshot.playerThralls[id as ThrallId]?.owned
+        ) {
+          fresh[i] = id as ThrallId;
+        }
+      }
+    }
+    this.snapshot.equippedSlots = fresh;
   }
 
   /** Compute offline gain since the save's timestamp, capped and scaled. */
@@ -834,7 +1144,13 @@ export class GameState {
     // Rates use current multipliers — not the ones at save time. Acceptable
     // for an idle game; true precision isn't worth the complexity.
     const rate = this.getTotalRate();
-    const blood = offlineGain(rate, elapsedSec, BALANCE.OFFLINE_EFFICIENCY, capHours);
+    // L6 — Velmor's bespoke `offline_efficiency_floor` clamps offline
+    // efficiency so very long sessions don't decay below a threshold.
+    // Default OFFLINE_EFFICIENCY (0.6) wins iff no thrall publishes a
+    // higher floor.
+    const floor = modifierRegistry.getAdditive('offlineEfficiencyFloor');
+    const efficiency = Math.max(BALANCE.OFFLINE_EFFICIENCY, floor);
+    const blood = offlineGain(rate, elapsedSec, efficiency, capHours);
     const bloodWithRewarded = offlineGain(
       rate,
       elapsedSec,
@@ -845,7 +1161,7 @@ export class GameState {
       elapsedSec,
       blood,
       bloodWithRewarded,
-      efficiency: BALANCE.OFFLINE_EFFICIENCY,
+      efficiency,
       capHours,
       capHoursRewarded,
     };

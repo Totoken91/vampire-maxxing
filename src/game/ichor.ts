@@ -1,6 +1,6 @@
 // Ichor — the pull currency (Phase L3, 2026-04-24).
 //
-// Plate currency used exclusively for Rituel invocations (L5). Unlike
+// Plate currency used exclusively for Rite invocations (L5). Unlike
 // Blood it does NOT scale with prestige; the player earns 5-7/day F2P
 // actif at any point in the curve. Soft cap at 1000 prevents hoarding
 // exploits when new sources land later (packs, battle pass, events).

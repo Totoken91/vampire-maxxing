@@ -6,7 +6,9 @@
 .thrall-detail__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 520;
+  /* Sits above the Rituals screen (540) so tapping the rate-up
+     thrall portrait pops the detail modal in front, not behind. */
+  z-index: 560;
   background: rgba(4, 2, 6, 0.86);
   display: flex;
   align-items: center;
@@ -45,13 +47,11 @@
   /* Padding bumped so content stays well clear of the panel PNG's
      baroque corner ornaments (~8-10% inset each side on the asset). */
   padding: 28px 22px 22px;
-  /* Baroque panel PNG — same asset used by the Ascension modal so the
-     two share a visual language. Stretched to fit with 100% 100% so
-     the panel grows with content height (lore-heavy thralls get more
-     panel, not a repeated texture). */
-  background:
-    url('/assets/ornaments/menu-panel.webp') center / 100% 100% no-repeat,
-    linear-gradient(180deg, rgba(22, 12, 18, 0.6), rgba(8, 4, 10, 0.8));
+  /* Dedicated thrall-panel PNG (Kenny's bespoke baroque cartouche).
+     Stretched 100% 100% so the panel grows with content height —
+     lore-heavy thralls get more panel, not a repeated texture. */
+  background: url('/assets/ornaments/panel-thrall.png') center / 100% 100%
+    no-repeat;
   border: none;
   box-shadow:
     0 0 40px rgba(0, 0, 0, 0.8),
@@ -143,17 +143,18 @@
   max-height: 44vh;
   object-fit: contain;
   object-position: center center;
-  /* Four-sided alpha fade — bottom is the dominant dissolve into the
-     text panel; top + left + right get a softer 4-6% fade so the
-     portrait never ends with a hard rectangle against the baroque
-     background. Two gradients composited with `intersect`: a pixel
-     is visible only where BOTH masks are opaque. */
+  /* Four-sided alpha fade. Bottom stays the dominant dissolve into
+     the text panel (25% gradient ramp). Top + left + right get
+     wider, softer fades (12% / 14%) so all four edges blend smoothly
+     into the baroque panel — no hard rectangle anywhere. Two
+     gradients composited with `intersect`: a pixel is visible only
+     where BOTH masks are opaque. */
   -webkit-mask-image:
-    linear-gradient(180deg, transparent 0%, #000 6%, #000 75%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+    linear-gradient(180deg, transparent 0%, #000 12%, #000 75%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
   mask-image:
-    linear-gradient(180deg, transparent 0%, #000 6%, #000 75%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+    linear-gradient(180deg, transparent 0%, #000 12%, #000 75%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 14%, #000 86%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
 }
@@ -229,6 +230,68 @@
     0 0 16px var(--rarity-color);
 }
 
+/* L6 / Pattern A — secondary effect line beneath the primary stat.
+   Slightly smaller, ink tone so the primary is still the headline. */
+.thrall-detail__effect-secondary {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--ink);
+  filter: brightness(1.1);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px rgba(0, 0, 0, 0.85);
+  margin-top: 2px;
+}
+.thrall-detail__effect-secondary:empty { display: none; }
+
+/* L6 / Pattern A — signature block. Holds the "— SIGNATURE —" caps
+   header, one or more bespoke stat lines (numerical), then the
+   lore-flavoured caption beneath. */
+.thrall-detail__signature {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(139, 116, 68, 0.25);
+}
+
+.thrall-detail__effect-bespoke-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--rarity-color);
+  filter: brightness(1.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  margin-bottom: 4px;
+}
+
+.thrall-detail__effect-bespoke-stat {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--rarity-color);
+  filter: brightness(1.3);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px rgba(0, 0, 0, 0.9);
+  margin-bottom: 2px;
+}
+
+.thrall-detail__effect-bespoke {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-dim);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 0.7);
+  padding: 0 var(--sp-2);
+  margin-top: 4px;
+}
+
 .thrall-detail__hint {
   font-family: var(--font-serif);
   font-style: italic;
@@ -236,6 +299,251 @@
   color: var(--ink-faint);
   margin-top: var(--sp-2);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.thrall-detail__hint--maxed {
+  color: var(--gold);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px rgba(201, 169, 98, 0.5);
+}
+
+/* ── L6 — Stars row + action buttons ─────────────────────────── */
+.thrall-detail__stars {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font-serif);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.thrall-detail__star {
+  color: rgba(243, 234, 216, 0.18);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  transition: color 200ms ease, text-shadow 200ms ease;
+}
+.thrall-detail__star--on {
+  color: var(--rarity-color);
+  filter: brightness(1.4);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px var(--rarity-color);
+}
+.thrall-detail__stars--pulse {
+  animation: thrall-detail-stars-pulse 700ms ease-out;
+}
+@keyframes thrall-detail-stars-pulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); filter: brightness(1.5); }
+  100% { transform: scale(1); }
+}
+
+.thrall-detail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: var(--sp-2);
+}
+
+.thrall-detail__btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 12px;
+  background: linear-gradient(
+    180deg,
+    rgba(60, 40, 25, 0.55),
+    rgba(20, 12, 14, 0.65)
+  );
+  border: 1px solid var(--gold-dim);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 120ms var(--ease-out-pop), opacity 120ms;
+}
+.thrall-detail__btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+.thrall-detail__btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.thrall-detail__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.thrall-detail__btn-label {
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+}
+
+.thrall-detail__btn-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-dim);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.thrall-detail__btn--equip {
+  border-color: rgba(201, 169, 98, 0.7);
+}
+.thrall-detail__btn--equip .thrall-detail__btn-label {
+  color: var(--gold);
+}
+
+.thrall-detail__btn--unequip {
+  border-color: rgba(120, 90, 70, 0.5);
+  background: linear-gradient(
+    180deg,
+    rgba(40, 28, 22, 0.5),
+    rgba(15, 10, 12, 0.6)
+  );
+}
+.thrall-detail__btn--unequip .thrall-detail__btn-label {
+  color: var(--ink-dim);
+}
+
+.thrall-detail__btn--awaken {
+  border-color: var(--rarity-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--rarity-color) 22%, transparent),
+    rgba(8, 4, 8, 0.6)
+  );
+}
+.thrall-detail__btn--awaken .thrall-detail__btn-label {
+  color: var(--rarity-color);
+  filter: brightness(1.4);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 8px var(--rarity-color);
+}
+
+/* ── Equip slot picker (when all 3 slots are full) ─────────── */
+.equip-picker__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 580;
+  background: rgba(4, 2, 6, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  animation: thrall-detail-in 200ms ease-out;
+}
+.equip-picker {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--sp-4);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 15, 20, 0.98),
+    rgba(12, 8, 12, 1)
+  );
+  border: 1px solid var(--gold-dim);
+  text-align: center;
+}
+.equip-picker__title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.36em;
+  margin-bottom: 4px;
+}
+.equip-picker__sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-bottom: var(--sp-3);
+}
+.equip-picker__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: var(--sp-3);
+}
+.equip-picker__slot {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(139, 116, 68, 0.4);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  transition: filter 120ms ease, transform 120ms var(--ease-out-pop), border-color 120ms;
+}
+.equip-picker__slot:hover {
+  filter: brightness(1.15);
+  border-color: var(--gold);
+}
+.equip-picker__slot:active {
+  transform: scale(0.97);
+}
+.equip-picker__slot[data-rarity='rare']      { border-color: rgba(138, 63, 181, 0.6); }
+.equip-picker__slot[data-rarity='epic']      { border-color: rgba(192, 40, 56, 0.6); }
+.equip-picker__slot[data-rarity='legendary'] { border-color: rgba(224, 24, 24, 0.8); }
+
+.equip-picker__slot-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  filter: brightness(0.6);
+}
+.equip-picker__slot-name {
+  position: absolute;
+  bottom: 16px;
+  left: 4px;
+  right: 4px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 10px;
+  color: var(--ink);
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 1);
+  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.equip-picker__slot-num {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  color: var(--gold-dim);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 1);
+  z-index: 1;
+  text-transform: uppercase;
+}
+.equip-picker__cancel {
+  background: transparent;
+  border: 1px solid rgba(139, 116, 68, 0.3);
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  padding: 8px 24px;
+  cursor: pointer;
+}
+.equip-picker__cancel:hover {
+  color: var(--gold);
+  border-color: var(--gold-dim);
 }
 
 @media (prefers-reduced-motion: reduce) {

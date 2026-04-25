@@ -20,6 +20,7 @@ import { ACHIEVEMENTS_BY_ID } from './game/config/achievements';
 import { showAchievementToast } from './ui/components/achievement-toast';
 import { installMilestones } from './game/milestones';
 import { installIchorRewards } from './game/ichor-rewards';
+import { installAwakening } from './game/awakening-install';
 import { SERVANTS, SERVANTS_BY_ID } from './game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
 
@@ -42,6 +43,12 @@ async function boot(): Promise<void> {
   // collection complete). Also retroactively grants any milestone
   // a returning save has already passed.
   installIchorRewards();
+
+  // L6 — wire equip events to modifier registry + republish equipped
+  // thrall modifiers from the loaded save so the registry matches
+  // state without manual fix-up. Subscribes to thrall-equipped /
+  // thrall-awakened internally.
+  installAwakening();
 
   installFx(document.body);
   installMilestone();

@@ -248,6 +248,77 @@
   pointer-events: none;
 }
 
+/* ── L6 — Star tier strip at the top cartouche of the frame.
+   Position tuned to the thrall-frame.png ornament: ~7% from top,
+   inside the inner opening (matches the bottom name cartouche
+   inset for vertical symmetry). */
+.thrall-stars {
+  position: absolute;
+  top: 7%;
+  left: 12%;
+  right: 12%;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 1px;
+  font-family: var(--font-serif);
+  font-size: 9px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.thrall-stars__star {
+  color: rgba(243, 234, 216, 0.18);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  transition: color 240ms ease, text-shadow 240ms ease;
+}
+.thrall-stars__star--on {
+  color: var(--rarity-color);
+  filter: brightness(1.5);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 4px var(--rarity-color);
+}
+
+/* ── L6 — Equipped indicator. Small gold gem in the top-LEFT corner
+   (top-RIGHT is the "new" pulse). Subtle halo so it reads as
+   "active in the coven" without screaming. */
+.thrall-card__equipped-mark {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 4;
+  font-family: var(--font-serif);
+  font-size: 11px;
+  color: var(--gold);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 6px rgba(201, 169, 98, 0.7);
+  pointer-events: none;
+}
+.thrall-card--equipped {
+  /* Tint the rarity-coloured filter on the frame slightly brighter
+     so equipped cards pop one step above un-equipped owned ones. */
+}
+.thrall-card--equipped .thrall-frame {
+  filter: brightness(1.15) sepia(1) hue-rotate(0deg) saturate(1.4);
+}
+.thrall-card--equipped[data-rarity='rare'] .thrall-frame {
+  filter: brightness(0.9) sepia(1) hue-rotate(225deg) saturate(2);
+}
+.thrall-card--equipped[data-rarity='epic'] .thrall-frame {
+  filter: brightness(0.9) sepia(1) hue-rotate(325deg) saturate(2.6);
+}
+.thrall-card--equipped[data-rarity='legendary'] .thrall-frame {
+  filter: brightness(0.95) sepia(1) hue-rotate(345deg) saturate(3.6);
+}
+
+/* Locked silhouettes don't display stars. */
+.thrall-card--locked .thrall-stars,
+.thrall-card--silhouette .thrall-stars {
+  display: none;
+}
+
 /* ── "New" acquisition indicator — pulse a small dot in the top-right
    corner until the player taps the card to open the detail modal. */
 .thrall-card--new::after {
@@ -338,9 +409,11 @@
 }
 
 .sanctum-active__slot {
-  width: 48px;
-  height: 48px;
+  position: relative;
+  width: 56px;
+  height: 56px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(139, 116, 68, 0.4);
@@ -349,12 +422,65 @@
   font-size: 14px;
   color: var(--gold-dim);
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  transition: transform 120ms var(--ease-out-pop), border-color 120ms;
+}
+.sanctum-active__slot:hover {
+  border-color: var(--gold);
+}
+.sanctum-active__slot:active {
+  transform: scale(0.95);
+}
+
+.sanctum-active__slot--filled {
+  border-color: rgba(201, 169, 98, 0.6);
+  /* Per-rarity tint */
+}
+.sanctum-active__slot[data-rarity='rare']      { border-color: rgba(138, 63, 181, 0.7); box-shadow: 0 0 8px rgba(138, 63, 181, 0.35); }
+.sanctum-active__slot[data-rarity='epic']      { border-color: rgba(192, 40, 56, 0.7);  box-shadow: 0 0 10px rgba(192, 40, 56, 0.4); }
+.sanctum-active__slot[data-rarity='legendary'] { border-color: rgba(224, 24, 24, 0.85); box-shadow: 0 0 12px rgba(224, 24, 24, 0.5); }
+
+.sanctum-active__slot-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+}
+
+.sanctum-active__slot-stars {
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  right: 0;
+  font-family: var(--font-serif);
+  font-size: 9px;
+  color: var(--gold);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 1);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.sanctum-active__slot-empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 9px;
+  color: var(--ink-faint);
 }
 
 .sanctum-active__slot--locked {
   border-color: rgba(139, 116, 68, 0.2);
   color: var(--ink-faint);
   background: rgba(0, 0, 0, 0.25);
+  cursor: default;
+}
+.sanctum-active__slot--locked:hover {
+  border-color: rgba(139, 116, 68, 0.2);
 }
 
 .sanctum-active__slot-lock {
@@ -366,6 +492,63 @@
   font-style: italic;
   font-size: 11px;
   color: var(--ink-dim);
+}
+
+/* ── L6 — Essence counters in the Sanctum header ───────────────── */
+.sanctum-essences {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 var(--sp-4) var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.sanctum-essences__pill {
+  --pill-tint: #a88450;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--pill-tint) 50%, transparent);
+  background: rgba(0, 0, 0, 0.4);
+}
+.sanctum-essences__pill[data-rarity='common']  { --pill-tint: #d4ae6e; }
+.sanctum-essences__pill[data-rarity='rare']    { --pill-tint: #c89aff; }
+.sanctum-essences__pill[data-rarity='epic']    { --pill-tint: #ff8a90; }
+
+.sanctum-essences__orb {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 255, 255, 0.7) 0%,
+    var(--pill-tint) 60%,
+    transparent 100%
+  );
+  box-shadow: 0 0 6px var(--pill-tint);
+}
+
+.sanctum-essences__value {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pill-tint);
+  filter: brightness(1.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  font-variant-numeric: tabular-nums;
+  min-width: 14px;
+  text-align: right;
+}
+
+.sanctum-essences__label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
 /* ── Sanctum tab layout — make it scroll cleanly ─────────────── */

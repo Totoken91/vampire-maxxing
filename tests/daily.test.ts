@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
   DAILY_CYCLE,
-  DAILY_MIN_BLOOD,
   isConsecutiveDay,
   localDateKey,
   rewardFor,
@@ -46,20 +45,35 @@ describe('isConsecutiveDay', () => {
 });
 
 describe('rewardFor', () => {
-  test('day 1 at zero rate still grants the floor', () => {
+  test('day 1 grants nothing — the silent first arrival', () => {
+    // Day 1 is silently consumed on first session; floor + minutes
+    // both 0 so no blood/ichor/dread is ever paid out for it.
     const r = rewardFor(0, 0);
-    expect(r.blood).toBe(DAILY_MIN_BLOOD);
+    expect(r.blood).toBe(0);
     expect(r.dread).toBe(0);
+    expect(r.ichor).toBe(0);
+    // Even at high rate, day 1 stays empty (minutes:0 zeroes out).
+    expect(rewardFor(0, 1_000_000).blood).toBe(0);
   });
 
-  test('day 1 at rate 100 grants 100 * 60 * 1 min = 6000', () => {
-    expect(rewardFor(0, 100).blood).toBe(6000);
+  test('day 2 at zero rate grants the 10K floor', () => {
+    expect(rewardFor(1, 0).blood).toBe(10_000);
+  });
+
+  test('day 2 at high rate beats the floor — 100 × 60 × 3 = 18000', () => {
+    // Rate × 60 × minutes = 100 × 60 × 3 = 18,000 > floor 10,000.
+    expect(rewardFor(1, 100).blood).toBe(18_000);
   });
 
   test('day 7 (climax) grants 120 min of production + 5 dread', () => {
+    // Rate 100 × 60 × 120 = 720,000 — beats day-7 floor 600,000.
     const r = rewardFor(6, 100);
     expect(r.dread).toBe(5);
     expect(r.blood).toBe(100 * 60 * 120);
+  });
+
+  test('day 7 at zero rate grants the day-7 floor', () => {
+    expect(rewardFor(6, 0).blood).toBe(600_000);
   });
 
   test('clamps out-of-range dayIndex to the cycle bounds', () => {

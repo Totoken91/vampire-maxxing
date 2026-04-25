@@ -216,6 +216,63 @@
   animation: ftue-card-pulse 1.6s ease-in-out infinite;
 }
 
+/* L8 — element-scoped FTUE glows. Some targets (sanctum invoke
+   button, banner cards) already define their own box-shadow; the
+   generic .ftue-glow shadow gets overridden by the cascade. We
+   re-publish stronger overrides here using outline + filter so they
+   stack rather than compete. */
+
+/* Sanctum tab button — gold halo that pulses, drawing the player to
+   the bottom nav after the tutorial Ichor gift fires. */
+.tab-bar__btn.ftue-glow {
+  box-shadow: none;
+  animation: ftue-tab-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ftue-tab-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 -4px 10px rgba(201, 169, 98, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 -6px 18px rgba(201, 169, 98, 0.85));
+  }
+}
+
+/* Sanctum INVOKE CTA — already has a crimson box-shadow + uses
+   btn-ascend.png as background. We boost via outline + animated
+   drop-shadow so the gold FTUE accent reads against the red. */
+.sanctum-invoke.ftue-glow {
+  box-shadow: 0 0 18px rgba(165, 20, 35, 0.3);
+  outline: 2px solid rgba(201, 169, 98, 0.7);
+  outline-offset: 2px;
+  animation: ftue-invoke-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ftue-invoke-pulse {
+  0%, 100% {
+    outline-color: rgba(201, 169, 98, 0.5);
+    filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.4));
+  }
+  50% {
+    outline-color: rgba(252, 211, 77, 0.95);
+    filter: drop-shadow(0 0 16px rgba(252, 211, 77, 0.85));
+  }
+}
+
+/* Sanctum active-thralls footer — pulse the slot row to invite
+   the first equip after the player's first pull lands. */
+.sanctum-active.ftue-glow {
+  box-shadow: none;
+  position: relative;
+  animation: ftue-footer-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ftue-footer-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(201, 169, 98, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(252, 211, 77, 0.9));
+  }
+}
+
 @keyframes ftue-card-pulse {
   0%,
   100% {

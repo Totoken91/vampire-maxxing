@@ -1,0 +1,551 @@
+/* Ichor Gift Ceremony — full-screen reward modal.
+   Cinematic flow: opaque black backdrop → soft layered rays + atmo
+   mist → orb materializes (FDP glow stack) → counter slot-rolls →
+   subtitle + CLAIM CTA. Vertical hierarchy with breathing room. */
+
+.ichor-gift {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  /* Title is absolute at the top, CLAIM is absolute at the bottom,
+     and the central stack (orb + amount + subtitle) is flex-centered
+     in the remaining space. Result: the hero shot sits at the
+     visual center of the viewport — no big empty band above it. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  pointer-events: none;
+  /* Solid black so the page underneath is fully hidden. */
+  background: #050208;
+  animation: ichor-gift-in 320ms ease-out;
+}
+.ichor-gift--ready {
+  pointer-events: auto;
+}
+.ichor-gift--exit {
+  animation: ichor-gift-out 520ms ease-in forwards;
+}
+@keyframes ichor-gift-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes ichor-gift-out {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Backdrop veil — radial warm tint over the solid black ──────── */
+.ichor-gift__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 60% 50% at 50% 42%,
+      rgba(120, 60, 20, 0.55) 0%,
+      rgba(40, 20, 10, 0.4) 35%,
+      transparent 70%
+    ),
+    /* Vignette dim toward edges */
+    radial-gradient(
+      ellipse at center,
+      transparent 30%,
+      rgba(0, 0, 0, 0.5) 80%,
+      rgba(0, 0, 0, 0.85) 100%
+    );
+  pointer-events: none;
+}
+
+/* ── Soft rays — two blurred light streaks centered on the orb.
+   Replaces the harsh conic-gradient amateurish look with diffuse,
+   photographic light. Now a child of `.ichor-gift__core` so the
+   center-anchor follows the orb's actual flex position. ─────── */
+.ichor-gift__rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 900px;
+  height: 900px;
+  margin: -450px 0 0 -450px;
+  pointer-events: none;
+  opacity: 0;
+  animation: gift-rays-bloom 1200ms ease-out 400ms forwards;
+  z-index: 0;
+}
+/* Each ray streak is a separate pseudo-element with different
+   rotation, blur, and opacity. Result: organic light vs uniform
+   conic clipart. */
+.ichor-gift__rays::before,
+.ichor-gift__rays::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 60px;
+  margin: -30px 0 0 -50%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(252, 211, 77, 0.18) 30%,
+    rgba(255, 240, 200, 0.5) 50%,
+    rgba(252, 211, 77, 0.18) 70%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  mix-blend-mode: screen;
+}
+.ichor-gift__rays::before {
+  transform: translate(-50%, -50%) rotate(28deg);
+  animation: gift-ray-rotate-a 32s linear infinite;
+}
+.ichor-gift__rays::after {
+  transform: translate(-50%, -50%) rotate(-44deg);
+  height: 30px;
+  margin: -15px 0 0 -50%;
+  opacity: 0.7;
+  animation: gift-ray-rotate-b 26s linear infinite reverse;
+}
+@keyframes gift-rays-bloom {
+  0%   { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes gift-ray-rotate-a {
+  0%   { transform: translate(-50%, -50%) rotate(28deg); }
+  100% { transform: translate(-50%, -50%) rotate(388deg); }
+}
+@keyframes gift-ray-rotate-b {
+  0%   { transform: translate(-50%, -50%) rotate(-44deg); }
+  100% { transform: translate(-50%, -50%) rotate(-404deg); }
+}
+
+/* Atmospheric gold mist — subtle radial glow that breathes around
+   the orb, adding ambient warmth. Centered on the core so it
+   follows the orb's flex position. */
+.ichor-gift__atmo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 700px;
+  height: 700px;
+  margin: -350px 0 0 -350px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(252, 211, 77, 0.25) 0%,
+    rgba(220, 100, 30, 0.12) 30%,
+    transparent 65%
+  );
+  filter: blur(40px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: gift-atmo-breathe 5s ease-in-out infinite;
+  z-index: 0;
+}
+@keyframes gift-atmo-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+
+/* ── Convergent particles — anchored to the orb center via parent
+   core, so motes always converge to the orb's actual position. ── */
+.ichor-gift__particles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.ichor-gift__particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.95) 0%,
+    var(--gold) 50%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 8px var(--gold),
+    0 0 16px rgba(252, 211, 77, 0.5);
+  transform-origin: 0 0;
+  opacity: 0;
+  animation: gift-particle-converge 1100ms cubic-bezier(0.4, 0, 0.2, 1) var(--p-delay, 0ms) forwards;
+}
+@keyframes gift-particle-converge {
+  0% {
+    transform: rotate(var(--p-angle, 0deg)) translateX(var(--p-radius, 260px)) scale(0.3);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  90% {
+    transform: rotate(var(--p-angle, 0deg)) translateX(8px) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--p-angle, 0deg)) translateX(0) scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* ── Title — pinned to the top so the central stack stays
+   visually centered. Doesn't push the orb downward. ────────────── */
+.ichor-gift__title {
+  position: absolute;
+  top: 11vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 14px rgba(252, 211, 77, 0.7);
+  z-index: 4;
+  text-align: center;
+  white-space: nowrap;
+  animation: gift-title-slam 600ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: 800ms;
+}
+@keyframes gift-title-slam {
+  /* Preserve the absolute-positioning translateX(-50%) by baking it
+     into every keyframe — animating only translateY would clobber it. */
+  0%   { opacity: 0; transform: translate(-50%, -30px) scale(0.6); }
+  60%  { opacity: 1; transform: translate(-50%, 8px) scale(1.08); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/* ── Center stack: orb + amount + subtitle ────────────────────── */
+.ichor-gift__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  z-index: 4;
+}
+
+/* ── Central orb — premium 3D droplet ──────────────────────────── */
+.ichor-gift__core {
+  position: relative;
+  width: 180px;
+  height: 200px;
+  animation: gift-core-in 800ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: 200ms;
+}
+@keyframes gift-core-in {
+  0%   { transform: scale(0.1); opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Halo behind the orb — soft warm bloom that pulses in place. */
+.ichor-gift__halo {
+  position: absolute;
+  inset: -50px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 240, 200, 0.5) 0%,
+    rgba(252, 211, 77, 0.55) 18%,
+    rgba(245, 158, 11, 0.32) 42%,
+    rgba(220, 38, 38, 0.14) 70%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  mix-blend-mode: screen;
+  animation: gift-halo-pulse 2.4s ease-in-out infinite;
+}
+@keyframes gift-halo-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1.14); opacity: 1; }
+}
+
+/* Premium SVG droplet — scales up well, all internal gradient logic
+   lives in the inline SVG (gradients/highlights). */
+.ichor-gift__droplet {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  filter:
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.85))
+    drop-shadow(0 0 18px var(--gold))
+    drop-shadow(0 0 38px rgba(245, 158, 11, 0.7))
+    drop-shadow(0 0 70px rgba(220, 38, 38, 0.35));
+  animation: gift-droplet-bob 3.4s ease-in-out infinite;
+}
+.ichor-gift__droplet svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+@keyframes gift-droplet-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-6px) rotate(1deg); }
+}
+
+/* ── White burst flash at impact — anchored to the orb center via
+   the core's positioning context. Fires once at T+700ms. ─────── */
+.ichor-gift__flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 700px;
+  height: 700px;
+  margin: -350px 0 0 -350px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(252, 211, 77, 0.55) 22%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  animation: gift-flash 600ms ease-out 700ms forwards;
+}
+@keyframes gift-flash {
+  0%   { opacity: 0; transform: scale(0.4); }
+  30%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* ── Amount counter — slot-machine 0→N, bigger and more dramatic ── */
+.ichor-gift__amount-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 22px;
+  /* Ornamental plate behind the number — gold strokes top + bottom
+     give the counter a "trophy" feel without a full panel. */
+  border-top: 1px solid rgba(252, 211, 77, 0.4);
+  border-bottom: 1px solid rgba(252, 211, 77, 0.4);
+  font-family: var(--font-serif);
+  font-style: italic;
+  z-index: 4;
+  animation: gift-amount-pop 700ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: 1300ms;
+}
+.ichor-gift__amount-icon {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  color: var(--gold);
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.7))
+    drop-shadow(0 0 10px var(--gold));
+}
+.ichor-gift__amount-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ichor-gift__amount-value {
+  font-size: 64px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 1),
+    0 0 18px var(--gold),
+    0 0 36px rgba(245, 158, 11, 0.7);
+  line-height: 1;
+}
+.ichor-gift__amount-label {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: #f5d998;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 10px rgba(252, 211, 77, 0.6);
+}
+@keyframes gift-amount-pop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  60%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Subtitle ──────────────────────────────────────────────────── */
+.ichor-gift__subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  text-align: center;
+  max-width: 320px;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 10px rgba(0, 0, 0, 0.6);
+  z-index: 4;
+  opacity: 0;
+  animation: gift-subtitle-in 500ms ease-out 1900ms forwards;
+}
+@keyframes gift-subtitle-in {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── CLAIM button — Tier 1 primary CTA per the AAA mobile guide.
+   Idle state: subtle scale breathing + glow opacity oscillation
+   (NEVER a box-shadow blink — that reads as casino slot-machine,
+   not premium). Static gold rim, gloss highlight stripe at top,
+   slow shimmer sweep every 4.5s. ─────────────────────────────── */
+.ichor-gift__claim {
+  position: relative;
+  padding: 16px 56px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(252, 211, 77, 0.22) 0%,
+      rgba(120, 70, 20, 0.15) 50%,
+      rgba(80, 40, 10, 0.15) 100%
+    );
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 0 10px rgba(252, 211, 77, 0.6);
+  overflow: hidden;
+  /* Static rim glow — does NOT animate. The breathing comes from
+     scale + the soft outer halo pseudo, not from box-shadow. */
+  box-shadow:
+    0 0 14px rgba(252, 211, 77, 0.35),
+    inset 0 0 8px rgba(252, 211, 77, 0.2);
+  transition: filter 120ms, transform 120ms var(--ease-out-pop);
+}
+.ichor-gift__claim::before {
+  /* Inner highlight stripe at the top — gives the button gloss. */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 240, 200, 0.18) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+.ichor-gift__claim::after {
+  /* Slow shimmer sweep — 4.5s cadence is intentional: faster reads
+     as anxious / casino, this slower pace feels patient + premium. */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 240, 200, 0.5) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: gift-claim-shimmer 4.5s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+.ichor-gift__claim {
+  /* Pinned to the bottom so the central stack stays visually
+     centered above. Translation lives in the keyframe so the
+     centering survives the scale animation. */
+  position: absolute;
+  bottom: 8vh;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.ichor-gift__claim--ready {
+  opacity: 1;
+  pointer-events: auto;
+  /* Breathing pulse — scale + filter brightness, gentle 2.6s cadence.
+     No box-shadow swing. Per buttons-and-juice.md tier-1 spec. */
+  animation: gift-claim-breathe 2.6s ease-in-out infinite;
+}
+.ichor-gift__claim--ready:hover {
+  filter: brightness(1.18);
+}
+.ichor-gift__claim--ready:active {
+  /* Keep the centering translation while the press scales down. */
+  transform: translateX(-50%) scale(0.97);
+}
+@keyframes gift-claim-breathe {
+  /* Preserve the absolute-positioning translateX(-50%) — same
+     reason as the title slam. */
+  0%, 100% { transform: translateX(-50%) scale(1);    filter: brightness(1); }
+  50%      { transform: translateX(-50%) scale(1.02); filter: brightness(1.12); }
+}
+@keyframes gift-claim-shimmer {
+  0%       { left: -120%; }
+  60%, 100%{ left: 200%; }
+}
+
+/* ── Exit cascade ─────────────────────────────────────────────── */
+.ichor-gift--exit .ichor-gift__core {
+  animation: gift-core-disperse 480ms ease-in forwards;
+}
+.ichor-gift--exit .ichor-gift__halo,
+.ichor-gift--exit .ichor-gift__rays,
+.ichor-gift--exit .ichor-gift__atmo,
+.ichor-gift--exit .ichor-gift__title,
+.ichor-gift--exit .ichor-gift__amount-wrap,
+.ichor-gift--exit .ichor-gift__subtitle,
+.ichor-gift--exit .ichor-gift__claim {
+  animation: gift-element-fadeout 320ms ease-out forwards;
+}
+@keyframes gift-core-disperse {
+  0%   { transform: scale(1); opacity: 1; filter: blur(0); }
+  100% { transform: scale(2.6); opacity: 0; filter: blur(14px); }
+}
+@keyframes gift-element-fadeout {
+  0%   { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ichor-gift,
+  .ichor-gift__rays,
+  .ichor-gift__atmo,
+  .ichor-gift__particle,
+  .ichor-gift__core,
+  .ichor-gift__halo,
+  .ichor-gift__droplet,
+  .ichor-gift__flash,
+  .ichor-gift__title,
+  .ichor-gift__amount-wrap,
+  .ichor-gift__subtitle,
+  .ichor-gift__claim--ready,
+  .ichor-gift__claim::after {
+    animation: none !important;
+    opacity: 1;
+  }
+}

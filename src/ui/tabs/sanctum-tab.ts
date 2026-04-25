@@ -12,13 +12,16 @@ import { el } from '../../utils/dom';
 import {
   THRALLS,
   THRALL_ROSTER_TARGET,
+  THRALLS_BY_ID,
   archetypeLabel,
   type Thrall,
   type ThrallArchetype,
 } from '../../game/config/thralls';
+import { STAR_MAX_PER_RARITY } from '../../game/config/awakening';
 import { gameState } from '../../game/state';
 import { events } from '../../game/events';
 import { showThrallDetail } from '../components/thrall-detail-modal';
+import { showRitualsScreen } from '../components/rituals-screen';
 
 type FilterId = 'all' | ThrallArchetype;
 
@@ -34,6 +37,8 @@ export class SanctumTab {
   private readonly root: HTMLElement;
   private readonly grid: HTMLElement;
   private readonly collectedEl: HTMLElement;
+  private activeFooter!: HTMLElement;
+  private essenceRow!: HTMLElement;
   private activeFilter: FilterId = 'all';
   private readonly teardowns: Array<() => void> = [];
 
@@ -48,6 +53,24 @@ export class SanctumTab {
     head.appendChild(this.collectedEl);
     this.renderCollectedCount();
     this.root.appendChild(head);
+
+    // ── Essence counters — gold/violet/crimson pills with the current
+    //    balance per rarity. Updates on essence-gained.
+    this.essenceRow = this.buildEssenceRow();
+    this.root.appendChild(this.essenceRow);
+
+    // ── Invoke CTA — opens the Rituals screen.
+    const invoke = el(
+      'button',
+      'sanctum-invoke',
+      'INVOKE',
+    ) as HTMLButtonElement;
+    invoke.type = 'button';
+    invoke.addEventListener('click', () => {
+      if (navigator.vibrate) navigator.vibrate(8);
+      showRitualsScreen();
+    });
+    this.root.appendChild(invoke);
 
     // ── Filter tabs
     const filterRow = el('div', 'sanctum-filters');
@@ -66,39 +89,138 @@ export class SanctumTab {
     this.root.appendChild(this.grid);
     this.renderGrid();
 
-    // ── Active slots footer
+    // ── Active slots footer (L6 — real equip slots)
+    this.activeFooter = this.buildActiveFooter();
+    this.root.appendChild(this.activeFooter);
+  }
+
+  /** Build the essence counter row — three rarity-tinted pills
+   * showing current balance. Mounted once; values updated via
+   * `renderEssences()`. */
+  private buildEssenceRow(): HTMLElement {
+    const row = el('div', 'sanctum-essences');
+    for (const rarity of ['common', 'rare', 'epic'] as const) {
+      const pill = el('div', `sanctum-essences__pill`);
+      pill.dataset.rarity = rarity;
+      const orb = el('span', 'sanctum-essences__orb');
+      const value = el('span', 'sanctum-essences__value', '0');
+      value.dataset.rarity = rarity;
+      const label = el(
+        'span',
+        'sanctum-essences__label',
+        `${rarity} essence`,
+      );
+      pill.appendChild(orb);
+      pill.appendChild(value);
+      pill.appendChild(label);
+      row.appendChild(pill);
+    }
+    return row;
+  }
+
+  private renderEssences(): void {
+    const values = this.essenceRow.querySelectorAll<HTMLElement>(
+      '.sanctum-essences__value',
+    );
+    for (const v of values) {
+      const rarity = v.dataset.rarity as 'common' | 'rare' | 'epic';
+      v.textContent = String(gameState.getEssence(rarity));
+    }
+  }
+
+  /** Render the 3 active slots + 1 locked teaser. Re-rendered when
+   * an equip changes so portraits / empty placeholders stay fresh. */
+  private buildActiveFooter(): HTMLElement {
     const footer = el('section', 'sanctum-active');
     footer.appendChild(el('div', 'sanctum-active__label', '— active thralls —'));
     const slotRow = el('div', 'sanctum-active__slots');
-    for (let i = 0; i < 3; i += 1) {
-      const slot = el('div', 'sanctum-active__slot');
-      slot.appendChild(el('div', 'sanctum-active__slot-num', `${i + 1}`));
-      slotRow.appendChild(slot);
-    }
-    // The 4th / 5th slots are teasers for later unlocks.
-    const locked = el('div', 'sanctum-active__slot sanctum-active__slot--locked');
-    locked.appendChild(el('div', 'sanctum-active__slot-lock', '◆'));
-    slotRow.appendChild(locked);
+    slotRow.id = 'sanctum-active-slots';
     footer.appendChild(slotRow);
     footer.appendChild(
       el(
         'div',
         'sanctum-active__hint',
-        'the binding awaits — equip coming soon',
+        'tap a slot to unbind &middot; tap a thrall to equip',
       ),
     );
-    this.root.appendChild(footer);
+    return footer;
+  }
+
+  private renderActiveSlots(): void {
+    const slotRow = this.activeFooter.querySelector(
+      '.sanctum-active__slots',
+    ) as HTMLElement;
+    slotRow.textContent = '';
+    const slots = gameState.getEquippedSlots();
+    for (let i = 0; i < slots.length; i += 1) {
+      const id = slots[i];
+      const slot = el(
+        'button',
+        id ? 'sanctum-active__slot sanctum-active__slot--filled' : 'sanctum-active__slot',
+      ) as HTMLButtonElement;
+      slot.type = 'button';
+      slot.dataset.slotIndex = String(i);
+      if (id) {
+        const t = THRALLS_BY_ID[id];
+        slot.dataset.rarity = t.rarity;
+        const img = el('img', 'sanctum-active__slot-img') as HTMLImageElement;
+        img.src = t.portraitPath;
+        img.alt = t.name;
+        img.decoding = 'async';
+        slot.appendChild(img);
+        // Stars badge
+        const stars = gameState.getPlayerThrall(id).stars + 1;
+        slot.appendChild(
+          el('div', 'sanctum-active__slot-stars', '★'.repeat(stars)),
+        );
+        slot.addEventListener('click', () => {
+          if (navigator.vibrate) navigator.vibrate(5);
+          gameState.unequipSlot(i);
+        });
+      } else {
+        slot.appendChild(el('div', 'sanctum-active__slot-num', `${i + 1}`));
+        slot.appendChild(
+          el('div', 'sanctum-active__slot-empty', 'empty'),
+        );
+      }
+      slotRow.appendChild(slot);
+    }
+    // Teaser slot 4 — locked until Dread expansion lands.
+    const locked = el(
+      'div',
+      'sanctum-active__slot sanctum-active__slot--locked',
+    );
+    locked.appendChild(el('div', 'sanctum-active__slot-lock', '◆'));
+    slotRow.appendChild(locked);
   }
 
   mountTo(parent: HTMLElement): void {
     parent.appendChild(this.root);
+    this.renderActiveSlots();
+    this.renderEssences();
     // Re-render the grid + collected count when the player obtains a
     // thrall (welcome summon, milestone, pull, …).
     this.teardowns.push(
       events.on('thrall-obtained', () => {
         this.renderGrid();
         this.renderCollectedCount();
+        this.renderActiveSlots();
       }),
+    );
+    // L6 — refresh equip slots on equip changes + awakenings.
+    this.teardowns.push(
+      events.on('thrall-equipped', () => this.renderActiveSlots()),
+    );
+    this.teardowns.push(
+      events.on('thrall-awakened', () => {
+        this.renderActiveSlots();
+        this.renderGrid();
+        this.renderEssences();
+      }),
+    );
+    // Essence balance updates from pulls / cinder ceremonies / cheats.
+    this.teardowns.push(
+      events.on('essence-gained', () => this.renderEssences()),
     );
   }
 
@@ -183,6 +305,31 @@ export class SanctumTab {
       archetypeLabel(t.archetype).toUpperCase(),
     );
     card.appendChild(type);
+
+    // L6 — star tier strip at the TOP cartouche of the frame. Filled
+    // stars use the rarity tint, empty stars dim grey.
+    const max = STAR_MAX_PER_RARITY[t.rarity];
+    const filled = gameState.getPlayerThrall(t.id).stars + 1;
+    const stars = el('div', 'thrall-stars');
+    for (let i = 0; i < max; i += 1) {
+      const star = el(
+        'span',
+        `thrall-stars__star${i < filled ? ' thrall-stars__star--on' : ''}`,
+        '★',
+      );
+      stars.appendChild(star);
+    }
+    card.appendChild(stars);
+
+    // L6 — equipped indicator: a small chain glyph in the top-LEFT
+    // corner when this thrall is in an active slot. Top-RIGHT is
+    // reserved for the "new" pulse; using the opposite corner keeps
+    // both readable simultaneously.
+    if (gameState.isThrallEquipped(t.id)) {
+      card.classList.add('thrall-card--equipped');
+      const chain = el('div', 'thrall-card__equipped-mark', '◆');
+      card.appendChild(chain);
+    }
 
     // "New" indicator — pulsing dot in the corner until acknowledged
     // by opening the detail modal.

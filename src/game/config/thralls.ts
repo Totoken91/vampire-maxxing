@@ -46,6 +46,33 @@ export interface ThrallEffect {
   readonly value: number;
 }
 
+/**
+ * L6 / Pattern A — bespoke per-thrall mechanic. Sits on top of the
+ * primary + secondary ThrallEffects to give each thrall a unique
+ * identity (so two Harvesters aren't just "more or less blood gen").
+ *
+ * Discriminated union: each `kind` maps to a specific runtime
+ * behaviour wired in `awakening.ts` / `state.ts`. Add new kinds
+ * sparingly — every new kind is a touchpoint in the engine.
+ */
+export type BespokeMechanic =
+  /** +N hours to the offline cap (additive). */
+  | { readonly kind: 'offline_cap_h'; readonly value: number }
+  /** ×N multiplier on click power (multiplicative). */
+  | { readonly kind: 'click_power_mult'; readonly value: number }
+  /** +N additive on the crit damage multiplier (default 1.5). */
+  | { readonly kind: 'crit_damage'; readonly value: number }
+  /** +Nx% blood gen per ascension (stats.totalAscends). Capped. */
+  | { readonly kind: 'per_ascend_blood'; readonly value: number; readonly cap: number }
+  /** +N% blood gen per OTHER equipped thrall of `per` archetype. */
+  | { readonly kind: 'cross_archetype_blood'; readonly value: number; readonly per: ThrallArchetype }
+  /** +N% to other equipped thralls' primary effective values. */
+  | { readonly kind: 'amplify_others_primary'; readonly value: number }
+  /** Floor on offline efficiency (clamped to max(default, this)). */
+  | { readonly kind: 'offline_efficiency_floor'; readonly value: number }
+  /** Per-tap RNG chance of a free "echo" tap that fires the same gain. */
+  | { readonly kind: 'echo_tap_chance'; readonly value: number };
+
 export interface Thrall {
   readonly id: ThrallId;
   readonly name: string;
@@ -55,6 +82,13 @@ export interface Thrall {
   readonly portraitPath: string;
   readonly primaryEffect: ThrallEffect;
   readonly secondaryEffect?: ThrallEffect;
+  /** L6 / Pattern A — unique kit-defining mechanic that distinguishes
+   *  this thrall from others in the same archetype. May contain
+   *  multiple mechanics (e.g. Velmor combos cap + efficiency floor). */
+  readonly bespoke?: readonly BespokeMechanic[];
+  /** Short flavoured caption for the bespoke effect, shown in the
+   *  thrall detail modal under the primary "gift of the pact" line. */
+  readonly bespokeCaption?: string;
 }
 
 /** Target roster count for the "Collected: X/12" display. */
@@ -70,6 +104,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'He still remembers his own name. The others pretend they have forgotten theirs.',
     portraitPath: '/assets/thralls/ash-the-wretched.webp',
     primaryEffect: { type: 'blood_gen', value: 1.08 },
+    bespoke: [{ kind: 'per_ascend_blood', value: 0.02, cap: 0.30 }],
+    bespokeCaption: 'every Century deepens his hunger',
   },
   {
     id: 'mira-the-watcher',
@@ -79,6 +115,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'She sleeps with one eye open. The other is watching you.',
     portraitPath: '/assets/thralls/mira-the-watcher.webp',
     primaryEffect: { type: 'offline_gain', value: 1.12 },
+    bespoke: [{ kind: 'offline_cap_h', value: 0.5 }],
+    bespokeCaption: 'she keeps the lamp lit a half-hour longer',
   },
   {
     id: 'roderick-the-tracker',
@@ -88,6 +126,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'He does not chase. The quarry always comes to him, eventually.',
     portraitPath: '/assets/thralls/roderick-the-tracker.webp',
     primaryEffect: { type: 'active_gain', value: 1.10 },
+    bespoke: [{ kind: 'click_power_mult', value: 1.05 }],
+    bespokeCaption: 'every blow lands a little heavier',
   },
   {
     id: 'iron-maw',
@@ -97,6 +137,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'What she bites, she keeps. What she keeps, she breaks.',
     portraitPath: '/assets/thralls/iron-maw.webp',
     primaryEffect: { type: 'blood_gen', value: 1.06 },
+    secondaryEffect: { type: 'tap_mult', value: 1.05 },
+    bespokeCaption: 'her teeth do half the work of the harvest',
   },
   {
     id: 'crypt-warden',
@@ -106,6 +148,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'His lantern has not been lit since the mortals stopped coming.',
     portraitPath: '/assets/thralls/crypt-warden.webp',
     primaryEffect: { type: 'offline_gain', value: 1.10 },
+    bespoke: [{ kind: 'offline_cap_h', value: 1 }],
+    bespokeCaption: 'an hour more of vigil before the dawn',
   },
   {
     id: 'gravebound',
@@ -116,6 +160,8 @@ export const THRALLS: readonly Thrall[] = [
     portraitPath: '/assets/thralls/gravebound.webp',
     primaryEffect: { type: 'active_gain', value: 1.08 },
     secondaryEffect: { type: 'tap_mult', value: 1.10 },
+    bespoke: [{ kind: 'echo_tap_chance', value: 0.07 }],
+    bespokeCaption: 'every seventh strike echoes from the grave',
   },
 
   // ─────────── Rares (4) ───────────
@@ -127,6 +173,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'She feeds not on blood but on memory of blood — and grows fat where others starve.',
     portraitPath: '/assets/thralls/nox-the-hunger.webp',
     primaryEffect: { type: 'blood_gen', value: 1.25 },
+    bespoke: [{ kind: 'click_power_mult', value: 1.10 }],
+    bespokeCaption: 'her hands recall every kill before yours',
   },
   {
     id: 'lilith-whisper',
@@ -136,6 +184,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'Her voice arrives in dreams three nights before she does. By then it is already too late.',
     portraitPath: '/assets/thralls/lilith-whisper.webp',
     primaryEffect: { type: 'offline_gain', value: 1.30 },
+    bespoke: [{ kind: 'click_power_mult', value: 1.08 }],
+    bespokeCaption: 'her dream echoes still strike on waking',
   },
   {
     id: 'duskward',
@@ -145,6 +195,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'He walks the last hour of daylight without flinching. He has made peace with it.',
     portraitPath: '/assets/thralls/duskward.webp',
     primaryEffect: { type: 'active_gain', value: 1.22 },
+    bespoke: [{ kind: 'crit_damage', value: 0.5 }],
+    bespokeCaption: 'his strikes find the artery, never the bone',
   },
   {
     id: 'ashen-vale',
@@ -154,6 +206,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'Twice buried, thrice returned. The ash on his shoulders is from his own pyre.',
     portraitPath: '/assets/thralls/ashen-vale.webp',
     primaryEffect: { type: 'hybrid', value: 1.15 },
+    bespoke: [{ kind: 'amplify_others_primary', value: 1.15 }],
+    bespokeCaption: 'his presence lengthens every other shadow in the coven',
   },
 
   // ─────────── Epics (2) ───────────
@@ -165,6 +219,8 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'A courtier with no court left. She smiles like a wound remembering.',
     portraitPath: '/assets/thralls/mirella.webp',
     primaryEffect: { type: 'blood_gen', value: 1.60 },
+    bespoke: [{ kind: 'cross_archetype_blood', value: 0.10, per: 'predator' }],
+    bespokeCaption: 'her court welcomes the hunters; bind them and she rewards both',
   },
   {
     id: 'velmor-the-dread',
@@ -174,6 +230,11 @@ export const THRALLS: readonly Thrall[] = [
     lore: 'Sleeps an age between breaths. Even his absence collects interest.',
     portraitPath: '/assets/thralls/velmor-the-dread.webp',
     primaryEffect: { type: 'offline_gain', value: 1.80 },
+    bespoke: [
+      { kind: 'offline_cap_h', value: 3 },
+      { kind: 'offline_efficiency_floor', value: 0.75 },
+    ],
+    bespokeCaption: 'his sleep does not waste — three more hours, never below three-quarters',
   },
 ];
 

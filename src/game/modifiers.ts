@@ -15,7 +15,16 @@ export type ModifierTarget =
   | 'clickPower'
   | 'dreadGain'
   | 'offlineCap'
-  | 'globalMult';
+  | 'globalMult'
+  /** L6 — additive crit damage bonus on top of BALANCE.CRIT_MULTIPLIER.
+   *  Default crit multiplier 1.5; +0.5 here brings it to 2.0× on crit. */
+  | 'critDamage'
+  /** L6 — additive minimum offline efficiency floor. The
+   *  computeOfflineReport floor wins iff > BALANCE.OFFLINE_EFFICIENCY. */
+  | 'offlineEfficiencyFloor'
+  /** L6 — additive RNG chance per tap of a free echo tap. Read in
+   *  state.tap(). Sum of all equipped thralls' contributions. */
+  | 'echoTapChance';
 
 export type ModifierOp = 'mult' | 'add';
 

@@ -121,6 +121,45 @@ export interface SaveV4 extends Omit<SaveV3, 'v'> {
   /** L3 — one-shot reward flags (prestige milestones, first Rare,
    * collection complete) to prevent re-granting the same Ichor drop. */
   ichorFlags?: Record<string, boolean>;
+  /**
+   * Phase L5 — ritual / pull state. Per-banner pity counters, the
+   * lifetime First-Rare-Guarantee flag, and a rolling history. Optional
+   * for back-compat with pre-L5 saves which the state layer rebuilds
+   * to defaults (no FRG used yet) when absent.
+   */
+  ritualState?: {
+    standard: {
+      pityCounterRare: number;
+      pityCounterEpic: number;
+      commonStreak: number;
+      totalPulls: number;
+    };
+    featured: {
+      pityCounterRare: number;
+      pityCounterEpic: number;
+      commonStreak: number;
+      totalPulls: number;
+    };
+    firstRareGuaranteeUsed: boolean;
+    history: Array<{
+      ts: number;
+      banner: string;
+      /** null on Cinder Ceremony entries (saturation outcome). */
+      thrallId: string | null;
+      rarity: string;
+      wasDupe: boolean;
+      essenceGained: number;
+      flags: Record<string, boolean>;
+    }>;
+  };
+  /** L5 — essence counts per rarity (dupe conversion). Spent in L6
+   * by the awakening screen. Optional; defaults to all-zero. */
+  essences?: { common: number; rare: number; epic: number; legendary: number };
+  /** L6 — equipped slot ids. Length must match the runtime
+   * EQUIP_SLOT_COUNT (3 in v1.0). Optional on pre-L6 saves. Stored
+   * as loose strings; the state layer validates each id against the
+   * current roster + ownership before applying. */
+  equippedSlots?: (string | null)[];
 }
 
 export type AnySave = Partial<SaveV4> &
