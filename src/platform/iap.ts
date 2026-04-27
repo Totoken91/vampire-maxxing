@@ -32,10 +32,15 @@ export interface PurchaseResult {
   ok: boolean;
   sku: string;
   reason?: PurchaseFailureReason;
-  /** Set by the native plugin on success — opaque server-verifiable token.
-   *  We don't validate it client-side at v1.2; future server-side receipt
-   *  validation will read this. */
+  /** Set by the native plugin on success — opaque server-verifiable
+   *  Play Billing purchase token (~80 chars). The validate-purchase
+   *  edge function passes this to the Android Publisher API. */
   receiptToken?: string;
+  /** Google Play orderId, e.g. "GPA.1234-5678-9012-34567". Used by the
+   *  validate-purchase edge function as the idempotency key — the
+   *  unique constraint on purchases.order_id is what protects against
+   *  replay. The web stub generates a deterministic-per-tap fake. */
+  orderId?: string;
 }
 
 let initialized = false;
@@ -113,7 +118,13 @@ export async function purchasePack(sku: string): Promise<PurchaseResult> {
   // Web / dev stub: pretend the user paid and return a fake receipt so
   // the grant flow downstream can be exercised end-to-end.
   if (!isNativePlatform()) {
-    return { ok: true, sku, receiptToken: `web-stub-${Date.now()}` };
+    const ts = Date.now();
+    return {
+      ok: true,
+      sku,
+      receiptToken: `web-stub-token-${ts}`,
+      orderId: `web-stub-${sku}-${ts}`,
+    };
   }
 
   // Native platform but no plugin installed yet — refuse cleanly so the

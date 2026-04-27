@@ -4,4 +4,10 @@
     <string name="title_activity_main">Vampire Maxxing</string>
     <string name="package_name">quest.kenny.vampiremaxxing</string>
     <string name="custom_url_scheme">quest.kenny.vampiremaxxing</string>
+    <!-- Google Sign-In OAuth Web Client ID. Replace before release build.
+         See docs/SETUP-AUTH.md for the Google Cloud Console + Supabase steps.
+         The Capacitor plugin reads this resource at runtime; the same value
+         lives in capacitor.config.ts (plugins.GoogleAuth.serverClientId)
+         which is consumed by plugin.initialize() on the JS side. -->
+    <string name="server_client_id">919565675973-f44djmm9ovl47qkeae3jtraivhqhqjom.apps.googleusercontent.com</string>
 </resources>

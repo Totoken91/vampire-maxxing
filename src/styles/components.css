@@ -2740,6 +2740,35 @@ button.header__pill:active {
   letter-spacing: 0.02em;
 }
 
+/* Account section body — Supabase auth + Google Sign-In. Identity line
+ * uses the gold-on-dim wallet accent so the user can spot their email
+ * at a glance; the sub line italic-serif matches the rest of the menu. */
+.menu__account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu__account-identity {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 4px 0 2px;
+  word-break: break-all;
+}
+.menu__account-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-dim);
+  text-align: center;
+  letter-spacing: 0.02em;
+  padding: 0 4px 4px;
+}
+
 .menu__close {
   align-self: center;
   background: none;

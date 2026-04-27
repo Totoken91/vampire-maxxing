@@ -1,0 +1,184 @@
+/* Cloud-vs-local conflict modal. Reuses the offline-modal language —
+ * baroque card, gold-on-dim, italic serif body — with two summary
+ * columns separated by a thin gold rule and three CTAs stacked.
+ *
+ * Layered specifically above the menu so the player can land here from
+ * Settings → SIGN IN WITH GOOGLE → conflict, without z-index battles. */
+
+.cloud-conflict__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: rgba(8, 5, 10, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  animation: cloud-conflict-backdrop-in 280ms ease-out;
+}
+.cloud-conflict__backdrop--exit {
+  animation: cloud-conflict-backdrop-out 240ms ease-in forwards;
+}
+@keyframes cloud-conflict-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cloud-conflict-backdrop-out {
+  to { opacity: 0; }
+}
+
+.cloud-conflict {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 601;
+  max-width: 420px;
+  max-height: 92vh;
+  overflow-y: auto;
+  height: max-content;
+  padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 15, 20, 0.98),
+    rgba(12, 8, 12, 1)
+  );
+  border: 1px solid var(--gold-dim);
+  box-shadow:
+    0 0 50px rgba(201, 169, 98, 0.2),
+    0 8px 40px rgba(0, 0, 0, 0.75);
+  text-align: center;
+  animation: cloud-conflict-in 380ms var(--ease-out-pop);
+}
+.cloud-conflict--exit {
+  animation: cloud-conflict-out 240ms ease-in forwards;
+}
+@keyframes cloud-conflict-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cloud-conflict-out {
+  to { opacity: 0; transform: translateY(-6px) scale(0.99); }
+}
+
+.cloud-conflict__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.42em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+}
+.cloud-conflict__title {
+  margin-top: 6px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+}
+.cloud-conflict__flavor {
+  margin-top: 10px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  padding: 0 6px;
+}
+
+/* Two-column summary. Thin vertical rule between columns echoes the
+ * "two bloodlines" framing of the eyebrow copy. */
+.cloud-conflict__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: var(--sp-4) 0 var(--sp-3);
+  position: relative;
+}
+.cloud-conflict__grid::before {
+  content: '';
+  position: absolute;
+  top: 16px;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(201, 169, 98, 0.35) 20%,
+    rgba(201, 169, 98, 0.35) 80%,
+    transparent
+  );
+}
+
+.cloud-conflict__col {
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cloud-conflict__col-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  color: var(--blood-glow);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.cloud-conflict__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.cloud-conflict__row-key {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+.cloud-conflict__row-val {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  text-align: right;
+  word-break: break-word;
+}
+
+.cloud-conflict__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: var(--sp-3);
+}
+.cloud-conflict__btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.26em;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--ink);
+  border: 1px solid rgba(139, 116, 68, 0.5);
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.1s;
+}
+.cloud-conflict__btn:hover,
+.cloud-conflict__btn:focus-visible {
+  outline: none;
+  border-color: var(--gold);
+  background: rgba(201, 169, 98, 0.08);
+}
+.cloud-conflict__btn:active {
+  transform: scale(0.98);
+}
+.cloud-conflict__btn--primary {
+  color: var(--blood-glow);
+}
+.cloud-conflict__btn--ghost {
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  padding: 9px 16px;
+  border-color: rgba(139, 116, 68, 0.25);
+}

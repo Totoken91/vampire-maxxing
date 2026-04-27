@@ -28,6 +28,8 @@ import { installQuestTracking } from './game/quests-install';
 import { installFounderPackTrigger } from './game/iap';
 import { installWelcomePackModal } from './ui/components/welcome-pack-modal';
 import { initIap } from './platform/iap';
+import { restoreSession } from './game/auth';
+import { installCloudSync } from './game/cloud-sync';
 import { installIchorTooltip } from './ui/components/ichor-tooltip';
 import { SERVANTS, SERVANTS_BY_ID } from './game/config/servants';
 import { FORMS, FORMS_BY_ID, type VampireForm } from './game/config/forms';
@@ -70,6 +72,15 @@ async function boot(): Promise<void> {
   void initIap();
   installFounderPackTrigger();
   installWelcomePackModal();
+
+  // Pre-launch — Supabase Auth + Google Sign-In. Restores the persisted
+  // session in the background so the menu's Account row reflects state
+  // by the time the player opens it. No-op when env vars are missing.
+  // installCloudSync() MUST register before restoreSession() resolves —
+  // the auth-changed event fires once the persisted session loads, and
+  // the cloud-sync handler decides whether to push local or pull cloud.
+  installCloudSync();
+  void restoreSession();
 
   // L15 — One-shot tooltip explaining Ichor's purpose, anchored to
   // the HUD pill and dismissed on tap or after 5s. Listens to the

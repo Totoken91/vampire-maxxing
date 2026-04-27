@@ -18,7 +18,7 @@ import {
 import {
   canAffordPull,
   getBannerProgress,
-  performPull,
+  performPullDispatched,
 } from '../../game/ritual';
 import {
   archetypeLabel,
@@ -268,7 +268,9 @@ function buildBannerCard(
     card.classList.toggle('banner-card--bundle-affordable', bundleAffordable);
   };
 
+  let busy = false;
   const onClick = (count: 1 | 10): void => {
+    if (busy) return;
     if (!canAffordPull(count)) {
       showToast(
         'NECTAR LACKING',
@@ -277,11 +279,17 @@ function buildBannerCard(
       return;
     }
     if (navigator.vibrate) navigator.vibrate(count === 10 ? 14 : 8);
-    const results = performPull(banner.id, count);
-    if (!results) return;
-    refresh();
-    onAfterPull();
-    void playPullSequence(results, banner);
+    busy = true;
+    void performPullDispatched(banner.id, count)
+      .then((results) => {
+        if (!results) return;
+        refresh();
+        onAfterPull();
+        void playPullSequence(results, banner);
+      })
+      .finally(() => {
+        busy = false;
+      });
   };
 
   single.btn.addEventListener('click', () => onClick(1));

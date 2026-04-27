@@ -13,6 +13,12 @@ import { hasUnlock } from '../../game/config/prestige-unlocks';
 import { track } from '../../analytics/events';
 import { getSettings, setSetting, type Settings } from '../../game/settings';
 import { showDisclosureScreen } from './disclosure-screen';
+import {
+  authAvailable,
+  getCurrentUser,
+  signInWithGoogle,
+  signOut,
+} from '../../game/auth';
 
 /** V1.2-HF1 — Auto-ascend toggle row. Hidden below Methuselah
  *  Century III (totalAscends < 250). Once unlocked, the row sits
@@ -92,6 +98,9 @@ export class Menu extends Component<HTMLElement> {
   private readonly spendRows: HTMLElement;
   private readonly capRow: HTMLElement;
   private readonly ageRow: HTMLElement;
+  private readonly accountSection: HTMLElement;
+  private readonly accountBody: HTMLElement;
+  private accountBusy = false;
   private isOpen = false;
 
   constructor() {
@@ -122,6 +131,17 @@ export class Menu extends Component<HTMLElement> {
     const closeBtn = el('button', 'menu__close') as HTMLButtonElement;
     closeBtn.type = 'button';
     closeBtn.textContent = 'Close';
+
+    // Pre-launch — Account section (Supabase Auth via Google Sign-In).
+    // Hidden entirely when env vars aren't set so dev/web builds without
+    // a backend stay clean. Body is rebuilt on every open + on the
+    // 'auth-changed' event so the row reflects the latest state.
+    const accountSection = el('div', 'menu__section');
+    accountSection.appendChild(
+      el('div', 'menu__section-label', '— ACCOUNT —'),
+    );
+    const accountBody = el('div', 'menu__account-body');
+    accountSection.appendChild(accountBody);
 
     // L13 — Privacy & Spending dashboard. Compliance-mandated UI
     // accessible from Settings without friction.
@@ -173,6 +193,7 @@ export class Menu extends Component<HTMLElement> {
     panel.appendChild(title);
     panel.appendChild(multRow);
     panel.appendChild(togglesSection);
+    panel.appendChild(accountSection);
     panel.appendChild(spendSection);
     panel.appendChild(disclosureLink);
     panel.appendChild(wipeBtn);
@@ -188,12 +209,24 @@ export class Menu extends Component<HTMLElement> {
     this.spendRows = spendRows;
     this.capRow = capRow;
     this.ageRow = ageRow;
+    this.accountSection = accountSection;
+    this.accountBody = accountBody;
 
     backdrop.addEventListener('click', () => this.setOpen(false));
     closeBtn.addEventListener('click', () => this.setOpen(false));
     wipeBtn.addEventListener('click', () => {
       void this.confirmWipe();
     });
+
+    // Hide the Account section on builds where auth isn't configured.
+    // We only need to compute this once at construction; env vars don't
+    // change at runtime.
+    if (!authAvailable()) {
+      this.accountSection.hidden = true;
+    } else {
+      this.refreshAccountRow();
+      events.on('auth-changed', () => this.refreshAccountRow());
+    }
 
     menuInstance = this;
   }
@@ -212,7 +245,10 @@ export class Menu extends Component<HTMLElement> {
     this.isOpen = open;
     this.panel.classList.toggle('menu__panel--open', open);
     this.backdrop.classList.toggle('menu__backdrop--open', open);
-    if (open) this.refreshStats();
+    if (open) {
+      this.refreshStats();
+      this.refreshAccountRow();
+    }
   }
 
   private refreshStats(): void {
@@ -314,6 +350,83 @@ export class Menu extends Component<HTMLElement> {
       ),
     );
     return row;
+  }
+
+  /** Re-render the Account section based on the current auth state.
+   *  Called on every panel open and on every 'auth-changed' event so the
+   *  row stays in sync even if the panel is open during sign-in/out. */
+  private refreshAccountRow(): void {
+    if (!authAvailable()) return;
+    this.accountBody.textContent = '';
+    const user = getCurrentUser();
+    if (user) {
+      const identity = el(
+        'div',
+        'menu__account-identity',
+        user.email ?? user.displayName ?? 'Signed in',
+      );
+      const sub = el(
+        'div',
+        'menu__account-sub',
+        'Cloud sync ready. Your bloodline travels with you.',
+      );
+      const signOutBtn = el(
+        'button',
+        'menu__action menu__action--neutral',
+      ) as HTMLButtonElement;
+      signOutBtn.type = 'button';
+      signOutBtn.innerHTML =
+        '<span class="menu__action-label">SIGN OUT</span>' +
+        '<span class="menu__action-sub">Lock the rite. Local play continues.</span>';
+      signOutBtn.addEventListener('click', () => {
+        if (this.accountBusy) return;
+        this.accountBusy = true;
+        signOutBtn.disabled = true;
+        void signOut().finally(() => {
+          this.accountBusy = false;
+          signOutBtn.disabled = false;
+        });
+      });
+      this.accountBody.appendChild(identity);
+      this.accountBody.appendChild(sub);
+      this.accountBody.appendChild(signOutBtn);
+      return;
+    }
+
+    const sub = el(
+      'div',
+      'menu__account-sub',
+      'Bind your bloodline to a Google account to keep it across devices.',
+    );
+    const signInBtn = el(
+      'button',
+      'menu__action menu__action--neutral',
+    ) as HTMLButtonElement;
+    signInBtn.type = 'button';
+    signInBtn.innerHTML =
+      '<span class="menu__action-label">SIGN IN WITH GOOGLE</span>' +
+      '<span class="menu__action-sub">Cloud sync. No password. No spam.</span>';
+    signInBtn.addEventListener('click', () => {
+      if (this.accountBusy) return;
+      this.accountBusy = true;
+      signInBtn.disabled = true;
+      void signInWithGoogle()
+        .then((ok) => {
+          if (!ok) {
+            // Surface a tiny inline hint; toast system would also work
+            // but the row already gives the user visual feedback when
+            // it stays in "signed out" state.
+            sub.textContent =
+              'Sign-in was cancelled or unavailable. Try again later.';
+          }
+        })
+        .finally(() => {
+          this.accountBusy = false;
+          signInBtn.disabled = false;
+        });
+    });
+    this.accountBody.appendChild(sub);
+    this.accountBody.appendChild(signInBtn);
   }
 
   private async confirmWipe(): Promise<void> {

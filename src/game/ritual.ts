@@ -114,10 +114,35 @@ export function canAffordPull(count: 1 | 10): boolean {
 // ─────────── Pull entry point ───────────
 
 /**
+ * Async dispatcher: routes to the server-authoritative gacha-pull edge
+ * function when the player is signed in, falls back to the local engine
+ * otherwise. Resolves with the same PullResult[] shape on either path
+ * so the UI animation layer doesn't need to know which branch ran.
+ */
+export async function performPullDispatched(
+  banner: BannerId,
+  count: 1 | 10,
+): Promise<PullResult[] | null> {
+  // Lazy imports keep the offline build (no auth env) from pulling in
+  // the cloud-pull / supabase chunks unnecessarily.
+  const { getCurrentUser } = await import('./auth');
+  if (getCurrentUser()) {
+    const { performCloudPull } = await import('./cloud-pull');
+    return performCloudPull(banner, count);
+  }
+  return performPull(banner, count);
+}
+
+/**
  * Charge the Ichor cost and roll `count` pulls on the given banner.
  * Returns the rolled results (with dup/essence/flag metadata) or null
  * if the player can't afford the bundle. Caller is expected to drive
  * the UI animation from the returned array.
+ *
+ * This is the LOCAL-ONLY path. UI callers should prefer
+ * `performPullDispatched` so signed-in users go through the server.
+ * Dev cheats (cheats.ts) deliberately use this directly to skip the
+ * network and exercise the engine offline.
  */
 export function performPull(banner: BannerId, count: 1 | 10): PullResult[] | null {
   const cost = costFor(count);

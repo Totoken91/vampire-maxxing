@@ -104,6 +104,14 @@ export interface GameEvents {
   /** V1.3 — a meta-tree node was purchased. Drives the node-owned
    *  state mutation in the UI + the "+1 perk" toast. */
   'meta-node-purchased': { id: string; cost: number };
+  /** Pre-launch — Supabase auth state changed. user is null when signed
+   *  out, or the public profile snapshot when signed in. The settings
+   *  menu listens to this to swap the Account row between sign-in and
+   *  signed-in states. The cloud-save migration (next prompt) will hook
+   *  into this to push the local snapshot on first sign-in. */
+  'auth-changed': {
+    user: { id: string; email: string | null; displayName: string | null } | null;
+  };
 }
 
 type Listener<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

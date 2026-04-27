@@ -3,6 +3,13 @@ dist
 *.local
 .vite
 
+# Env (Supabase URL/keys + Google Web Client ID)
+.env
+.env.local
+.env.development
+.env.production
+!.env.example
+
 # Capacitor
 android/app/build
 android/.gradle

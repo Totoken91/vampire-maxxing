@@ -449,6 +449,23 @@ export class GameState {
     await writeSave(save);
   }
 
+  /** Return a fresh SaveV5 snapshot. Used by cloud-sync to push to
+   *  Supabase without going through localStorage. The returned object is
+   *  a new structuredClone-equivalent — caller can mutate freely. */
+  getSaveSnapshot(): SaveV5 {
+    return this.toSave();
+  }
+
+  /** Replace the entire running state from a SaveV5 received from the
+   *  cloud. The legacy events ('blood-changed', 'rate-changed',
+   *  'form-changed') are emitted so the UI fully re-renders.
+   *  Returns the offline report (so the offline-modal can fire after
+   *  a cloud-pulled sign-in if the cloud snapshot is stale). */
+  applyCloudSnapshot(save: SaveV5): OfflineReport | null {
+    this.applySave(save);
+    return this.computeOfflineReport(save.ts);
+  }
+
   getBlood(): number {
     return this.snapshot.blood;
   }
@@ -1330,6 +1347,96 @@ export class GameState {
       amount,
       balance: this.snapshot.essences[rarity],
     });
+  }
+
+  /** Apply a server-daily envelope returned by the daily-claim edge
+   *  function. Mirrors the mutations gameState.claimDaily would do
+   *  locally (addBlood + dread bump + ichorLedger entry + daily
+   *  metadata) but reads the credited values straight from the
+   *  envelope so the local state ends up identical to the cloud row.
+   *  The ichor portion is granted via grantIchor (lazy import) so the
+   *  L3 ledger toast + downstream achievements fire just like the
+   *  local path. */
+  applyServerDailyEnvelope(env: {
+    reward: { blood: number; dread: number; ichor: number };
+    newState: {
+      blood: number;
+      dread: number;
+      lifetimeDread: number;
+      ichor: number;
+      daily: { streakDay: number; lastClaimedDate: string };
+    };
+  }): void {
+    const bloodDelta = env.newState.blood - this.snapshot.blood;
+    if (bloodDelta > 0) {
+      this.addBlood(bloodDelta);
+    }
+    if (env.reward.dread > 0) {
+      this.snapshot.dread = env.newState.dread;
+      this.snapshot.lifetimeDread = env.newState.lifetimeDread;
+      events.emit('dread-changed', { level: this.snapshot.dread });
+    }
+    this.snapshot.daily.streakDay = env.newState.daily.streakDay;
+    this.snapshot.daily.lastClaimedDate = env.newState.daily.lastClaimedDate;
+    if (env.reward.ichor > 0) {
+      // Lazy import mirrors the pattern in claimDaily — avoids a
+      // circular dep at module init.
+      void import('./ichor').then(({ grantIchor }) => {
+        grantIchor(env.reward.ichor, 'daily_login');
+      });
+    }
+  }
+
+  /** Apply a server-pull envelope returned by the gacha-pull edge
+   *  function. Replaces ritual-related fields (ichor, ritualState,
+   *  essences, welcomeTributeArmed, pendingFrissonBuff) with the
+   *  server's authoritative copy and emits the same events the local
+   *  performPull would so downstream UI / achievement checks fire
+   *  identically. The diff (new owners, essence deltas, ichor delta)
+   *  drives the events. Anything else (blood, dread, form…) is left
+   *  alone since the server doesn't touch those fields. */
+  applyServerPullEnvelope(env: {
+    newState: {
+      ichor: number;
+      ritualState: RitualStateSnapshot;
+      essences: PlayerEssences;
+      welcomeTributeArmed: boolean;
+      pendingFrissonBuff: boolean;
+      newlyObtained: ReadonlyArray<{ id: string; ts: number }>;
+    };
+  }): void {
+    const oldIchor = this.snapshot.ichor;
+    const oldEssences: PlayerEssences = { ...this.snapshot.essences };
+
+    this.snapshot.ichor = env.newState.ichor;
+    this.snapshot.essences = { ...env.newState.essences };
+    this.snapshot.ritualState = env.newState.ritualState;
+    this.snapshot.welcomeTributeArmed = env.newState.welcomeTributeArmed;
+    this.snapshot.pendingFrissonBuff = env.newState.pendingFrissonBuff;
+
+    if (oldIchor !== env.newState.ichor) {
+      events.emit('ichor-changed', { balance: env.newState.ichor });
+    }
+    for (const rarity of ['common', 'rare', 'epic', 'legendary'] as const) {
+      const delta = env.newState.essences[rarity] - oldEssences[rarity];
+      if (delta > 0) {
+        events.emit('essence-gained', {
+          rarity,
+          amount: delta,
+          balance: env.newState.essences[rarity],
+        });
+      }
+    }
+    for (const newly of env.newState.newlyObtained) {
+      const id = newly.id as ThrallId;
+      const ps = this.snapshot.playerThralls[id];
+      if (ps && !ps.owned) {
+        ps.owned = true;
+        ps.firstObtainedAt = newly.ts;
+        ps.isNew = true;
+        events.emit('thrall-obtained', { id, firstTime: true });
+      }
+    }
   }
 
   /** Spend essences (returns true on success). Used by L6 awakening. */

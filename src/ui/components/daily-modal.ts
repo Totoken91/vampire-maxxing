@@ -117,21 +117,41 @@ export function showDailyModal(): void {
     if (finished) return;
     finished = true;
     if (claim) {
-      const result = gameState.claimDaily();
-      track('daily_claimed', {
-        day: result.day,
-        blood: result.reward.blood,
-        ichor: result.reward.ichor,
-        dread: result.reward.dread,
+      void resolveClaim().then((result) => {
+        if (!result) return;
+        track('daily_claimed', {
+          day: result.day,
+          blood: result.reward.blood,
+          ichor: result.reward.ichor,
+          dread: result.reward.dread,
+        });
+        const bloodTxt = `+${fmt(result.reward.blood)} blood`;
+        const dreadTxt =
+          result.reward.dread > 0 ? ` · +${result.reward.dread} dread` : '';
+        showToast('THE GIFT', bloodTxt + dreadTxt);
       });
-      const bloodTxt = `+${fmt(result.reward.blood)} blood`;
-      const dreadTxt =
-        result.reward.dread > 0 ? ` · +${result.reward.dread} dread` : '';
-      showToast('THE GIFT', bloodTxt + dreadTxt);
     }
     backdrop.classList.add('daily-modal__backdrop--exit');
     window.setTimeout(() => backdrop.remove(), EXIT_DURATION_MS);
   };
+
+  // Cloud-aware dispatcher. Signed-in users go through the daily-claim
+  // edge function so the reward is server-validated (anti-rollback,
+  // anti-double-claim across devices). Signed-out players use the
+  // local path which has been the offline-first source of truth since
+  // K5. Both branches resolve to the same { day, reward } shape so the
+  // surrounding toast + analytics code is identical.
+  async function resolveClaim(): Promise<{
+    day: number;
+    reward: { blood: number; dread: number; ichor: number };
+  } | null> {
+    const { getCurrentUser } = await import('../../game/auth');
+    if (getCurrentUser()) {
+      const { performCloudDailyClaim } = await import('../../game/cloud-daily');
+      return performCloudDailyClaim();
+    }
+    return gameState.claimDaily();
+  }
 
   claimBtn.addEventListener('click', () => dismiss(true));
   close.addEventListener('click', () => dismiss(false));

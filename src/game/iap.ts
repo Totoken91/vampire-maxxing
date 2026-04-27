@@ -83,6 +83,42 @@ export async function purchasePack(sku: string): Promise<PurchaseOutcome> {
     return { ok: false, reason: mapped };
   }
 
+  // Cloud-aware path: when signed-in, the receipt MUST be validated
+  // server-side before the grant lands locally. The edge function
+  // verifies with Google Play, inserts an idempotent purchases row,
+  // and patches state_blob — then we mirror the server's grant
+  // locally via grantIchor/obtainThrall in cloud-iap.ts. The
+  // 'pack-purchased' event is emitted from inside that path so
+  // analytics fire identically.
+  const { getCurrentUser } = await import('./auth');
+  if (
+    getCurrentUser() &&
+    result.receiptToken !== undefined &&
+    result.orderId !== undefined
+  ) {
+    const { performCloudValidatePurchase } = await import('./cloud-iap');
+    const serverGrant = await performCloudValidatePurchase(
+      sku,
+      result.receiptToken,
+      result.orderId,
+    );
+    if (!serverGrant) {
+      return { ok: false, reason: 'failed' };
+    }
+    return {
+      ok: true,
+      grant: {
+        sku: serverGrant.sku,
+        ichorCredited: serverGrant.ichorCredited,
+        ichorWasFirstTime: serverGrant.ichorWasFirstTime,
+        thrallGranted: serverGrant.thrallGranted,
+        rarePullThrall: serverGrant.rarePullThrall,
+      },
+    };
+  }
+
+  // Offline / signed-out path: trust the platform receipt and grant
+  // locally. Same path used since L10 ship.
   const grant = grantPackContents(pack);
   gameState.recordPurchase(pack.priceEur, sku);
   events.emit('pack-purchased', {
