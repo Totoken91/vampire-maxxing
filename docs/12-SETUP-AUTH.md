@@ -47,12 +47,27 @@ plugin natively).
 4. **Create another OAuth client ID**:
    - **Android** type. Name: "Vampire Maxxing — Android".
    - Package name: `quest.kenny.vampiremaxxing`.
-   - SHA-1 certificate fingerprint:
-     - Debug: `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA1`
-     - Release: same command against your release keystore.
-     - Add BOTH SHA-1s (debug + release) to the Android client.
+   - SHA-1 certificate fingerprint — there are TWO that matter once the
+     app ships through Play Console:
+     - **Play App Signing key** (Google's re-signing key for closed/prod
+       tracks): `FF:F0:64:58:D8:14:02:27:87:0A:14:21:6F:5F:1E:52:4E:A1:3B:A4`
+     - **Upload key** (your local release keystore that signs the AAB
+       before upload): `11:F3:1B:B9:35:BE:C5:76:28:2B:59:20:ED:AC:74:71:7E:65:7F:4B`
+     - Optional debug key for `apk:debug` installs: run
+       `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA1`
+     - The OAuth client creation form only takes ONE SHA-1 — start with
+       Play App Signing (mandatory for closed testing), then re-open the
+       client and "Add fingerprint" for the upload + debug ones.
    - Create. The Android client doesn't have a downloadable secret — Google
      binds the app's package + SHA-1 to the OAuth client implicitly.
+
+   > Where to find the Play App Signing SHA-1 in Play Console (FR UI):
+   > **Tester et publier → Intégrité des applis** → click the "Signature
+   > d'application" row to drill into the keymanagement page (or jump
+   > directly via `/console/.../app/<app-id>/keymanagement`). Two
+   > certificate blocks: "Certificat de la clé de signature de
+   > l'application" (Play's key) and "Certificat de la clé d'importation"
+   > (yours). Copy the SHA-1 from each.
 
 ---
 

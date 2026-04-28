@@ -38,7 +38,10 @@ export function showWelcomePackModal(): void {
 
 function maybeShow(): void {
   // Don't stack on any other modal — defer until they all close.
-  if (document.querySelector('.modal__backdrop, .daily-modal__backdrop, .offline-modal__backdrop, .ichor-gift__backdrop, .lore-modal__backdrop')) {
+  // Includes the rituals fullscreen overlay + the pull cascade so the
+  // CTA's `navigateTo('shop')` isn't masked by an overlay still mounted
+  // when the player taps it (was the closed-testing dead-end bug).
+  if (document.querySelector('.modal__backdrop, .daily-modal__backdrop, .offline-modal__backdrop, .ichor-gift__backdrop, .lore-modal__backdrop, .rituals-screen__backdrop, .pull-overlay')) {
     window.setTimeout(maybeShow, 800);
     return;
   }

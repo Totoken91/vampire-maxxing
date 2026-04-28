@@ -2406,6 +2406,10 @@ button.header__pill:active {
   top: 50%;
   left: 50%;
   width: min(300px, 84vw);
+  /* Cap to viewport height so the panel never overflows on small phones.
+     The internal .menu__content owns the scroll so the title + tabs +
+     close button stay pinned regardless of how long a pane gets. */
+  max-height: min(560px, 86vh);
   background: linear-gradient(
     135deg,
     rgba(26, 15, 20, 0.98),
@@ -2506,6 +2510,105 @@ button.header__pill:active {
 }
 
 /* L13 — Privacy & Spending dashboard section. */
+/* v1.3.1 — Tabs strip. Splits the previous monolithic panel into 4
+   panes (Account / Game / Spending / Info) so the panel fits on one
+   viewport. Mono caps for the labels match the rest of the menu's
+   typography; an animated underline marks the active tab. */
+.menu__tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(139, 116, 68, 0.22);
+  margin: 0 calc(var(--sp-4) * -1) 0;
+  padding: 0 var(--sp-2);
+  flex-shrink: 0;
+}
+
+.menu__tab {
+  flex: 1 1 0;
+  background: transparent;
+  border: none;
+  padding: 10px 4px 9px;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  transition: color 160ms ease-out;
+}
+
+.menu__tab[hidden] {
+  display: none;
+}
+
+.menu__tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 1px;
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(201, 169, 98, 0.55);
+  transition: width 220ms var(--ease-out-pop);
+}
+
+.menu__tab:hover,
+.menu__tab:focus-visible {
+  color: var(--ink-dim);
+  outline: none;
+}
+
+.menu__tab--active {
+  color: var(--gold);
+}
+
+.menu__tab--active::after {
+  width: 60%;
+}
+
+/* Scrollable content area inside the panel. The panel itself stays
+   fixed-height; only this region scrolls when a pane gets long. The
+   right-side padding gives the scrollbar breathing room without
+   showing a thumb on most modern engines. */
+.menu__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-right: 4px;
+  margin-right: -4px;
+}
+
+.menu__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.menu__pane[hidden] {
+  display: none;
+}
+
+/* In-pane grouping wrapper for clusters of toggles or rows that should
+   share the same background card without forcing a section header. */
+.menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(20, 12, 18, 0.4);
+  border: 1px solid rgba(139, 116, 68, 0.18);
+}
+
+.menu__group .menu__toggle-row {
+  margin-bottom: 0;
+}
+
 .menu__section {
   margin-bottom: var(--sp-3);
   padding: 12px;

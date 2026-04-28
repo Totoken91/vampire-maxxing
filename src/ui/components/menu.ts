@@ -91,6 +91,15 @@ function buildToggleRow(label: string, key: keyof Settings): HTMLElement {
  * inline gear button without passing refs through component trees. */
 export let menuInstance: Menu | null = null;
 
+type MenuTabId = 'account' | 'game' | 'spending' | 'info';
+
+const TAB_DEFS: ReadonlyArray<{ id: MenuTabId; label: string }> = [
+  { id: 'account', label: 'Account' },
+  { id: 'game', label: 'Game' },
+  { id: 'spending', label: 'Spending' },
+  { id: 'info', label: 'Info' },
+];
+
 export class Menu extends Component<HTMLElement> {
   private readonly panel: HTMLElement;
   private readonly backdrop: HTMLElement;
@@ -98,8 +107,10 @@ export class Menu extends Component<HTMLElement> {
   private readonly spendRows: HTMLElement;
   private readonly capRow: HTMLElement;
   private readonly ageRow: HTMLElement;
-  private readonly accountSection: HTMLElement;
   private readonly accountBody: HTMLElement;
+  private readonly tabButtons = new Map<MenuTabId, HTMLButtonElement>();
+  private readonly panes = new Map<MenuTabId, HTMLElement>();
+  private activeTab: MenuTabId = 'account';
   private accountBusy = false;
   private isOpen = false;
 
@@ -114,68 +125,64 @@ export class Menu extends Component<HTMLElement> {
     const header = el('div', 'menu__label', '— the rite —');
     const title = el('div', 'menu__title', 'SETTINGS');
 
-    // Blood multiplier readout — surfaced only here (v5.3) so the main
-    // HUD stays minimal. Populated on open so the value stays current
-    // without a global subscription.
+    // ── Tabs strip — categorises the panel content so it fits within
+    //    one viewport on small phones (was overflowing pre-1.3.1 with
+    //    auth + spending + accessibility + info all stacked vertically).
+    //    Buttons are built here as locals; their `this`-bound listeners
+    //    are wired below after the super() call (TS17009: can't touch
+    //    `this` in a derived constructor before super).
+    const tabs = el('div', 'menu__tabs');
+    tabs.setAttribute('role', 'tablist');
+    const tabButtonsLocal: Array<[MenuTabId, HTMLButtonElement]> = [];
+    for (const def of TAB_DEFS) {
+      const btn = el(
+        'button',
+        'menu__tab',
+        def.label,
+      ) as HTMLButtonElement;
+      btn.type = 'button';
+      btn.dataset.tab = def.id;
+      btn.setAttribute('role', 'tab');
+      tabs.appendChild(btn);
+      tabButtonsLocal.push([def.id, btn]);
+    }
+
+    // ── ACCOUNT pane — Supabase Auth via Google Sign-In. Body rebuilt on
+    //    every open + on 'auth-changed' so the row reflects the latest
+    //    state. When auth isn't configured, the tab itself is hidden.
+    const accountPane = el('div', 'menu__pane');
+    accountPane.dataset.pane = 'account';
+    const accountBody = el('div', 'menu__account-body');
+    accountPane.appendChild(accountBody);
+
+    // ── GAME pane — Blood multiplier readout + accessibility toggles.
+    const gamePane = el('div', 'menu__pane');
+    gamePane.dataset.pane = 'game';
     const multRow = el('div', 'menu__stat');
     multRow.appendChild(el('span', 'menu__stat-label', 'Blood multiplier'));
     const multValue = el('span', 'menu__stat-value', '×1.00');
     multRow.appendChild(multValue);
-
-    const wipeBtn = el('button', 'menu__action menu__action--danger') as HTMLButtonElement;
-    wipeBtn.type = 'button';
-    wipeBtn.innerHTML =
-      '<span class="menu__action-label">WIPE PROGRESS</span>' +
-      '<span class="menu__action-sub">Erase the bloodline. No return.</span>';
-
-    const closeBtn = el('button', 'menu__close') as HTMLButtonElement;
-    closeBtn.type = 'button';
-    closeBtn.textContent = 'Close';
-
-    // Pre-launch — Account section (Supabase Auth via Google Sign-In).
-    // Hidden entirely when env vars aren't set so dev/web builds without
-    // a backend stay clean. Body is rebuilt on every open + on the
-    // 'auth-changed' event so the row reflects the latest state.
-    const accountSection = el('div', 'menu__section');
-    accountSection.appendChild(
-      el('div', 'menu__section-label', '— ACCOUNT —'),
-    );
-    const accountBody = el('div', 'menu__account-body');
-    accountSection.appendChild(accountBody);
-
-    // L13 — Privacy & Spending dashboard. Compliance-mandated UI
-    // accessible from Settings without friction.
-    const spendSection = el('div', 'menu__section');
-    spendSection.appendChild(
-      el('div', 'menu__section-label', '— PRIVACY & SPENDING —'),
-    );
-    const spendRows = el('div', 'menu__spend-rows');
-    spendSection.appendChild(spendRows);
-    const capRow = el('div', 'menu__spend-cap');
-    spendSection.appendChild(capRow);
-    const ageRow = el('div', 'menu__spend-age');
-    spendSection.appendChild(ageRow);
-
-    // L15 — Accessibility / device toggles. Sound, haptic, lang.
-    // The state already persists in save (settings.{soundEnabled,
-    // hapticsEnabled, lang, notifEnabled}) — we just wire toggles
-    // here so players can change them. notifEnabled stays read-only
-    // for now (push permissions own that flag in v1.3).
-    const togglesSection = el('div', 'menu__section');
-    togglesSection.appendChild(
-      el('div', 'menu__section-label', '— ACCESSIBILITY —'),
-    );
-    togglesSection.appendChild(buildToggleRow('Sound', 'soundEnabled'));
-    togglesSection.appendChild(buildToggleRow('Haptic feedback', 'hapticsEnabled'));
+    gamePane.appendChild(multRow);
+    const togglesGroup = el('div', 'menu__group');
+    togglesGroup.appendChild(buildToggleRow('Sound', 'soundEnabled'));
+    togglesGroup.appendChild(buildToggleRow('Haptic feedback', 'hapticsEnabled'));
     // V1.2-HF1 — Auto-ascend toggle, gated behind Methuselah Century III.
-    // Hidden entirely below the unlock threshold so we don't tease a
-    // feature the player can't yet flip.
-    togglesSection.appendChild(buildAutoAscendRow());
+    togglesGroup.appendChild(buildAutoAscendRow());
+    gamePane.appendChild(togglesGroup);
 
-    // L15 — Disclosure / rates page link. Required ≤ 2 taps from
-    // anywhere per L9 spec; keeping it in Settings (Tab → Settings →
-    // Rates) is the secondary path. The primary path is the inline
-    // "ℹ Taux" button on the Rituals screen.
+    // ── SPENDING pane — L13 Privacy & Spending dashboard.
+    const spendingPane = el('div', 'menu__pane');
+    spendingPane.dataset.pane = 'spending';
+    const spendRows = el('div', 'menu__spend-rows');
+    spendingPane.appendChild(spendRows);
+    const capRow = el('div', 'menu__spend-cap');
+    spendingPane.appendChild(capRow);
+    const ageRow = el('div', 'menu__spend-age');
+    spendingPane.appendChild(ageRow);
+
+    // ── INFO pane — Pull rates link + Wipe progress (danger zone).
+    const infoPane = el('div', 'menu__pane');
+    infoPane.dataset.pane = 'info';
     const disclosureLink = el(
       'button',
       'menu__action menu__action--neutral',
@@ -188,15 +195,31 @@ export class Menu extends Component<HTMLElement> {
       this.setOpen(false);
       showDisclosureScreen();
     });
+    const wipeBtn = el(
+      'button',
+      'menu__action menu__action--danger',
+    ) as HTMLButtonElement;
+    wipeBtn.type = 'button';
+    wipeBtn.innerHTML =
+      '<span class="menu__action-label">WIPE PROGRESS</span>' +
+      '<span class="menu__action-sub">Erase the bloodline. No return.</span>';
+    infoPane.appendChild(disclosureLink);
+    infoPane.appendChild(wipeBtn);
+
+    const content = el('div', 'menu__content');
+    content.appendChild(accountPane);
+    content.appendChild(gamePane);
+    content.appendChild(spendingPane);
+    content.appendChild(infoPane);
+
+    const closeBtn = el('button', 'menu__close') as HTMLButtonElement;
+    closeBtn.type = 'button';
+    closeBtn.textContent = 'Close';
 
     panel.appendChild(header);
     panel.appendChild(title);
-    panel.appendChild(multRow);
-    panel.appendChild(togglesSection);
-    panel.appendChild(accountSection);
-    panel.appendChild(spendSection);
-    panel.appendChild(disclosureLink);
-    panel.appendChild(wipeBtn);
+    panel.appendChild(tabs);
+    panel.appendChild(content);
     panel.appendChild(closeBtn);
 
     root.appendChild(backdrop);
@@ -209,8 +232,16 @@ export class Menu extends Component<HTMLElement> {
     this.spendRows = spendRows;
     this.capRow = capRow;
     this.ageRow = ageRow;
-    this.accountSection = accountSection;
     this.accountBody = accountBody;
+    this.panes.set('account', accountPane);
+    this.panes.set('game', gamePane);
+    this.panes.set('spending', spendingPane);
+    this.panes.set('info', infoPane);
+
+    for (const [id, btn] of tabButtonsLocal) {
+      this.tabButtons.set(id, btn);
+      btn.addEventListener('click', () => this.switchTab(id));
+    }
 
     backdrop.addEventListener('click', () => this.setOpen(false));
     closeBtn.addEventListener('click', () => this.setOpen(false));
@@ -218,17 +249,40 @@ export class Menu extends Component<HTMLElement> {
       void this.confirmWipe();
     });
 
-    // Hide the Account section on builds where auth isn't configured.
-    // We only need to compute this once at construction; env vars don't
-    // change at runtime.
+    // Hide the Account tab on builds where auth isn't configured.
+    // Drop-in with the legacy behaviour: the section just disappears
+    // and the default tab falls back to "game" so opening Settings
+    // doesn't surface a hidden tab.
     if (!authAvailable()) {
-      this.accountSection.hidden = true;
+      const accountTab = this.tabButtons.get('account');
+      if (accountTab) accountTab.hidden = true;
+      accountPane.hidden = true;
+      this.activeTab = 'game';
     } else {
       this.refreshAccountRow();
       events.on('auth-changed', () => this.refreshAccountRow());
     }
 
+    this.switchTab(this.activeTab);
+
     menuInstance = this;
+  }
+
+  /** Show one pane and update the active tab style. Idempotent — safe
+   *  to call with the currently-active tab id (used to mount the
+   *  initial state in the constructor). */
+  private switchTab(id: MenuTabId): void {
+    this.activeTab = id;
+    for (const [tabId, btn] of this.tabButtons) {
+      btn.classList.toggle('menu__tab--active', tabId === id);
+      btn.setAttribute(
+        'aria-selected',
+        tabId === id ? 'true' : 'false',
+      );
+    }
+    for (const [paneId, pane] of this.panes) {
+      pane.hidden = paneId !== id;
+    }
   }
 
   /** Public API so external buttons (Header's inline gear) can
