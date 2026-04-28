@@ -244,7 +244,7 @@ export function showDisclosureScreen(): void {
         break;
       }
     }
-    appendRow(packList, `${pack.title} (${pack.priceEur.toFixed(2)} €)`, value);
+    appendRow(packList, `${pack.title} ($${pack.priceEur.toFixed(2)})`, value);
   }
   packs.appendChild(packList);
   packs.appendChild(

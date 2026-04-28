@@ -315,16 +315,18 @@ export class ShopTab {
 
 // ── Helpers ──
 
-function formatPrice(eur: number): string {
-  // en-US format (€0.99 with leading symbol + period decimal) — matches
-  // the global English copy convention. The actual Play Store sheet
-  // localizes per the user's region at purchase time; this is just
-  // the in-app display.
+function formatPrice(price: number): string {
+  // en-US USD format ($0.99 with leading symbol + period decimal) —
+  // matches Play Console's default base currency for our SKUs (US is
+  // the primary launch market). The actual Play Store sheet localizes
+  // per the user's region at purchase time; this is just the in-app
+  // display label. The PackDef field is named `priceEur` for legacy
+  // reasons but the number is the USD list price now.
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'EUR',
+    currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(eur);
+  }).format(price);
 }
 
 /**

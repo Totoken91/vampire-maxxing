@@ -341,7 +341,7 @@ export class Menu extends Component<HTMLElement> {
       setBtn.textContent = 'Set a daily spending cap';
       setBtn.addEventListener('click', () => {
         const input = window.prompt(
-          'Daily spending cap in euros (e.g. 5, 10, 20). Leave blank to skip.',
+          'Daily spending cap in USD (e.g. 5, 10, 20). Leave blank to skip.',
           '',
         );
         if (input === null) return;
@@ -362,7 +362,7 @@ export class Menu extends Component<HTMLElement> {
       const wrap = el('div', 'menu__spend-cap-current');
       wrap.innerHTML =
         '<span class="menu__spend-row-label">Daily cap</span>' +
-        `<span class="menu__spend-row-value">${cap.toFixed(2)} €</span>`;
+        `<span class="menu__spend-row-value">$${cap.toFixed(2)}</span>`;
       const removeBtn = el(
         'button',
         'menu__spend-cap-remove',
@@ -393,14 +393,14 @@ export class Menu extends Component<HTMLElement> {
     this.ageRow.appendChild(el('div', 'menu__spend-age-line', line));
   }
 
-  private makeSpendRow(label: string, amountEur: number): HTMLElement {
+  private makeSpendRow(label: string, amountUsd: number): HTMLElement {
     const row = el('div', 'menu__spend-row');
     row.appendChild(el('span', 'menu__spend-row-label', label));
     row.appendChild(
       el(
         'span',
         'menu__spend-row-value',
-        amountEur > 0 ? `${amountEur.toFixed(2)} €` : '0 €',
+        amountUsd > 0 ? `$${amountUsd.toFixed(2)}` : '$0',
       ),
     );
     return row;

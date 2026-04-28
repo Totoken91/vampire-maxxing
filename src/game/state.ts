@@ -1221,7 +1221,7 @@ export class GameState {
     }
     const cap = this.getDailySpendCap();
     if (cap !== null && this.getTodaySpent() + amountEur > cap) {
-      return `Daily spending cap reached (${cap.toFixed(2)} €).`;
+      return `Daily spending cap reached ($${cap.toFixed(2)}).`;
     }
     return null;
   }
