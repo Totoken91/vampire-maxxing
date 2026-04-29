@@ -1,25 +1,32 @@
-/* L10/L11 — Shop tab pack ladder + Pacte Fondateur welcome modal.
+/* L10/L11 + v1.3.2 AAA-UI refonte — Shop pack ladder.
  *
- * Layout (post AAA-UI redesign 2026-04-25):
- *   - List-view 1-col on mobile (the AAA standard for shop pages —
- *     Genshin Wish, HSR Special Supply, Nikke shop). 2-col grid was
- *     cramming 5 vertical lines into 156px width on small phones.
- *   - Standard cards: horizontal grid (left=text, right=ichor),
- *     full-width price button beneath. Background = `normal-panel.webp`
- *     (clean baroque plate, not the busy panel-rituel).
- *   - Hero card (Pacte Fondateur in featured window): vertical stack
- *     on `achievement-card.webp` (baroque vertical plaque). Buy button
- *     uses Kenny's hand-painted `btn-shop-price.png` — the only place
- *     this PNG has the width to look right (≥ 280px).
+ * Layout (vessel-as-hero-top, Genshin Wish / HSR Special Supply convention):
+ *   ┌─────────────────────────────┐
+ *   │     [vessel grade-N]        │  ← top 60%, ambient motes around
+ *   │      Title italic           │
+ *   │      flavor copy            │
+ *   │      [+ Bonus tag]          │
+ *   │   ┌─────────────────────┐   │
+ *   │   │ 30 ICHOR     $0.99  │   │  ← BUY
+ *   │   └─────────────────────┘   │
+ *   └─────────────────────────────┘
  *
- * Tier-distinction (100ms readability):
- *   bronze  → no glow
- *   silver  → 1-layer subtle crimson rim
- *   gold    → 4-layer FDP stack with hot WHITE core + breathe 3.6s
+ * Card panel built entirely in CSS (no `normal-panel.webp` baseline) —
+ * Kenny's vessel PNGs already carry godrays + ambient glow, so the
+ * card layer stays neutral dark to avoid double-baked lighting.
  *
- * Glow stacks use filter:drop-shadow chains, NEVER a single
- * box-shadow (the boring-glow anti-pattern). Reduced-motion stops all
- * breathing and shimmer — keeps static glows for the cue-state.
+ * 5-layer tier glow stack (per The Five-Layer Glow protocol):
+ *   1. hot core — small bright white inside aura
+ *   2. body — tier color (bronze/silver/gold)
+ *   3. halo — color-shifted secondary (crimson)
+ *   4. additive bloom — mix-blend-mode: screen overlay
+ *   5. ambient motes — animated dots floating around vessel
+ *
+ * Tier escalation:
+ *   bronze  → 3 motes, warm radial aura, no breathe
+ *   silver  → 5 motes, crimson rim halo, gentle breathe 4.2s
+ *   gold    → 7 motes, full chromatic stack, breathe 3.2s, lens streak
+ *   hero    → 9 motes (silver/gold +2), upscaled vessel, faster breathe
  */
 
 /* ────── Sections (Hero + Grid) ────── */
@@ -44,52 +51,78 @@
   text-align: center;
 }
 
-/* List-view 1-col, full-width. The 2-col grid was killing the layout
- * on small phones; vertical scrolling reads cleaner and gives each
- * card the room to breathe. */
 .pack-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
 }
 
-/* ────── Pack card — STANDARD (grid) ────── */
+/* ────── PACK CARD — vessel-as-hero composition ────── */
 
 .pack-card {
   position: relative;
-  display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    'inner  reward'
-    'price  price';
-  column-gap: 16px;
-  row-gap: 10px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 16px 22px 18px;
-  /* Clean baroque plate — 100% surface so ornaments line the bbox
-   * cleanly. The plate alone defines the card; we drop the CSS border
-   * to avoid double-framing. */
-  background: url('/assets/ornaments/normal-panel.webp') center / 100% 100%
-    no-repeat;
-  border: none;
+  width: 100%;
+  padding: 18px 16px 14px;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   font: inherit;
   color: inherit;
-  min-height: 132px;
-  transition: filter 0.18s ease, transform 0.12s ease;
+  /* CSS-built panel — radial mid-warm peaking just under the vessel,
+   * so the silhouette feels uplit by the panel itself. The vessel PNG
+   * carries its own godrays; this layer adds the *card* atmosphere
+   * underneath without fighting the burned-in lighting. */
+  background:
+    radial-gradient(
+      ellipse 78% 58% at 50% 30%,
+      rgba(76, 38, 32, 0.55) 0%,
+      rgba(34, 16, 22, 0.85) 48%,
+      rgba(8, 5, 10, 0.96) 100%
+    );
+  border: 1px solid rgba(201, 169, 98, 0.32);
+  border-radius: 2px;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.22s ease;
+}
+
+/* Hairline gold corner accents (top-left + bottom-right, mirrored). */
+.pack-card::before,
+.pack-card::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(201, 169, 98, 0.55);
+  pointer-events: none;
+  z-index: 5;
+}
+.pack-card::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+.pack-card::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
 }
 
 .pack-card:hover:not(:disabled),
 .pack-card:focus-visible:not(:disabled) {
   outline: none;
-  filter: brightness(1.06);
+  border-color: rgba(201, 169, 98, 0.7);
+  transform: translateY(-1px);
 }
 
 .pack-card:active:not(:disabled) {
-  transform: scale(0.99);
+  transform: translateY(0) scale(0.985);
 }
 
 .pack-card:disabled {
@@ -97,18 +130,112 @@
 }
 
 .pack-card--pending {
-  filter: saturate(0.5);
+  filter: saturate(0.4);
   pointer-events: none;
 }
 
-/* ── Left column — title + flavor + bonus tag ── */
+/* ── Aura — radial mid-card behind the vessel. Per-tier color shift
+ *    set by the tier rules below. Sits between the panel base and the
+ *    vessel image, with mix-blend-mode: screen so it adds, not occludes. */
+.pack-card__aura {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 78%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    circle,
+    rgba(255, 220, 150, 0.18) 0%,
+    rgba(201, 169, 98, 0.12) 35%,
+    rgba(165, 20, 35, 0.08) 60%,
+    transparent 75%
+  );
+  mix-blend-mode: screen;
+  filter: blur(10px);
+  animation: pack-aura-breathe 4.6s ease-in-out infinite;
+}
 
-.pack-card__inner {
-  grid-area: inner;
+@keyframes pack-aura-breathe {
+  0%, 100% { opacity: 0.75; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.04); }
+}
+
+/* ── Ambient motes — animated dots floating around the vessel.
+ *    Density (3/5/7+) is set per-tier from TS via the pack-card__mote
+ *    children count. Each mote uses CSS variables for x position +
+ *    delay + duration so they don't all drift in lockstep. */
+.pack-card__motes {
+  position: absolute;
+  top: 4%;
+  left: 0;
+  width: 100%;
+  height: 64%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+.pack-card__mote {
+  position: absolute;
+  bottom: -8px;
+  left: var(--m-x, 50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 240, 180, 0.95) 0%,
+    rgba(201, 169, 98, 0.55) 50%,
+    transparent 100%
+  );
+  filter: drop-shadow(0 0 4px rgba(255, 220, 140, 0.8));
+  opacity: 0;
+  animation: pack-mote-rise var(--m-r, 6500ms) ease-in-out var(--m-d, 0ms) infinite;
+}
+
+@keyframes pack-mote-rise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  18% { opacity: 1; }
+  82% { opacity: 0.6; }
+  100% { transform: translateY(-110%) scale(1); opacity: 0; }
+}
+
+/* ── Vessel hero image — full-bleed top of the card.
+ *    Width caps so even on tablets the asset stays visually anchored
+ *    and doesn't dwarf the BUY button below. */
+.pack-card__vessel {
+  position: relative;
+  z-index: 3;
+  width: 60%;
+  max-width: 200px;
+  aspect-ratio: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+.pack-card__vessel-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  /* Soft anchored shadow under the vessel — keeps it from floating. */
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+
+/* ── Body — title + flavor + bonus tag, centered stack. */
+.pack-card__body {
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
-  min-width: 0;
+  width: 100%;
+  margin-top: 4px;
 }
 
 .pack-card__title {
@@ -126,122 +253,43 @@
   font-style: italic;
   font-size: 12px;
   color: var(--ink-dim);
-  line-height: 1.3;
+  line-height: 1.32;
+  max-width: 92%;
 }
 
-/* ── Right column — Ichor amount + breakdown + expiry ── */
-
-.pack-card__reward {
-  grid-area: reward;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  text-align: right;
-  min-width: 0;
-}
-
-.pack-card__ichor {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--gold);
+.pack-card__bonus-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 4px 11px;
+  border: 1px solid rgba(201, 169, 98, 0.5);
+  background: linear-gradient(
+    180deg,
+    rgba(165, 20, 35, 0.18) 0%,
+    rgba(107, 14, 24, 0.28) 100%
+  );
   font-family: var(--font-mono);
-}
-
-.pack-card__ichor-icon {
-  /* Kenny's hand-painted Ichor droplet PNG. Kept for legacy refs
-   * (HUD pill, ceremony) — pack cards now use vessel art instead. */
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 5px rgba(201, 169, 98, 0.5))
-    drop-shadow(0 0 10px rgba(255, 51, 66, 0.18));
-}
-
-/* ── Vessel art (chalice → mug → cauldron, count 1 or 2) ──
- *
- * Visual escalation per base Ichor tier — chalice = entry, mug = mid,
- * cauldron = whale. Two vessels side-by-side double the perceived
- * generosity without changing the asset, giving each tier two
- * distinct sub-steps without needing 6 separate PNGs.
- */
-.pack-card__vessels {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: -8px;
-  margin-bottom: 4px;
-  filter: drop-shadow(0 0 8px rgba(201, 169, 98, 0.4))
-    drop-shadow(0 0 18px rgba(255, 51, 66, 0.18));
-}
-
-/* Per-kind base sizing — chalice is smallest (slim), mug bulkier,
- * cauldron widest. The values are tuned so the perceived "footprint"
- * grows in clean steps, not just numerically. */
-.pack-card__vessels--chalice .pack-card__vessel-img {
-  width: 44px;
-  height: 56px;
-}
-.pack-card__vessels--mug .pack-card__vessel-img {
-  width: 50px;
-  height: 56px;
-}
-.pack-card__vessels--cauldron .pack-card__vessel-img {
-  width: 58px;
-  height: 56px;
-}
-
-/* When two vessels render, overlap them slightly so they read as a
- * pair (not two disconnected items) and the second one nestles
- * behind/beside the first. */
-.pack-card__vessels--count-2 .pack-card__vessel-img + .pack-card__vessel-img {
-  margin-left: -14px;
-  transform: translateY(2px) scale(0.92);
-  opacity: 0.92;
-}
-
-.pack-card__vessel-img {
-  object-fit: contain;
-  display: block;
-}
-
-/* Hero card upscales the vessel — the achievement-card / panel-thrall
- * plate has more vertical room and the vessel becomes a hero shot. */
-.pack-card--hero .pack-card__vessels {
-  margin-bottom: 6px;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3))
-    drop-shadow(0 0 14px rgba(201, 169, 98, 0.55))
-    drop-shadow(0 0 28px rgba(255, 51, 66, 0.25));
-}
-.pack-card--hero .pack-card__vessels--chalice .pack-card__vessel-img {
-  width: 76px;
-  height: 96px;
-}
-.pack-card--hero .pack-card__vessels--mug .pack-card__vessel-img {
-  width: 86px;
-  height: 96px;
-}
-.pack-card--hero .pack-card__vessels--cauldron .pack-card__vessel-img {
-  width: 100px;
-  height: 96px;
-}
-
-.pack-card__ichor-amt {
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.45));
-}
-
-.pack-card__ichor-lbl {
-  font-size: 9.5px;
-  letter-spacing: 0.28em;
-  color: var(--gold-dim);
+  font-size: 9px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  color: var(--gold);
+}
+
+.pack-card__bonus-tag--rare {
+  border-color: rgba(201, 169, 98, 0.6);
+}
+
+.pack-card__bonus-tag--epic {
+  border-color: rgba(255, 51, 66, 0.65);
+  color: var(--ink);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 51, 66, 0.22) 0%,
+    rgba(165, 20, 35, 0.34) 100%
+  );
 }
 
 .pack-card__ft-breakdown {
+  margin-top: 4px;
   font-family: var(--font-mono);
   font-size: 8.5px;
   letter-spacing: 0.18em;
@@ -250,218 +298,315 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* L15 — Pacte Fondateur "first-time ends in Xd Yh" subtle indicator. */
 .pack-card__ft-expiry {
+  margin-top: 2px;
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--ink-faint);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
 }
 
-.pack-card__bonus-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  margin-top: 4px;
-  border: 1px solid rgba(201, 169, 98, 0.45);
-  background: linear-gradient(
-    180deg,
-    rgba(165, 20, 35, 0.18) 0%,
-    rgba(107, 14, 24, 0.24) 100%
-  );
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--gold);
-  align-self: flex-start;
-}
-
-.pack-card__bonus-tag--rare {
-  border-color: rgba(201, 169, 98, 0.55);
-}
-
-.pack-card__bonus-tag--epic {
-  border-color: rgba(255, 51, 66, 0.6);
-  color: var(--ink);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 51, 66, 0.22) 0%,
-    rgba(165, 20, 35, 0.32) 100%
-  );
-}
-
-/* ── Price BUY button — full-width beneath inner/reward ── */
-
-.pack-card__price {
-  grid-area: price;
-  align-self: stretch;
-  text-align: center;
-  min-height: 48px;
+/* ── BUY button — full-width, 2-column inside (ICHOR amount | $price).
+ *    Reads as a single transaction: "give me $X to receive Y Ichor". */
+.pack-card__buy {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  justify-items: stretch;
+  width: 100%;
+  margin-top: 12px;
+  min-height: 56px;
   padding: 12px 18px;
   background: linear-gradient(
     180deg,
-    rgba(201, 169, 98, 0.22) 0%,
-    rgba(165, 20, 35, 0.26) 100%
+    rgba(201, 169, 98, 0.18) 0%,
+    rgba(60, 12, 22, 0.55) 50%,
+    rgba(165, 20, 35, 0.32) 100%
   );
-  border: 1px solid rgba(201, 169, 98, 0.65);
+  border: 1px solid rgba(201, 169, 98, 0.6);
   font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 14px;
   letter-spacing: 0.18em;
-  color: var(--ink);
+  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   filter: drop-shadow(0 0 4px rgba(201, 169, 98, 0.22));
-  transition: filter 0.18s ease;
+  transition: filter 0.18s ease, border-color 0.22s ease;
 }
 
-.pack-card:hover:not(:disabled) .pack-card__price,
-.pack-card:focus-visible:not(:disabled) .pack-card__price {
-  filter: brightness(1.12) drop-shadow(0 0 12px rgba(201, 169, 98, 0.45));
+.pack-card__buy-amt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  justify-self: start;
+}
+.pack-card__buy-amt-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold);
+  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.55));
+}
+.pack-card__buy-amt-lbl {
+  font-size: 9.5px;
+  letter-spacing: 0.28em;
+  color: var(--gold-dim);
+}
+.pack-card__buy-price {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  justify-self: end;
 }
 
-/* ────── Tier-distinction (100ms readability) ────── */
+.pack-card:hover:not(:disabled) .pack-card__buy,
+.pack-card:focus-visible:not(:disabled) .pack-card__buy {
+  filter: brightness(1.12) drop-shadow(0 0 12px rgba(201, 169, 98, 0.5));
+  border-color: rgba(201, 169, 98, 0.85);
+}
+
+/* ── Tap juice — flash overlay that fires on click (tier-tinted). */
+.pack-card__flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 35%,
+    rgba(255, 240, 200, 0.55) 0%,
+    rgba(255, 220, 150, 0.22) 30%,
+    transparent 60%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+.pack-card__flash--firing {
+  animation: pack-card-flash 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes pack-card-flash {
+  0% { opacity: 0; transform: scale(0.85); }
+  18% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+/* ────── Tier-distinction (100ms readability) ──────
+ *
+ * 5-layer glow protocol per tier:
+ *   bronze (entry) — minimal: warm aura already in base, no extra
+ *     drop-shadow stack, no breathe. The vessel + ambient motes carry
+ *     the visual weight. Reads as "value" not "luxury".
+ *
+ *   silver (mid)   — adds a 2-FDP rim (white hot-edge + crimson body)
+ *     plus a slow 5s breathe. The aura tilts toward crimson. Reads as
+ *     "ceremonial".
+ *
+ *   gold (whale)   — full 4-FDP stack with chromatic offset (the bloom
+ *     layer is offset 1px gold + 1px crimson for cheap chromatic shift).
+ *     Aura goes amber-saturated. Faster 3.2s breathe + lens streak.
+ *     Reads as "ascendant".
+ */
 
 .pack-card--bronze {
-  /* Entry tier — silent. Plate carries the visual weight on its own. */
+  /* Silent — base panel + motes do the work. */
 }
 
 .pack-card--silver {
-  /* 2-layer FDP — clearly steps up from bronze (no glow) without
-   * jumping to the gold breathe. White hot-edge + crimson rim. */
   filter:
-    drop-shadow(0 0 4px rgba(255, 255, 255, 0.14))
-    drop-shadow(0 0 10px rgba(165, 20, 35, 0.24));
+    drop-shadow(0 0 4px rgba(255, 240, 200, 0.18))
+    drop-shadow(0 0 12px rgba(165, 20, 35, 0.26));
+  animation: pack-card-silver-breathe 5s ease-in-out infinite;
+}
+.pack-card--silver .pack-card__aura {
+  background: radial-gradient(
+    circle,
+    rgba(255, 220, 180, 0.22) 0%,
+    rgba(201, 169, 98, 0.16) 32%,
+    rgba(255, 51, 66, 0.14) 58%,
+    transparent 75%
+  );
+}
+
+@keyframes pack-card-silver-breathe {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 4px rgba(255, 240, 200, 0.16))
+      drop-shadow(0 0 12px rgba(165, 20, 35, 0.22));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 6px rgba(255, 240, 200, 0.28))
+      drop-shadow(0 0 18px rgba(165, 20, 35, 0.34));
+  }
 }
 
 .pack-card--gold {
   filter:
-    drop-shadow(0 0 3px rgba(255, 255, 255, 0.22))
-    drop-shadow(0 0 12px rgba(201, 169, 98, 0.32))
-    drop-shadow(0 0 22px rgba(165, 20, 35, 0.22));
-  animation: pack-card-gold-breathe 3.6s ease-in-out infinite;
+    drop-shadow(0 0 4px rgba(255, 240, 200, 0.32))
+    drop-shadow(1px 0 12px rgba(201, 169, 98, 0.45))
+    drop-shadow(-1px 0 12px rgba(255, 51, 66, 0.28))
+    drop-shadow(0 0 28px rgba(165, 20, 35, 0.28));
+  animation: pack-card-gold-breathe 3.2s ease-in-out infinite;
+}
+.pack-card--gold .pack-card__aura {
+  background: radial-gradient(
+    circle,
+    rgba(255, 240, 180, 0.28) 0%,
+    rgba(255, 200, 100, 0.22) 28%,
+    rgba(201, 169, 98, 0.18) 50%,
+    rgba(255, 51, 66, 0.14) 72%,
+    transparent 88%
+  );
+  filter: blur(12px);
+  animation-duration: 3.2s;
 }
 
 @keyframes pack-card-gold-breathe {
-  0%,
-  100% {
+  0%, 100% {
     filter:
-      drop-shadow(0 0 3px rgba(255, 255, 255, 0.18))
-      drop-shadow(0 0 12px rgba(201, 169, 98, 0.28))
-      drop-shadow(0 0 22px rgba(165, 20, 35, 0.18));
+      drop-shadow(0 0 4px rgba(255, 240, 200, 0.3))
+      drop-shadow(1px 0 12px rgba(201, 169, 98, 0.42))
+      drop-shadow(-1px 0 12px rgba(255, 51, 66, 0.26))
+      drop-shadow(0 0 24px rgba(165, 20, 35, 0.24));
   }
   50% {
     filter:
-      drop-shadow(0 0 4px rgba(255, 255, 255, 0.3))
-      drop-shadow(0 0 18px rgba(201, 169, 98, 0.42))
-      drop-shadow(0 0 30px rgba(165, 20, 35, 0.28));
+      drop-shadow(0 0 6px rgba(255, 240, 200, 0.46))
+      drop-shadow(2px 0 18px rgba(201, 169, 98, 0.6))
+      drop-shadow(-2px 0 18px rgba(255, 51, 66, 0.4))
+      drop-shadow(0 0 36px rgba(165, 20, 35, 0.34));
   }
 }
 
-/* ────── HERO card (Pacte Fondateur featured window) ────── */
+/* Lens streak — anamorphic horizontal sliver across the vessel area
+ * for gold tier only. Sits on the vessel container. */
+.pack-card--gold .pack-card__vessel::before {
+  content: '';
+  position: absolute;
+  top: 38%;
+  left: -12%;
+  width: 124%;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 240, 180, 0.85) 45%,
+    rgba(255, 240, 180, 0.95) 50%,
+    rgba(255, 240, 180, 0.85) 55%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  pointer-events: none;
+  animation: pack-card-streak 4.8s ease-in-out infinite;
+  opacity: 0.7;
+}
+@keyframes pack-card-streak {
+  0%, 100% { opacity: 0.45; transform: scaleY(0.8); }
+  50% { opacity: 0.85; transform: scaleY(1.2); }
+}
 
+/* ────── HERO card (Pacte Fondateur featured window) ──────
+ *
+ * Same composition as standard, just upscaled. The grade-2.webp asset
+ * is the focal point — no separate background plate needed.
+ */
 .pack-card--hero {
-  /* Hero overrides the standard horizontal grid — vertical stacked
-   * composition. Plate switched to `panel-thrall.webp` (landscape-
-   * friendly aspect) — `achievement-card.webp` portrait 520:849 was
-   * deforming under the 280px height constraint per the AAA-UI audit.
-   * Full FDP stack with breathe, top-down content flow. */
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  min-height: 320px;
-  padding: 32px 28px 26px;
-  background: url('/assets/ornaments/panel-thrall.webp') center / 100% 100%
-    no-repeat;
-  text-align: center;
-  align-items: center;
-  border: none;
+  padding: 28px 22px 22px;
+  min-height: 380px;
+  background:
+    radial-gradient(
+      ellipse 90% 65% at 50% 32%,
+      rgba(96, 42, 36, 0.65) 0%,
+      rgba(50, 18, 26, 0.88) 40%,
+      rgba(12, 8, 12, 0.97) 100%
+    );
+  border: 1.5px solid rgba(201, 169, 98, 0.55);
   filter:
-    drop-shadow(0 0 4px rgba(255, 255, 255, 0.25))
-    drop-shadow(0 0 14px rgba(201, 169, 98, 0.4))
-    drop-shadow(0 0 28px rgba(165, 20, 35, 0.32))
-    drop-shadow(0 0 40px rgba(255, 51, 66, 0.18));
+    drop-shadow(0 0 4px rgba(255, 240, 200, 0.32))
+    drop-shadow(1px 0 14px rgba(201, 169, 98, 0.5))
+    drop-shadow(-1px 0 14px rgba(255, 51, 66, 0.36))
+    drop-shadow(0 0 32px rgba(165, 20, 35, 0.32))
+    drop-shadow(0 0 48px rgba(255, 51, 66, 0.18));
   animation: pack-card-hero-breathe 2.8s ease-in-out infinite;
 }
 
-@keyframes pack-card-hero-breathe {
-  0%,
-  100% {
-    filter:
-      drop-shadow(0 0 4px rgba(255, 255, 255, 0.22))
-      drop-shadow(0 0 14px rgba(201, 169, 98, 0.36))
-      drop-shadow(0 0 28px rgba(165, 20, 35, 0.28))
-      drop-shadow(0 0 40px rgba(255, 51, 66, 0.16));
-  }
-  50% {
-    filter:
-      drop-shadow(0 0 5px rgba(255, 255, 255, 0.32))
-      drop-shadow(0 0 18px rgba(201, 169, 98, 0.5))
-      drop-shadow(0 0 36px rgba(165, 20, 35, 0.4))
-      drop-shadow(0 0 50px rgba(255, 51, 66, 0.24));
-  }
-}
-
-/* Hero column overrides — drop the grid in favor of a centered
- * vertical stack. The achievement-card plaque is portrait-oriented
- * so the content reads top-to-bottom. */
-.pack-card--hero .pack-card__inner,
-.pack-card--hero .pack-card__reward {
-  grid-area: auto;
-  width: 100%;
-  align-items: center;
-  text-align: center;
+.pack-card--hero .pack-card__vessel {
+  width: 64%;
+  max-width: 280px;
 }
 
 .pack-card--hero .pack-card__title {
   font-size: 22px;
-  margin-top: 8px;
+  margin-top: 10px;
+  color: var(--gold);
+  filter: drop-shadow(0 0 8px rgba(201, 169, 98, 0.5));
 }
 
 .pack-card--hero .pack-card__desc {
   font-size: 13px;
-  max-width: 80%;
+  max-width: 86%;
 }
 
-.pack-card--hero .pack-card__bonus-tag {
-  align-self: center;
-}
-
-.pack-card--hero .pack-card__ichor-icon {
-  width: 38px;
-  height: 38px;
-}
-
-.pack-card--hero .pack-card__ichor-amt {
-  font-size: 26px;
-}
-
-/* The hero BUY button is the ONLY place btn-shop-price.png appears —
- * it has the width here to look right (~ 280px+). Standard cards use
- * the CSS gradient button defined above. */
-.pack-card--hero .pack-card__price {
-  grid-area: auto;
-  width: 100%;
-  margin-top: 8px;
-  background: url('/assets/ornaments/btn-shop-price.png') center / 100% 100%
-    no-repeat;
-  border: none;
+.pack-card--hero .pack-card__buy {
   min-height: 64px;
-  padding: 16px 22px;
-  font-size: 15px;
-  letter-spacing: 0.2em;
-  filter: drop-shadow(0 0 6px rgba(201, 169, 98, 0.28));
+  padding: 14px 22px;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 169, 98, 0.28) 0%,
+    rgba(80, 16, 28, 0.65) 50%,
+    rgba(165, 20, 35, 0.4) 100%
+  );
+  border-color: rgba(201, 169, 98, 0.78);
+}
+.pack-card--hero .pack-card__buy-amt-num {
+  font-size: 24px;
+}
+.pack-card--hero .pack-card__buy-price {
+  font-size: 16.5px;
 }
 
-.pack-card--hero:hover:not(:disabled) .pack-card__price,
-.pack-card--hero:focus-visible:not(:disabled) .pack-card__price {
-  filter: brightness(1.1) drop-shadow(0 0 14px rgba(201, 169, 98, 0.45));
+.pack-card--hero .pack-card__mote {
+  width: 4px;
+  height: 4px;
+}
+
+.pack-card--hero .pack-card__vessel::before {
+  content: '';
+  position: absolute;
+  top: 42%;
+  left: -10%;
+  width: 120%;
+  height: 5px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 240, 180, 0.9) 50%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  filter: blur(2px);
+  pointer-events: none;
+  animation: pack-card-streak 4s ease-in-out infinite;
+}
+
+@keyframes pack-card-hero-breathe {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 4px rgba(255, 240, 200, 0.3))
+      drop-shadow(1px 0 14px rgba(201, 169, 98, 0.45))
+      drop-shadow(-1px 0 14px rgba(255, 51, 66, 0.32))
+      drop-shadow(0 0 28px rgba(165, 20, 35, 0.28))
+      drop-shadow(0 0 44px rgba(255, 51, 66, 0.16));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 6px rgba(255, 240, 200, 0.46))
+      drop-shadow(2px 0 20px rgba(201, 169, 98, 0.62))
+      drop-shadow(-2px 0 20px rgba(255, 51, 66, 0.46))
+      drop-shadow(0 0 40px rgba(165, 20, 35, 0.42))
+      drop-shadow(0 0 56px rgba(255, 51, 66, 0.26));
+  }
 }
 
 /* ────── First-Time Double ribbon ────── */
