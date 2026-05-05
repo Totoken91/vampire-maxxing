@@ -5,7 +5,9 @@ import {
   dreadGain,
   globalMult,
   isGlobalMultPeaked,
+  isMilestoneCrossing,
   isServantUnlocked,
+  nextServantMilestone,
   offlineGain,
   servantCost,
   servantMilestoneMult,
@@ -114,6 +116,67 @@ describe('servantMilestoneMult', () => {
   it('stays on the last tier above 400', () => {
     expect(servantMilestoneMult(500)).toBe(1080);
     expect(servantMilestoneMult(10_000)).toBe(1080);
+  });
+});
+
+describe('nextServantMilestone', () => {
+  it('targets the first threshold from zero', () => {
+    const m = nextServantMilestone(0);
+    expect(m).toEqual({ prev: 0, next: 10, bonus: 2, progress: 0, reached: 0 });
+  });
+
+  it('reports progress within the current band', () => {
+    const m = nextServantMilestone(5);
+    expect(m.next).toBe(10);
+    expect(m.prev).toBe(0);
+    expect(m.progress).toBeCloseTo(0.5);
+    expect(m.reached).toBe(0);
+  });
+
+  it('walks into the next band on threshold hit', () => {
+    const m = nextServantMilestone(10);
+    expect(m.prev).toBe(10);
+    expect(m.next).toBe(25);
+    expect(m.bonus).toBe(2);
+    expect(m.reached).toBe(1);
+    expect(m.progress).toBe(0);
+  });
+
+  it('exposes the ×3 bonus band beyond 50', () => {
+    expect(nextServantMilestone(50).bonus).toBe(3);
+    expect(nextServantMilestone(99).next).toBe(100);
+  });
+
+  it('exposes the ×5 bonus band beyond 300', () => {
+    expect(nextServantMilestone(300).bonus).toBe(5);
+    expect(nextServantMilestone(300).next).toBe(400);
+  });
+
+  it('saturates at 400 owned', () => {
+    const m = nextServantMilestone(400);
+    expect(m.next).toBeNull();
+    expect(m.progress).toBe(1);
+    expect(m.reached).toBe(7);
+  });
+
+  it('stays saturated above 400', () => {
+    const m = nextServantMilestone(10_000);
+    expect(m.next).toBeNull();
+    expect(m.reached).toBe(7);
+  });
+});
+
+describe('isMilestoneCrossing', () => {
+  it('detects a single-step crossing onto a threshold', () => {
+    expect(isMilestoneCrossing(9, 10)).toBe(true);
+    expect(isMilestoneCrossing(24, 25)).toBe(true);
+    expect(isMilestoneCrossing(399, 400)).toBe(true);
+  });
+
+  it('returns false when staying inside a band', () => {
+    expect(isMilestoneCrossing(11, 12)).toBe(false);
+    expect(isMilestoneCrossing(0, 1)).toBe(false);
+    expect(isMilestoneCrossing(401, 402)).toBe(false);
   });
 });
 

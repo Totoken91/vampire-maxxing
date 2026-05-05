@@ -13,7 +13,9 @@ import {
   clickPower,
   dreadGain,
   globalMult,
+  isMilestoneCrossing,
   offlineGain,
+  servantMilestoneMult,
   servantRate,
 } from './math';
 import { getCurrentForm, getCenturyInForm } from './forms';
@@ -644,6 +646,7 @@ export class GameState {
 
     this.snapshot.blood -= cost;
     const t = this.snapshot.servants[id];
+    const prevOwned = t.owned;
     t.owned += 1;
     t.totalPurchased += 1;
 
@@ -654,6 +657,16 @@ export class GameState {
     }
 
     events.emit('servant-bought', { id, owned: t.owned });
+    if (isMilestoneCrossing(prevOwned, t.owned)) {
+      const cumulativeMult = servantMilestoneMult(t.owned);
+      const previousMult = servantMilestoneMult(prevOwned);
+      events.emit('servant-milestone-reached', {
+        id,
+        threshold: t.owned,
+        bonus: cumulativeMult / previousMult,
+        cumulativeMult,
+      });
+    }
     events.emit('blood-changed', { blood: this.snapshot.blood, delta: -cost });
     events.emit('rate-changed', { totalRate: this.getTotalRate() });
     return true;

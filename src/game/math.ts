@@ -26,6 +26,58 @@ export function servantMilestoneMult(owned: number): number {
   return m;
 }
 
+export const SERVANT_MILESTONE_THRESHOLDS = [10, 25, 50, 100, 200, 300, 400] as const;
+
+export interface ServantMilestoneInfo {
+  /** Lower bound of the current milestone band. 0 before the first milestone is hit. */
+  prev: number;
+  /** Upper bound = the next threshold to reach. null once 400 is owned. */
+  next: number | null;
+  /** Per-band multiplier added when `next` is reached (×2, ×3, or ×5). */
+  bonus: number;
+  /** Progress 0..1 between `prev` and `next`. 1 when fully maxed (next === null). */
+  progress: number;
+  /** Milestones already crossed (0..7). UI uses this for pip rendering. */
+  reached: number;
+}
+
+const MILESTONE_BONUS = (threshold: number): number => {
+  if (threshold === 100 || threshold === 200 || threshold === 300) return 3;
+  if (threshold === 400) return 5;
+  return 2;
+};
+
+/** Inspect where `owned` sits on the milestone curve. Pure, no side-effects. */
+export function nextServantMilestone(owned: number): ServantMilestoneInfo {
+  let reached = 0;
+  for (const t of SERVANT_MILESTONE_THRESHOLDS) {
+    if (owned >= t) reached += 1;
+    else break;
+  }
+  if (reached >= SERVANT_MILESTONE_THRESHOLDS.length) {
+    return { prev: 400, next: null, bonus: 1, progress: 1, reached };
+  }
+  const next = SERVANT_MILESTONE_THRESHOLDS[reached];
+  const prev = reached === 0 ? 0 : SERVANT_MILESTONE_THRESHOLDS[reached - 1];
+  const span = next - prev;
+  const progress = span > 0 ? (owned - prev) / span : 1;
+  return {
+    prev,
+    next,
+    bonus: MILESTONE_BONUS(next),
+    progress: Math.max(0, Math.min(1, progress)),
+    reached,
+  };
+}
+
+/** True iff buying ONE more would cross the next milestone. */
+export function isMilestoneCrossing(prevOwned: number, nextOwned: number): boolean {
+  for (const t of SERVANT_MILESTONE_THRESHOLDS) {
+    if (prevOwned < t && nextOwned >= t) return true;
+  }
+  return false;
+}
+
 /** Per-second rate of a single servant type. */
 export function servantRate(
   servant: Pick<Servant, 'baseRate'>,

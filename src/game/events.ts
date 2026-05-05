@@ -11,6 +11,18 @@ export interface GameEvents {
   'blood-changed': { blood: number; delta: number };
   'rate-changed': { totalRate: number };
   'servant-bought': { id: ServantId; owned: number };
+  /** A servant crossed one of the milestone thresholds (10/25/50/100/200/300/400)
+   * on its last purchase. Fires once per crossing per servant per run.
+   * `bonus` is the multiplier the band just unlocked (×2, ×3 or ×5).
+   * `cumulativeMult` is the new cumulative milestone multiplier after the
+   * crossing. UI uses both: `bonus` for the toast headline, `cumulativeMult`
+   * for the body line. */
+  'servant-milestone-reached': {
+    id: ServantId;
+    threshold: number;
+    bonus: number;
+    cumulativeMult: number;
+  };
   'form-changed': { form: VampireForm };
   /** Fires on every successful ascend, regardless of form change. Century
    * updates within the same form rely on this to re-render the title. */
